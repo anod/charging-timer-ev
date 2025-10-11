@@ -42,7 +42,8 @@ object ChargingCalculator {
     @OptIn(ExperimentalTime::class)
     fun getChargingCalculation(
         settings: ChargingSettings,
-        state: ChargingState
+        isRunning: Boolean,
+        startTime: Long,
     ): ChargingCalculation {
         val totalMinutes = calculateChargingTime(
             settings.batteryCapacity,
@@ -50,10 +51,10 @@ object ChargingCalculator {
             settings.maxPercent,
             settings.chargingPower
         )
-        
-        val currentPercent = if (state.isRunning) {
+
+        val currentPercent = if (isRunning) {
             calculateCurrentPercent(
-                state.startTime,
+                startTime,
                 settings.startPercent,
                 settings.maxPercent,
                 totalMinutes
@@ -63,7 +64,7 @@ object ChargingCalculator {
         }
         
         val now = Clock.System.now().toEpochMilliseconds()
-        val elapsed = ((now - state.startTime) / 1000 / 60).toInt()
+        val elapsed = ((now - startTime) / 1000 / 60).toInt()
         val remaining = (totalMinutes - elapsed).coerceAtLeast(0)
         
         return ChargingCalculation(

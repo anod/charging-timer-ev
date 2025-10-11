@@ -1,26 +1,46 @@
 package info.anodsplace.evtimer.ui
 
-import androidx.compose.animation.core.*
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Slider
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import info.anodsplace.evtimer.data.ChargingViewModel
+import info.anodsplace.evtimer.data.ChargingViewEvent
+import info.anodsplace.evtimer.data.ChargingViewState
 import kotlin.math.roundToInt
+import kotlin.time.Clock
+import kotlin.time.ExperimentalTime
 
+@OptIn(ExperimentalTime::class)
 @Composable
 fun ConfigurationScreen(
-    viewModel: ChargingViewModel,
-    onStartCharging: () -> Unit,
+    viewState: ChargingViewState,
+    onEvent: (ChargingViewEvent) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val settings = viewModel.settings
+    val settings = viewState.settings
     
     Column(
         modifier = modifier
@@ -45,7 +65,7 @@ fun ConfigurationScreen(
                 Text("Battery Capacity: ${settings.batteryCapacity.roundToInt()} kWh")
                 Slider(
                     value = settings.batteryCapacity,
-                    onValueChange = { viewModel.updateBatteryCapacity(it) },
+                    onValueChange = { onEvent(ChargingViewEvent.UpdateBatteryCapacity(it)) },
                     valueRange = 20f..120f,
                     steps = 19
                 )
@@ -67,7 +87,7 @@ fun ConfigurationScreen(
                 ChargingPowerChips(
                     powers = settings.availablePowers,
                     selectedPower = settings.chargingPower,
-                    onPowerSelected = { viewModel.updateChargingPower(it) },
+                    onPowerSelected = { onEvent(ChargingViewEvent.UpdateChargingPower(it)) },
                     onAddCustom = { showCustomPowerDialog = true }
                 )
                 
@@ -75,8 +95,7 @@ fun ConfigurationScreen(
                     CustomPowerDialog(
                         onDismiss = { showCustomPowerDialog = false },
                         onConfirm = { power ->
-                            viewModel.addCustomPower(power)
-                            viewModel.updateChargingPower(power)
+                            onEvent(ChargingViewEvent.AddCustomPower(power))
                             showCustomPowerDialog = false
                         }
                     )
@@ -95,7 +114,7 @@ fun ConfigurationScreen(
                 Text("Start %: ${settings.startPercent.roundToInt()}%")
                 Slider(
                     value = settings.startPercent,
-                    onValueChange = { viewModel.updateStartPercent(it) },
+                    onValueChange = { onEvent(ChargingViewEvent.UpdateStartPercent(it)) },
                     valueRange = 0f..100f,
                     steps = 19
                 )
@@ -113,7 +132,7 @@ fun ConfigurationScreen(
                 Text("Max %: ${settings.maxPercent.roundToInt()}%")
                 Slider(
                     value = settings.maxPercent,
-                    onValueChange = { viewModel.updateMaxPercent(it) },
+                    onValueChange = { onEvent(ChargingViewEvent.UpdateMaxPercent(it)) },
                     valueRange = 0f..100f,
                     steps = 19
                 )
@@ -123,7 +142,7 @@ fun ConfigurationScreen(
         Spacer(modifier = Modifier.weight(1f))
         
         Button(
-            onClick = onStartCharging,
+            onClick = { onEvent(ChargingViewEvent.StartCharging(now = Clock.System.now().toEpochMilliseconds())) },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(56.dp),
@@ -151,7 +170,7 @@ fun ChargingPowerChips(
             FilterChip(
                 selected = power == selectedPower,
                 onClick = { onPowerSelected(power) },
-                label = { Text("${power} kW") }
+                label = { Text("$power kW") }
             )
         }
         
