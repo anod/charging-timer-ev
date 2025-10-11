@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Base App Theme after splash; use platform Material NoActionBar to match previous manifest -->
+    <style name="Theme.App" parent="@android:style/Theme.Material.NoActionBar">
+        <!-- Customize your app theme colors here if needed -->
+    </style>
+
+    <!-- Splash Screen Theme -->
+    <style name="Theme.App.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/splash_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
+        <item name="postSplashScreenTheme">@style/Theme.App</item>
+    </style>
+</resources>

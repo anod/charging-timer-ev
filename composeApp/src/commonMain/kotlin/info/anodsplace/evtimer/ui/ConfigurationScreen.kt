@@ -59,7 +59,7 @@ fun ConfigurationScreen(
         verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
         Text(
-            text = "EV Charging Timer",
+            text = "Charging Timer for EV",
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold
         )

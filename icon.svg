@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?><!--
+  Launcher Icon SVG
+  - Dimensions mirror the Android adaptive foreground viewport (108x108)
+  - Safe zone: artwork (ring outer stroke) fits within 72x72 centered area (radius 36) just like in the app
+  - Ring radius = 33 with stroke width = 6 (outer edge radius = 36)
+  - Lightning bolt path matches the current Android foreground (shifted left for optical centering)
+  Customize colors by editing CSS variables below.
+-->
+<svg width="108" height="108" viewBox="0 0 108 108" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <style>
+        :root {
+        --icon-bg: #1E2A38; /* Background color (previous dark base) */
+        --icon-ring: #FFFFFF; /* Ring stroke color */
+        --icon-bolt: #64B5FF; /* Lightning bolt accent (approx dynamic accent2 tone) */
+        }
+        .bg { fill: var(--icon-bg); }
+        .ring { stroke: var(--icon-ring); stroke-width:6; fill:none; }
+        .bolt { fill: var(--icon-bolt); }
+    </style>
+    <!-- Background rectangle (solid). Remove or change fill as needed. -->
+    <rect class="bg" x="0" y="0" width="108" height="108" rx="0" />
+    <!-- Clock ring (center 54,54) -->
+    <circle class="ring" cx="54" cy="54" r="33" />
+    <!-- Lightning bolt (enlarged, shifted left for optical centering) -->
+    <path class="bolt" d="M57 34 L43 58 L51 58 L47 74 L65 50 L57 50 L61 34 Z" />
+</svg>
+

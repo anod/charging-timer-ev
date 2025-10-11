@@ -1,16 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Clock outer ring (radius 33 => stroke outer edge at 36 => diameter 72 within safe zone) -->
+    <!-- Monochrome icon: ring + centered (shifted) lightning bolt -->
     <path
         android:pathData="M54,21a33,33 0 1 1 0,66a33,33 0 1 1 0,-66z"
         android:strokeWidth="6"
-        android:strokeColor="@android:color/system_neutral1_0"
+        android:strokeColor="@android:color/white"
         android:fillColor="#00000000" />
-    <!-- Enlarged energy lightning bolt centered (shifted left by 3 units) -->
     <path
-        android:fillColor="@android:color/system_accent2_300"
+        android:fillColor="@android:color/white"
         android:pathData="M57,34 L43,58 L51,58 L47,74 L65,50 L57,50 L61,34 Z" />
 </vector>

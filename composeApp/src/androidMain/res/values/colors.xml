@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Use dynamic system accent color (Material You) for splash background on light theme -->
+    <color name="splash_background">@android:color/system_accent1_100</color>
+    <!-- Solid background for adaptive launcher icon -->
+    <color name="launcher_bg">#121A24</color>
+    <!-- Accent color for energy bolt -->
+    <color name="launcher_bolt">#FFC107</color>
+</resources>
