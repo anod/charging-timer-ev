@@ -1,7 +1,17 @@
 package info.anodsplace.evtimer.ui
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -10,8 +20,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -23,7 +31,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -53,16 +63,38 @@ fun ConfigurationScreen(
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold
         )
-        
-        // Battery Capacity
-        Card(
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+
+        // Battery Capacity (collapsible, collapsed by default)
+        var batteryExpanded by remember { mutableStateOf(false) }
+        val arrowRotation by animateFloatAsState(
+            targetValue = if (batteryExpanded) 90f else 0f,
+            animationSpec = tween(durationMillis = 250),
+            label = "batteryArrowRotation"
+        )
+        SettingCard(verticalSpacing = 8.dp) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { batteryExpanded = !batteryExpanded },
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Battery Capacity: ${settings.batteryCapacity.roundToInt()} kWh")
+                Text(
+                    text = "Battery Capacity",
+                    modifier = Modifier.weight(1f),
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    text = "▶",
+                    modifier = Modifier.rotate(arrowRotation)
+                )
+            }
+            // Always show current capacity summary
+            Text("${settings.batteryCapacity.roundToInt()} kWh")
+            AnimatedVisibility(
+                visible = batteryExpanded,
+                enter = expandVertically() + fadeIn(),
+                exit = shrinkVertically() + fadeOut()
+            ) {
                 Slider(
                     value = settings.batteryCapacity,
                     onValueChange = { onEvent(ChargingViewEvent.UpdateBatteryCapacity(it)) },
@@ -73,70 +105,63 @@ fun ConfigurationScreen(
         }
         
         // Charging Power
-        Card(
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+        SettingCard(verticalSpacing = 12.dp) {
+            var showCustomPowerDialog by remember { mutableStateOf(false) }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Charging Power: ${settings.chargingPower} kW")
-                
-                var showCustomPowerDialog by remember { mutableStateOf(false) }
-                
-                ChargingPowerChips(
-                    powers = settings.availablePowers,
-                    selectedPower = settings.chargingPower,
-                    onPowerSelected = { onEvent(ChargingViewEvent.UpdateChargingPower(it)) },
-                    onAddCustom = { showCustomPowerDialog = true }
+                Text(
+                    text = "Charging Power: ${settings.chargingPower} kW",
+                    modifier = Modifier.weight(1f)
                 )
-                
-                if (showCustomPowerDialog) {
-                    CustomPowerDialog(
-                        onDismiss = { showCustomPowerDialog = false },
-                        onConfirm = { power ->
-                            onEvent(ChargingViewEvent.AddCustomPower(power))
-                            showCustomPowerDialog = false
-                        }
-                    )
-                }
+                Text(
+                    text = "+",
+                    modifier = Modifier
+                        .clickable { showCustomPowerDialog = true }
+                        .padding(start = 8.dp),
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+
+            ChargingPowerChips(
+                powers = settings.availablePowers,
+                selectedPower = settings.chargingPower,
+                onPowerSelected = { onEvent(ChargingViewEvent.UpdateChargingPower(it)) }
+            )
+
+            if (showCustomPowerDialog) {
+                CustomPowerDialog(
+                    onDismiss = { showCustomPowerDialog = false },
+                    onConfirm = { power ->
+                        onEvent(ChargingViewEvent.AddCustomPower(power))
+                        showCustomPowerDialog = false
+                    }
+                )
             }
         }
         
         // Start Percentage
-        Card(
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Text("Start %: ${settings.startPercent.roundToInt()}%")
-                Slider(
-                    value = settings.startPercent,
-                    onValueChange = { onEvent(ChargingViewEvent.UpdateStartPercent(it)) },
-                    valueRange = 0f..100f,
-                    steps = 19
-                )
-            }
+        SettingCard(verticalSpacing = 8.dp) {
+            Text("Start %: ${settings.startPercent.roundToInt()}%")
+            Slider(
+                value = settings.startPercent,
+                onValueChange = { onEvent(ChargingViewEvent.UpdateStartPercent(it)) },
+                valueRange = 0f..100f,
+                steps = 19
+            )
         }
         
         // Max Percentage
-        Card(
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Text("Max %: ${settings.maxPercent.roundToInt()}%")
-                Slider(
-                    value = settings.maxPercent,
-                    onValueChange = { onEvent(ChargingViewEvent.UpdateMaxPercent(it)) },
-                    valueRange = 0f..100f,
-                    steps = 19
-                )
-            }
+        SettingCard(verticalSpacing = 8.dp) {
+            Text("Max %: ${settings.maxPercent.roundToInt()}%")
+            Slider(
+                value = settings.maxPercent,
+                onValueChange = { onEvent(ChargingViewEvent.UpdateMaxPercent(it)) },
+                valueRange = 0f..100f,
+                steps = 19
+            )
         }
         
         Spacer(modifier = Modifier.weight(1f))
@@ -153,18 +178,18 @@ fun ConfigurationScreen(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ChargingPowerChips(
     powers: List<Float>,
     selectedPower: Float,
     onPowerSelected: (Float) -> Unit,
-    onAddCustom: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    FlowRow(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         powers.forEach { power ->
             FilterChip(
@@ -173,12 +198,6 @@ fun ChargingPowerChips(
                 label = { Text("$power kW") }
             )
         }
-        
-        FilterChip(
-            selected = false,
-            onClick = onAddCustom,
-            label = { Text("+") }
-        )
     }
 }
 

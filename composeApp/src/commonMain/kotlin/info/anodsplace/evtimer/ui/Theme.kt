@@ -1,6 +1,7 @@
 package info.anodsplace.evtimer.ui
 
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
@@ -59,13 +60,19 @@ private val DarkColors = darkColorScheme(
     outline = Color(0xFF8B938B),
 )
 
+// Expect an Android provided dynamic color scheme. Non-Android platforms return null.
+@Composable
+expect fun platformDynamicColorScheme(darkTheme: Boolean): ColorScheme?
+
 @Composable
 fun AppTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
+    dynamicColor: Boolean = true,
     content: @Composable () -> Unit
 ) {
-    val colorScheme = if (darkTheme) DarkColors else LightColors
-    
+    val dynamicScheme = if (dynamicColor) platformDynamicColorScheme(darkTheme) else null
+    val colorScheme = dynamicScheme ?: if (darkTheme) DarkColors else LightColors
+
     MaterialTheme(
         colorScheme = colorScheme,
         content = content
