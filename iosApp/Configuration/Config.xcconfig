@@ -1,0 +1,7 @@
+TEAM_ID=
+
+PRODUCT_NAME=Charging Timer for EV
+PRODUCT_BUNDLE_IDENTIFIER=info.anodsplace.evtimer.ChargingTimerforEV$(TEAM_ID)
+
+CURRENT_PROJECT_VERSION=1
+MARKETING_VERSION=1.0

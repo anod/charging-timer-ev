@@ -1,114 +1,76 @@
-# EV Charging Timer
+This is a Kotlin Multiplatform project targeting Android, iOS, Web, Desktop (JVM).
 
-A Kotlin Multiplatform application for managing EV charging sessions with a beautiful Compose UI.
+* [/composeApp](./composeApp/src) is for code that will be shared across your Compose Multiplatform applications.
+  It contains several subfolders:
+  - [commonMain](./composeApp/src/commonMain/kotlin) is for code that’s common for all targets.
+  - Other folders are for Kotlin code that will be compiled for only the platform indicated in the folder name.
+    For example, if you want to use Apple’s CoreCrypto for the iOS part of your Kotlin app,
+    the [iosMain](./composeApp/src/iosMain/kotlin) folder would be the right place for such calls.
+    Similarly, if you want to edit the Desktop (JVM) specific part, the [jvmMain](./composeApp/src/jvmMain/kotlin)
+    folder is the appropriate location.
 
-## Features
+* [/iosApp](./iosApp/iosApp) contains iOS applications. Even if you’re sharing your UI with Compose Multiplatform,
+  you need this entry point for your iOS app. This is also where you should add SwiftUI code for your project.
 
-- **Battery Capacity Configuration**: Set your battery capacity in kWh (20-120 kWh range)
-- **Charging Power Selection**: Choose from predefined charging powers (3.6, 7, 11, 22 kW) or add custom values
-- **Charging Range**: Set start and max battery percentages with intuitive sliders
-- **Real-time Charging Simulation**: 
-  - Live charging progress with wobble animation
-  - Estimated completion time
-  - Current battery percentage
-  - Charging speed display
-- **Persistent Settings**: Your configuration is saved and restored between sessions
-- **Material 3 Design**: Adaptive theming with light and dark mode support
+### Build and Run Android Application
 
-## Project Structure
+To build and run the development version of the Android app, use the run configuration from the run widget
+in your IDE’s toolbar or build it directly from the terminal:
+- on macOS/Linux
+  ```shell
+  ./gradlew :composeApp:assembleDebug
+  ```
+- on Windows
+  ```shell
+  .\gradlew.bat :composeApp:assembleDebug
+  ```
 
-```
-charging-timer-ev/
-├── shared/           # Shared Kotlin code
-│   ├── data/        # Data models, calculations, and persistence
-│   └── ui/          # Compose UI components
-└── desktopApp/      # Desktop application
-```
+### Build and Run Desktop (JVM) Application
 
-## Building and Running
+To build and run the development version of the desktop app, use the run configuration from the run widget
+in your IDE’s toolbar or run it directly from the terminal:
+- on macOS/Linux
+  ```shell
+  ./gradlew :composeApp:run
+  ```
+- on Windows
+  ```shell
+  .\gradlew.bat :composeApp:run
+  ```
 
-### Desktop App
+### Build and Run Web Application
 
-```bash
-./gradlew :desktopApp:run
-```
+To build and run the development version of the web app, use the run configuration from the run widget
+in your IDE's toolbar or run it directly from the terminal:
+- for the Wasm target (faster, modern browsers):
+  - on macOS/Linux
+    ```shell
+    ./gradlew :composeApp:wasmJsBrowserDevelopmentRun
+    ```
+  - on Windows
+    ```shell
+    .\gradlew.bat :composeApp:wasmJsBrowserDevelopmentRun
+    ```
+- for the JS target (slower, supports older browsers):
+  - on macOS/Linux
+    ```shell
+    ./gradlew :composeApp:jsBrowserDevelopmentRun
+    ```
+  - on Windows
+    ```shell
+    .\gradlew.bat :composeApp:jsBrowserDevelopmentRun
+    ```
 
-### Build All
+### Build and Run iOS Application
 
-```bash
-./gradlew build
-```
+To build and run the development version of the iOS app, use the run configuration from the run widget
+in your IDE’s toolbar or open the [/iosApp](./iosApp) directory in Xcode and run it from there.
 
-## Technical Details
+---
 
-- **Kotlin Version**: 1.9.22
-- **Compose Version**: 1.5.12
-- **Gradle Version**: 8.5
-- **Target JVM**: 17
+Learn more about [Kotlin Multiplatform](https://www.jetbrains.com/help/kotlin-multiplatform-dev/get-started.html),
+[Compose Multiplatform](https://github.com/JetBrains/compose-multiplatform/#compose-multiplatform),
+[Kotlin/Wasm](https://kotl.in/wasm/)…
 
-## Screens
-
-### Configuration Screen
-The configuration screen allows you to set up your charging parameters:
-- Battery capacity slider (20-120 kWh)
-- Charging power chips (3.6, 7, 11, 22 kW) with a '+' button to add custom power values
-- Start % slider (0-100%)
-- Max % slider (0-100%)
-- Start charging button (enabled only when start % < max %)
-
-### Running Timer Screen
-Once charging starts, you'll see:
-- **Animated Wobble Indicator**: A circular indicator showing the current charge percentage with a wobbling rotation and pulsing scale animation
-- **Charging Statistics Card** displaying:
-  - Charging speed (kW)
-  - Current percentage (updates every second)
-  - Target percentage  
-  - Time remaining (formatted as hours and minutes)
-- **Stop Charging** button to end the session
-
-## How It Works
-
-### Charging Calculations
-The app uses realistic EV charging calculations:
-- **Energy Required** = (Battery Capacity × Percentage to Charge) / 100
-- **Time Required** = Energy Required / Charging Power
-- **Current Percentage** = Start % + (Progress × Percentage Range)
-
-### Persistence
-Settings are persisted using:
-- Desktop: Properties file in user home directory (`.charging-timer-settings.properties`)
-
-The following settings are saved:
-- Battery capacity
-- Selected charging power
-- Available power options
-- Start and max percentages
-
-## Architecture
-
-The app follows clean architecture principles:
-
-1. **Data Layer** (`shared/data`):
-   - `Models.kt`: Data classes for settings, state, and calculations
-   - `ChargingCalculator.kt`: Business logic for charging calculations
-   - `ChargingRepository.kt`: Interface for persistence
-   - `ChargingRepository.desktop.kt`: Desktop-specific implementation
-   - `ChargingViewModel.kt`: State management and user actions
-
-2. **UI Layer** (`shared/ui`):
-   - `Theme.kt`: Material 3 color schemes for light and dark themes
-   - `ConfigurationScreen.kt`: Initial setup screen
-   - `RunningTimerScreen.kt`: Active charging screen with animations
-   - `ChargingTimerApp.kt`: Main app composable
-
-3. **Platform Layer** (`desktopApp`):
-   - `Main.kt`: Desktop application entry point
-
-## Future Enhancements
-
-Potential areas for expansion:
-- Android app with notification support (requires access to Google Maven repository)
-- iOS support
-- Charging history and statistics
-- Multiple charging profiles
-- Battery health tracking
+We would appreciate your feedback on Compose/Web and Kotlin/Wasm in the public Slack channel [#compose-web](https://slack-chats.kotlinlang.org/c/compose-web).
+If you face any issues, please report them on [YouTrack](https://youtrack.jetbrains.com/newIssue?project=CMP).
