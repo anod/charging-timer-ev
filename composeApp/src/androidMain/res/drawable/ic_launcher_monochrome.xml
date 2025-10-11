@@ -4,13 +4,21 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Monochrome icon: ring + centered (shifted) lightning bolt -->
-    <path
-        android:pathData="M54,21a33,33 0 1 1 0,66a33,33 0 1 1 0,-66z"
-        android:strokeWidth="6"
-        android:strokeColor="@android:color/white"
-        android:fillColor="#00000000" />
-    <path
-        android:fillColor="@android:color/white"
-        android:pathData="M57,34 L43,58 L51,58 L47,74 L65,50 L57,50 L61,34 Z" />
+    <group
+        android:scaleX="0.9"
+        android:scaleY="0.9"
+        android:translateX="5.4"
+        android:translateY="5.4">
+        <!-- Outer ring -->
+        <path
+            android:pathData="M54,21a33,33 0 1 1 0,66a33,33 0 1 1 0,-66z"
+            android:strokeWidth="6"
+            android:strokeColor="#FFFFFFFF"
+            android:fillColor="#00000000" />
+        <!-- Lightning bolt simplified monochrome -->
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M57,34 L43,58 L51,58 L47,74 L65,50 L57,50 L61,34 Z" />
+    </group>
 </vector>
+
