@@ -31,9 +31,11 @@ kotlin {
     sourceSets {
         androidMain.dependencies {
             implementation(compose.preview)
-            implementation(libs.androidx.activity.compose)
+            implementation(libs.androidx.activity) // fixed alias
             // Splash screen API
             implementation(libs.androidx.core.splashscreen)
+            implementation(project(":lib:permissions"))
+            // WorkManager removed (using foreground service for progress)
         }
         commonMain.dependencies {
             implementation(project(":lib:viewmodel"))
@@ -54,7 +56,6 @@ kotlin {
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
-            implementation(libs.kotlinx.coroutines.test)
         }
         jvmMain.dependencies {
             implementation(compose.desktop.currentOs)

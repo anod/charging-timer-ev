@@ -170,7 +170,7 @@ fun ConfigurationScreen(
                 .height(56.dp),
             enabled = settings.startPercent < settings.maxPercent
         ) {
-            Text("Start Charging", fontSize = 18.sp)
+            Text("Start Timer", fontSize = 18.sp)
         }
     }
 }

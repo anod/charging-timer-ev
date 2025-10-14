@@ -117,7 +117,7 @@ fun RunningTimerScreen(
                 contentColor = MaterialTheme.colorScheme.error
             )
         ) {
-            Text("Stop Charging", fontSize = 18.sp)
+            Text("Stop Timer", fontSize = 18.sp)
         }
     }
 }

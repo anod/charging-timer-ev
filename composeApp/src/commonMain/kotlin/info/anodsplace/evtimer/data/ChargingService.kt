@@ -36,7 +36,6 @@ interface ChargingService {
 class ChargingServiceImpl(
     private val repository: ChargingRepository,
     private val scope: CoroutineScope,
-    private val tickerIntervalMs: Long = 60_000L,
 ) : ChargingService {
 
     private val mutableStatus = MutableStateFlow(ChargingStatus())
@@ -67,7 +66,7 @@ class ChargingServiceImpl(
             if (tickerJob == null) {
                 tickerJob = scope.launch {
                     while (true) {
-                        delay(tickerIntervalMs)
+                        delay(60_000)
                         recompute()
                     }
                 }

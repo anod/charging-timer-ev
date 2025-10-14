@@ -32,4 +32,4 @@ plugins {
     id("org.gradle.toolchains.foojay-resolver-convention") version "1.0.0"
 }
 
-include(":composeApp", ":lib:viewmodel")
+include(":composeApp", ":lib:viewmodel", ":lib:permissions")
