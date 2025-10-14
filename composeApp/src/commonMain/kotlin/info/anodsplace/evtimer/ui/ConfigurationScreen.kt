@@ -1,31 +1,26 @@
 package info.anodsplace.evtimer.ui
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -35,7 +30,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.contentDescription
@@ -55,129 +49,113 @@ fun ConfigurationScreen(
     modifier: Modifier = Modifier
 ) {
     val settings = viewState.settings
-    
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(24.dp)
-    ) {
-        Text(
-            text = "Charging Timer for EV",
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold
-        )
 
-        // Battery Capacity (collapsible, collapsed by default)
-        var batteryExpanded by remember { mutableStateOf(false) }
-        val arrowRotation by animateFloatAsState(
-            targetValue = if (batteryExpanded) 90f else 0f,
-            animationSpec = tween(durationMillis = 250),
-            label = "batteryArrowRotation"
-        )
-        SettingCard(verticalSpacing = 8.dp) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { batteryExpanded = !batteryExpanded },
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Battery Capacity",
-                    modifier = Modifier.weight(1f),
-                    fontWeight = FontWeight.SemiBold
-                )
-                Text(
-                    text = "\u25b6",
-                    modifier = Modifier.rotate(arrowRotation)
-                )
-            }
-            // Always show current capacity summary
-            Text("${settings.batteryCapacity.roundToInt()} kWh")
-            AnimatedVisibility(
-                visible = batteryExpanded,
-                enter = expandVertically() + fadeIn(),
-                exit = shrinkVertically() + fadeOut()
-            ) {
-                Slider(
-                    value = settings.batteryCapacity,
-                    onValueChange = { onEvent(ChargingViewEvent.UpdateBatteryCapacity(it)) },
-                    valueRange = 20f..120f,
-                    steps = 19
-                )
-            }
-        }
-        
-        // Charging Power
-        SettingCard(verticalSpacing = 12.dp) {
-            var showCustomPowerDialog by remember { mutableStateOf(false) }
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Charging Power: ${settings.chargingPower} kW",
-                    modifier = Modifier.weight(1f)
-                )
-                Text(
-                    text = "+",
+    // Scaffold provides a persistent bottom bar with the Start button while the content scrolls.
+    Scaffold(
+        modifier = modifier.fillMaxSize(),
+        bottomBar = {
+            val invalidRange = settings.startPercent >= settings.maxPercent
+            Column(modifier = Modifier.fillMaxWidth()) {
+                if (invalidRange) {
+                    Text(
+                        text = "Start % is more than Max %",
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier
+                            .padding(start = 24.dp, end = 24.dp, top = 8.dp)
+                            .semantics { contentDescription = "error start must be less than max" }
+                            .align(Alignment.CenterHorizontally)
+                    )
+                }
+                Button(
+                    onClick = { onEvent(ChargingViewEvent.StartCharging) },
+                    enabled = !invalidRange,
                     modifier = Modifier
-                        .clickable { showCustomPowerDialog = true }
-                        .padding(start = 8.dp),
-                    fontWeight = FontWeight.SemiBold
-                )
-            }
-
-            ChargingPowerChips(
-                powers = settings.availablePowers,
-                selectedPower = settings.chargingPower,
-                onPowerSelected = { onEvent(ChargingViewEvent.UpdateChargingPower(it)) }
-            )
-
-            if (showCustomPowerDialog) {
-                CustomPowerDialog(
-                    onDismiss = { showCustomPowerDialog = false },
-                    onConfirm = { power ->
-                        onEvent(ChargingViewEvent.AddCustomPower(power))
-                        showCustomPowerDialog = false
-                    }
-                )
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                        .height(56.dp)
+                ) {
+                    Text("Start Timer", fontSize = 18.sp)
+                }
             }
         }
-
-        // Start Percentage (refactored)
-        PercentageSettingCard(
-            label = "Start",
-            value = settings.startPercent,
-            valueRange = 0..100,
-            onValueChange = { onEvent(ChargingViewEvent.UpdateStartPercent(it)) }
-        )
-        // Max Percentage (refactored)
-        PercentageSettingCard(
-            label = "Max",
-            value = settings.maxPercent,
-            valueRange = 0..100,
-            onValueChange = { onEvent(ChargingViewEvent.UpdateMaxPercent(it)) }
-        )
-
-        if (settings.startPercent >= settings.maxPercent) {
-            Text(
-                text = "Start is less than Max",
-                color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodySmall
-            )
-        }
-        
-        Spacer(modifier = Modifier.weight(1f))
-
-        Button(
-            onClick = { onEvent(ChargingViewEvent.StartCharging) },
+    ) { innerPadding ->
+        Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp),
+                .padding(innerPadding)
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
-            Text("Start Timer", fontSize = 18.sp)
+            Text(
+                text = "Charging Timer for EV",
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold
+            )
+
+            // Battery Capacity (now uses generic PercentageSettingCard for consistency)
+            PercentageSettingCard(
+                label = "Battery Capacity",
+                value = settings.batteryCapacity,
+                valueRange = 20..120,
+                onValueChange = { onEvent(ChargingViewEvent.UpdateBatteryCapacity(it)) },
+                suffix = "kWh",
+                unitDescription = "kilowatt hours",
+                step = 5
+            )
+
+            // Charging Power
+            SettingCard(verticalSpacing = 12.dp) {
+                var showCustomPowerDialog by remember { mutableStateOf(false) }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Charging Power: ${settings.chargingPower} kW",
+                        modifier = Modifier.weight(1f)
+                    )
+                    Text(
+                        text = "+",
+                        modifier = Modifier
+                            .clickable { showCustomPowerDialog = true }
+                            .padding(start = 8.dp),
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+
+                ChargingPowerChips(
+                    powers = settings.availablePowers,
+                    selectedPower = settings.chargingPower,
+                    onPowerSelected = { onEvent(ChargingViewEvent.UpdateChargingPower(it)) }
+                )
+
+                if (showCustomPowerDialog) {
+                    CustomPowerDialog(
+                        onDismiss = { showCustomPowerDialog = false },
+                        onConfirm = { power ->
+                            onEvent(ChargingViewEvent.AddCustomPower(power))
+                            showCustomPowerDialog = false
+                        }
+                    )
+                }
+            }
+
+            // Start Percentage
+            PercentageSettingCard(
+                label = "Start",
+                value = settings.startPercent,
+                valueRange = 0..100,
+                onValueChange = { onEvent(ChargingViewEvent.UpdateStartPercent(it)) }
+            )
+            // Max Percentage
+            PercentageSettingCard(
+                label = "Max",
+                value = settings.maxPercent,
+                valueRange = 0..100,
+                onValueChange = { onEvent(ChargingViewEvent.UpdateMaxPercent(it)) }
+            )
         }
     }
 }
@@ -188,7 +166,10 @@ private fun PercentageSettingCard(
     value: Float,
     valueRange: IntRange,
     onValueChange: (Float) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    suffix: String = "%",
+    unitDescription: String = "percent",
+    step: Int = 1,
 ) {
     val haptics = LocalHapticFeedback.current
     var text by remember(value) { mutableStateOf(value.roundToInt().toString()) }
@@ -197,6 +178,13 @@ private fun PercentageSettingCard(
 
     val min = valueRange.first
     val max = valueRange.last
+    val clampedStep = if (step <= 0) 1 else step
+
+    fun coerceToStep(v: Float): Int {
+        val rounded = (((v - min) / clampedStep).roundToInt() * clampedStep + min)
+            .coerceIn(min, max)
+        return rounded
+    }
 
     SettingCard(modifier = modifier, verticalSpacing = 8.dp) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -204,10 +192,11 @@ private fun PercentageSettingCard(
                 label,
                 modifier = Modifier
                     .weight(1f)
-                    .semantics { contentDescription = "$label current value ${value.roundToInt()} percent" }
+                    .semantics { contentDescription = "$label current value ${value.roundToInt()} $unitDescription" }
+                    .align(Alignment.Top)
             )
             TextButton(
-                onClick = { onValueChange((value - 1).coerceAtLeast(min.toFloat())) },
+                onClick = { onValueChange((value - clampedStep).coerceAtLeast(min.toFloat())) },
                 enabled = value > min,
                 modifier = Modifier
                     .width(48.dp)
@@ -216,10 +205,10 @@ private fun PercentageSettingCard(
             OutlinedTextField(
                 value = text,
                 onValueChange = { new ->
-                    val digits = new.filter { it.isDigit() }.take(3)
+                    val digits = new.filter { it.isDigit() }.take(4)
                     text = digits
                     val intVal = digits.toIntOrNull()
-                    val valid = intVal != null && intVal in valueRange
+                    val valid = intVal != null && intVal in valueRange && ((intVal - min) % clampedStep == 0)
                     isError = digits.isNotEmpty() && !valid
                     if (isError && !previousError) {
                         haptics.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -235,34 +224,41 @@ private fun PercentageSettingCard(
                 supportingText = {
                     AnimatedVisibility(visible = isError) {
                         Text(
-                            text = "Must be between $min and $max",
+                            text = "Must be between $min and $max in $clampedStep increments",
                             color = MaterialTheme.colorScheme.error,
                             style = MaterialTheme.typography.bodySmall,
-                            modifier = Modifier.semantics { contentDescription = "$label error value must be between $min and $max" }
+                            modifier = Modifier.semantics { contentDescription = "$label error value must be between $min and $max in $clampedStep increments" }
                         )
                     }
                 },
                 suffix = {
-                    Text("%", modifier = Modifier.semantics { contentDescription = "percent sign" })
+                    Text(suffix, modifier = Modifier.semantics { contentDescription = suffix })
                 },
                 modifier = Modifier
                     .width(96.dp)
                     .semantics { contentDescription = "$label input field" }
             )
             TextButton(
-                onClick = { onValueChange((value + 1).coerceAtMost(max.toFloat())) },
+                onClick = { onValueChange((value + clampedStep).coerceAtMost(max.toFloat())) },
                 enabled = value < max,
                 modifier = Modifier
                     .width(48.dp)
                     .semantics { contentDescription = "Increase $label" }
             ) { Text("+") }
         }
+        val stepsCount = ((max - min) / clampedStep).coerceAtLeast(1)
+        val sliderSteps = (stepsCount - 1).coerceAtLeast(0) // Compose expects discreteValues - 2
         Slider(
             value = value,
-            onValueChange = { onValueChange(it.coerceIn(min.toFloat(), max.toFloat())) },
+            onValueChange = { raw ->
+                val stepped = coerceToStep(raw).toFloat()
+                if (stepped != value.roundToInt().toFloat()) {
+                    onValueChange(stepped)
+                }
+            },
             valueRange = min.toFloat()..max.toFloat(),
-            steps = (max - min - 1).coerceAtLeast(0), // 1% increments
-            modifier = Modifier.semantics { contentDescription = "$label slider value ${value.roundToInt()} percent" }
+            steps = sliderSteps,
+            modifier = Modifier.semantics { contentDescription = "$label slider value ${value.roundToInt()} $unitDescription" }
         )
     }
 }
@@ -296,7 +292,7 @@ fun CustomPowerDialog(
     onConfirm: (Float) -> Unit
 ) {
     var powerText by remember { mutableStateOf("") }
-    
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Add Custom Power") },
@@ -342,8 +338,36 @@ fun ConfigurationScreenPreview() {
         )
     )
     MaterialTheme {
-        Surface {
-            ConfigurationScreen(viewState = dummyState, onEvent = {})
-        }
+        ConfigurationScreen(viewState = dummyState, onEvent = {})
     }
+}
+
+@Preview
+@Composable
+fun ConfigurationScreenErrorEqualPreview() {
+    val dummyState = ChargingViewState(
+        settings = info.anodsplace.evtimer.data.ChargingSettings(
+            batteryCapacity = 60f,
+            chargingPower = 7.2f,
+            availablePowers = listOf(3.6f, 7.2f, 11f),
+            startPercent = 70f,
+            maxPercent = 70f // equal triggers error
+        )
+    )
+    MaterialTheme { ConfigurationScreen(viewState = dummyState, onEvent = {}) }
+}
+
+@Preview
+@Composable
+fun ConfigurationScreenErrorGreaterPreview() {
+    val dummyState = ChargingViewState(
+        settings = info.anodsplace.evtimer.data.ChargingSettings(
+            batteryCapacity = 60f,
+            chargingPower = 7.2f,
+            availablePowers = listOf(3.6f, 7.2f, 11f),
+            startPercent = 80f,
+            maxPercent = 60f // greater triggers error
+        )
+    )
+    MaterialTheme { ConfigurationScreen(viewState = dummyState, onEvent = {}) }
 }
