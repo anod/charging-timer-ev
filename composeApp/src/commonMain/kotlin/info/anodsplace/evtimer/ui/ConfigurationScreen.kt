@@ -18,12 +18,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -34,11 +36,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import info.anodsplace.evtimer.data.ChargingViewEvent
 import info.anodsplace.evtimer.data.ChargingViewState
+import org.jetbrains.compose.ui.tooling.preview.Preview
 import kotlin.math.roundToInt
 
 @Composable
@@ -138,40 +145,125 @@ fun ConfigurationScreen(
                 )
             }
         }
-        
-        // Start Percentage
-        SettingCard(verticalSpacing = 8.dp) {
-            Text("Start %: ${settings.startPercent.roundToInt()}%")
-            Slider(
-                value = settings.startPercent,
-                onValueChange = { onEvent(ChargingViewEvent.UpdateStartPercent(it)) },
-                valueRange = 0f..100f,
-                steps = 19
-            )
-        }
-        
-        // Max Percentage
-        SettingCard(verticalSpacing = 8.dp) {
-            Text("Max %: ${settings.maxPercent.roundToInt()}%")
-            Slider(
-                value = settings.maxPercent,
-                onValueChange = { onEvent(ChargingViewEvent.UpdateMaxPercent(it)) },
-                valueRange = 0f..100f,
-                steps = 19
+
+        // Start Percentage (refactored)
+        PercentageSettingCard(
+            label = "Start",
+            value = settings.startPercent,
+            valueRange = 0..100,
+            onValueChange = { onEvent(ChargingViewEvent.UpdateStartPercent(it)) }
+        )
+        // Max Percentage (refactored)
+        PercentageSettingCard(
+            label = "Max",
+            value = settings.maxPercent,
+            valueRange = 0..100,
+            onValueChange = { onEvent(ChargingViewEvent.UpdateMaxPercent(it)) }
+        )
+
+        if (settings.startPercent >= settings.maxPercent) {
+            Text(
+                text = "Start is less than Max",
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall
             )
         }
         
         Spacer(modifier = Modifier.weight(1f))
-        
+
         Button(
             onClick = { onEvent(ChargingViewEvent.StartCharging) },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(56.dp),
-            enabled = settings.startPercent < settings.maxPercent
         ) {
             Text("Start Timer", fontSize = 18.sp)
         }
+    }
+}
+
+@Composable
+private fun PercentageSettingCard(
+    label: String,
+    value: Float,
+    valueRange: IntRange,
+    onValueChange: (Float) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val haptics = LocalHapticFeedback.current
+    var text by remember(value) { mutableStateOf(value.roundToInt().toString()) }
+    var isError by remember { mutableStateOf(false) }
+    var previousError by remember { mutableStateOf(false) }
+
+    val min = valueRange.first
+    val max = valueRange.last
+
+    SettingCard(modifier = modifier, verticalSpacing = 8.dp) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                label,
+                modifier = Modifier
+                    .weight(1f)
+                    .semantics { contentDescription = "$label current value ${value.roundToInt()} percent" }
+            )
+            TextButton(
+                onClick = { onValueChange((value - 1).coerceAtLeast(min.toFloat())) },
+                enabled = value > min,
+                modifier = Modifier
+                    .width(48.dp)
+                    .semantics { contentDescription = "Decrease $label" }
+            ) { Text("-") }
+            OutlinedTextField(
+                value = text,
+                onValueChange = { new ->
+                    val digits = new.filter { it.isDigit() }.take(3)
+                    text = digits
+                    val intVal = digits.toIntOrNull()
+                    val valid = intVal != null && intVal in valueRange
+                    isError = digits.isNotEmpty() && !valid
+                    if (isError && !previousError) {
+                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                    }
+                    previousError = isError
+                    if (valid) {
+                        onValueChange(intVal.toFloat())
+                    }
+                },
+                label = { Text("Set") },
+                singleLine = true,
+                isError = isError,
+                supportingText = {
+                    AnimatedVisibility(visible = isError) {
+                        Text(
+                            text = "Must be between $min and $max",
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.semantics { contentDescription = "$label error value must be between $min and $max" }
+                        )
+                    }
+                },
+                suffix = {
+                    Text("%", modifier = Modifier.semantics { contentDescription = "percent sign" })
+                },
+                modifier = Modifier
+                    .width(96.dp)
+                    .semantics { contentDescription = "$label input field" }
+            )
+            TextButton(
+                onClick = { onValueChange((value + 1).coerceAtMost(max.toFloat())) },
+                enabled = value < max,
+                modifier = Modifier
+                    .width(48.dp)
+                    .semantics { contentDescription = "Increase $label" }
+            ) { Text("+") }
+        }
+        Slider(
+            value = value,
+            onValueChange = { onValueChange(it.coerceIn(min.toFloat(), max.toFloat())) },
+            valueRange = min.toFloat()..max.toFloat(),
+            steps = (max - min - 1).coerceAtLeast(0), // 1% increments
+            modifier = Modifier.semantics { contentDescription = "$label slider value ${value.roundToInt()} percent" }
+        )
     }
 }
 
@@ -235,4 +327,23 @@ fun CustomPowerDialog(
             }
         }
     )
+}
+
+@Preview
+@Composable
+fun ConfigurationScreenPreview() {
+    val dummyState = ChargingViewState(
+        settings = info.anodsplace.evtimer.data.ChargingSettings(
+            batteryCapacity = 75f,
+            chargingPower = 11f,
+            availablePowers = listOf(3.6f, 7.2f, 11f, 22f),
+            startPercent = 30f,
+            maxPercent = 80f
+        )
+    )
+    MaterialTheme {
+        Surface {
+            ConfigurationScreen(viewState = dummyState, onEvent = {})
+        }
+    }
 }
