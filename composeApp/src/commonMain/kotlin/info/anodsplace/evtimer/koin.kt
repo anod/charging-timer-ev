@@ -2,6 +2,8 @@ package info.anodsplace.evtimer
 
 import info.anodsplace.evtimer.data.ChargingRepository
 import info.anodsplace.evtimer.data.ChargingRepositoryImpl
+import info.anodsplace.evtimer.data.ChargingService
+import info.anodsplace.evtimer.data.ChargingServiceImpl
 import info.anodsplace.evtimer.data.ChargingViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -17,6 +19,9 @@ val commonModule = module {
     single { CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate) }
     singleOf(::ChargingRepositoryImpl) {
         bind<ChargingRepository>()
+    }
+    singleOf(::ChargingServiceImpl) {
+        bind<ChargingService>()
     }
 }
 

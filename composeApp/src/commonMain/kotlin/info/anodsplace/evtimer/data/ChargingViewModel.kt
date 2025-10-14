@@ -2,9 +2,8 @@ package info.anodsplace.evtimer.data
 
 import androidx.lifecycle.viewModelScope
 import info.anodsplace.viewmodel.BaseFlowViewModel
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
-import kotlin.time.Clock
-import kotlin.time.ExperimentalTime
 
 data class ChargingViewState(
     val isRunning: Boolean = false,
@@ -24,7 +23,7 @@ data class ChargingCalculation(
 sealed interface ChargingViewAction
 
 sealed interface ChargingViewEvent {
-    data class StartCharging(val now: Long) : ChargingViewEvent
+    data object StartCharging : ChargingViewEvent
     data object StopCharging : ChargingViewEvent
     data object UpdateCalculation : ChargingViewEvent
     data class UpdateBatteryCapacity(val capacity: Float) : ChargingViewEvent
@@ -35,22 +34,28 @@ sealed interface ChargingViewEvent {
 }
 
 class ChargingViewModel(
-    private val repository: ChargingRepository
+    private val repository: ChargingRepository,
+    private val service: ChargingService
 ) : BaseFlowViewModel<ChargingViewState, ChargingViewEvent, ChargingViewAction>() {
 
     init {
         viewState = ChargingViewState()
+        // Combine domain status with current settings to expose full UI state
         viewModelScope.launch {
-            repository.observeSettings().collect {
-                viewState = viewState.copy(
-                    settings = it,
-                    calculation = ChargingCalculator.getChargingCalculation(
-                        settings = it,
-                        isRunning = viewState.isRunning,
-                        startTime = viewState.startTime
+            combine(
+                repository.observeSettings(),
+                service.status
+            ) { settings, status -> settings to status }
+                .collect { (settings, status) ->
+                    viewState = ChargingViewState(
+                        isRunning = status.isRunning,
+                        startTime = status.startTime,
+                        currentPercent = status.currentPercent,
+                        estimatedEndTime = status.estimatedEndTime,
+                        settings = settings,
+                        calculation = status.calculation
                     )
-                )
-            }
+                }
         }
     }
 
@@ -63,35 +68,23 @@ class ChargingViewModel(
                     batteryCapacity = event.capacity
                 )
             )
-
             is ChargingViewEvent.UpdateChargingPower -> saveSettings(
                 viewState.settings.copy(
                     chargingPower = event.power
                 )
             )
-
             is ChargingViewEvent.AddCustomPower -> addCustomPower(event.power)
             is ChargingViewEvent.UpdateStartPercent -> saveSettings(
                 viewState.settings.copy(
                     startPercent = event.percent
                 )
             )
-
             is ChargingViewEvent.UpdateMaxPercent -> saveSettings(
                 viewState.settings.copy(
                     maxPercent = event.percent
                 )
             )
-
-            ChargingViewEvent.UpdateCalculation -> {
-                viewState = viewState.copy(
-                    calculation = ChargingCalculator.getChargingCalculation(
-                        settings = viewState.settings,
-                        isRunning = viewState.isRunning,
-                        startTime = viewState.startTime
-                    )
-                )
-            }
+            ChargingViewEvent.UpdateCalculation -> service.refresh()
         }
     }
 
@@ -104,38 +97,17 @@ class ChargingViewModel(
         }
     }
 
-    @OptIn(ExperimentalTime::class)
     private fun startCharging() {
-        val now = Clock.System.now().toEpochMilliseconds()
-        val settings = viewState.settings
-        val totalMinutes = ChargingCalculator.calculateChargingTime(
-            batteryCapacity = settings.batteryCapacity,
-            startPercent = settings.startPercent,
-            maxPercent = settings.maxPercent,
-            chargingPower = settings.chargingPower
-        )
-        viewState = viewState.copy(
-            isRunning = true,
-            startTime = now,
-            currentPercent = settings.startPercent,
-            estimatedEndTime = ChargingCalculator.estimateEndTime(now, totalMinutes),
-            calculation = ChargingCalculator.getChargingCalculation(settings, true, now)
-        )
+        viewModelScope.launch { service.start() }
     }
 
     private fun stopCharging() {
-        viewState = viewState.copy(
-            isRunning = false,
-            calculation = ChargingCalculator.getChargingCalculation(viewState.settings, false, viewState.startTime)
-        )
+        viewModelScope.launch { service.stop() }
     }
-
 
     private fun saveSettings(settings: ChargingSettings) {
         viewModelScope.launch {
             repository.saveSettings(settings)
         }
     }
-
-
 }

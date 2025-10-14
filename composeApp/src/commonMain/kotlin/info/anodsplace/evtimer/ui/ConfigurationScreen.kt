@@ -40,10 +40,7 @@ import androidx.compose.ui.unit.sp
 import info.anodsplace.evtimer.data.ChargingViewEvent
 import info.anodsplace.evtimer.data.ChargingViewState
 import kotlin.math.roundToInt
-import kotlin.time.Clock
-import kotlin.time.ExperimentalTime
 
-@OptIn(ExperimentalTime::class)
 @Composable
 fun ConfigurationScreen(
     viewState: ChargingViewState,
@@ -84,7 +81,7 @@ fun ConfigurationScreen(
                     fontWeight = FontWeight.SemiBold
                 )
                 Text(
-                    text = "▶",
+                    text = "\u25b6",
                     modifier = Modifier.rotate(arrowRotation)
                 )
             }
@@ -167,7 +164,7 @@ fun ConfigurationScreen(
         Spacer(modifier = Modifier.weight(1f))
         
         Button(
-            onClick = { onEvent(ChargingViewEvent.StartCharging(now = Clock.System.now().toEpochMilliseconds())) },
+            onClick = { onEvent(ChargingViewEvent.StartCharging) },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(56.dp),
