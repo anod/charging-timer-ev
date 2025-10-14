@@ -5,6 +5,9 @@ androidx-annotation = "1.9.1"
 androidx-lifecycle = "2.9.4"
 composeHotReload = "1.0.0-rc02"
 composeMultiplatform = "1.9.0"
+graphicsCore = "1.0.3"
+graphicsPath = "1.1.0-alpha01"
+graphicsShapes = "1.1.0-rc01"
 kotlin = "2.2.20"
 kotlinx-coroutines = "1.10.2"
 androidx-datastore = "1.1.7"
@@ -12,6 +15,9 @@ koin = "4.1.1"
 splashscreen = "1.0.1"
 
 [libraries]
+androidx-graphics-core = { module = "androidx.graphics:graphics-core", version.ref = "graphicsCore" }
+androidx-graphics-path = { module = "androidx.graphics:graphics-path", version.ref = "graphicsPath" }
+androidx-graphics-shapes = { module = "androidx.graphics:graphics-shapes", version.ref = "graphicsShapes" }
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
 androidx-activity = { module = "androidx.activity:activity-compose", version.ref = "androidx-activity" }
 androidx-annotation = { module = "androidx.annotation:annotation", version.ref = "androidx-annotation" }

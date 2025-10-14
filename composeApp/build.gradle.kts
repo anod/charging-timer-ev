@@ -53,6 +53,10 @@ kotlin {
             implementation(libs.koin.compose)
             implementation(libs.koin.compose.viewmodel)
             implementation(libs.androidx.datastore.preferences)
+
+            implementation(libs.androidx.graphics.core)
+            implementation(libs.androidx.graphics.path)
+            implementation(libs.androidx.graphics.shapes)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
