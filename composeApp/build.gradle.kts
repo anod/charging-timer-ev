@@ -3,22 +3,19 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
-    // alias(libs.plugins.androidApplication)
+    alias(libs.plugins.androidApplication)
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
     alias(libs.plugins.composeHotReload)
 }
 
 kotlin {
-    /*
     androidTarget {
         compilerOptions {
             jvmTarget.set(JvmTarget.JVM_11)
         }
     }
-    */
     
-    /*
     listOf(
         iosArm64(),
         iosSimulatorArm64()
@@ -28,12 +25,10 @@ kotlin {
             isStatic = true
         }
     }
-    */
     
     jvm()
 
     sourceSets {
-        /*
         androidMain.dependencies {
             implementation(compose.preview)
             implementation(libs.androidx.activity) // fixed alias
@@ -42,7 +37,6 @@ kotlin {
             implementation(project(":lib:permissions"))
             // WorkManager removed (using foreground service for progress)
         }
-        */
         commonMain.dependencies {
             implementation(project(":lib:viewmodel"))
 
@@ -74,7 +68,6 @@ kotlin {
     }
 }
 
-/*
 android {
     namespace = "info.anodsplace.evtimer"
     compileSdk = 36
@@ -101,13 +94,10 @@ android {
         targetCompatibility = JavaVersion.VERSION_11
     }
 }
-*/
 
-/*
 dependencies {
     debugImplementation(compose.uiTooling)
 }
-*/
 
 compose.desktop {
     application {
