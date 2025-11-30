@@ -139,13 +139,17 @@ fun RunningTimerScreen(
                         value = "${calculation.chargingSpeed} kW"
                     )
 
-                    val currentKwh = ChargingCalculator.calculateKwh(settings.batteryCapacity, calculation.estimatedPercent)
+                    val currentKwh = remember(settings.batteryCapacity, calculation.estimatedPercent) {
+                        ChargingCalculator.calculateKwh(settings.batteryCapacity, calculation.estimatedPercent)
+                    }
                     StatRow(
                         label = "Current %",
                         value = "${calculation.estimatedPercent.roundToInt()}% ($currentKwh kWh)"
                     )
 
-                    val targetKwh = ChargingCalculator.calculateKwh(settings.batteryCapacity, settings.maxPercent)
+                    val targetKwh = remember(settings.batteryCapacity, settings.maxPercent) {
+                        ChargingCalculator.calculateKwh(settings.batteryCapacity, settings.maxPercent)
+                    }
                     StatRow(
                         label = "Target %",
                         value = "${settings.maxPercent.roundToInt()}% ($targetKwh kWh)"
@@ -191,7 +195,9 @@ fun BatteryChargingIndicator(
     val fraction = if (maxPercent > 0) (currentPercent / maxPercent).coerceIn(0f, 1f) else 0f
     val fullCells = (fraction * cellCount).toInt()
     val isPartial = fraction < 1f && fullCells < cellCount
-    val currentKwh = ChargingCalculator.calculateKwh(batteryCapacity, currentPercent)
+    val currentKwh = remember(batteryCapacity, currentPercent) {
+        ChargingCalculator.calculateKwh(batteryCapacity, currentPercent)
+    }
 
     // Blink animation for the currently charging (next) cell
     val infiniteTransition = rememberInfiniteTransition()
