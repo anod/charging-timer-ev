@@ -119,7 +119,8 @@ fun RunningTimerScreen(
             // Battery indicator with animated charging cell
             BatteryChargingIndicator(
                 currentPercent = calculation.estimatedPercent,
-                maxPercent = settings.maxPercent
+                maxPercent = settings.maxPercent,
+                batteryCapacity = settings.batteryCapacity
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -137,14 +138,16 @@ fun RunningTimerScreen(
                         value = "${calculation.chargingSpeed} kW"
                     )
 
+                    val currentKwh = (settings.batteryCapacity * calculation.estimatedPercent / 100f).roundToInt()
                     StatRow(
                         label = "Current %",
-                        value = "${calculation.estimatedPercent.roundToInt()}%"
+                        value = "${calculation.estimatedPercent.roundToInt()}% ($currentKwh kWh)"
                     )
 
+                    val targetKwh = (settings.batteryCapacity * settings.maxPercent / 100f).roundToInt()
                     StatRow(
                         label = "Target %",
-                        value = "${settings.maxPercent.roundToInt()}%"
+                        value = "${settings.maxPercent.roundToInt()}% ($targetKwh kWh)"
                     )
 
                     StatRow(
@@ -180,12 +183,14 @@ fun RunningTimerScreen(
 fun BatteryChargingIndicator(
     currentPercent: Float,
     maxPercent: Float,
+    batteryCapacity: Float,
     modifier: Modifier = Modifier,
     cellCount: Int = 10
 ) {
     val fraction = if (maxPercent > 0) (currentPercent / maxPercent).coerceIn(0f, 1f) else 0f
     val fullCells = (fraction * cellCount).toInt()
     val isPartial = fraction < 1f && fullCells < cellCount
+    val currentKwh = (batteryCapacity * currentPercent / 100f).roundToInt()
 
     // Blink animation for the currently charging (next) cell
     val infiniteTransition = rememberInfiniteTransition()
@@ -238,7 +243,7 @@ fun BatteryChargingIndicator(
                     )
                 }
             }
-            // Percentage text centered with background for contrast
+            // Percentage and kWh text centered with background for contrast
             Box(
                 modifier = Modifier
                     .align(Alignment.Center)
@@ -246,7 +251,7 @@ fun BatteryChargingIndicator(
                     .padding(horizontal = 10.dp, vertical = 4.dp)
             ) {
                 Text(
-                    text = "${currentPercent.roundToInt()}%",
+                    text = "${currentPercent.roundToInt()}% ($currentKwh kWh)",
                     fontSize = 24.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface

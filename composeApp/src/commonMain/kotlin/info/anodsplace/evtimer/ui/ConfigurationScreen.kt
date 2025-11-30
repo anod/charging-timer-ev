@@ -104,7 +104,10 @@ fun ConfigurationScreen(
                 // Max Percentage (collapsed by default, placed above Power as requested)
                 CollapsibleSettingCard(
                     title = "Max",
-                    summary = { valueState -> "Max: ${valueState.settings.maxPercent.roundToInt()}%" },
+                    summary = { valueState ->
+                        val maxKwh = (valueState.settings.batteryCapacity * valueState.settings.maxPercent / 100f).roundToInt()
+                        "Max: ${valueState.settings.maxPercent.roundToInt()}% ($maxKwh kWh)"
+                    },
                     viewState = viewState,
                     initiallyExpanded = false,
                     modifier = Modifier
@@ -120,7 +123,10 @@ fun ConfigurationScreen(
                 // Start Percentage (expanded by default)
                 CollapsibleSettingCard(
                     title = "Start",
-                    summary = { valueState -> "Start: ${valueState.settings.startPercent.roundToInt()}%" },
+                    summary = { valueState ->
+                        val startKwh = (valueState.settings.batteryCapacity * valueState.settings.startPercent / 100f).roundToInt()
+                        "Start: ${valueState.settings.startPercent.roundToInt()}% ($startKwh kWh)"
+                    },
                     viewState = viewState,
                     initiallyExpanded = true,
                     modifier = Modifier
