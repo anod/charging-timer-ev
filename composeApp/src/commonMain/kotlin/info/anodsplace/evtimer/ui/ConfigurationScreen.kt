@@ -21,6 +21,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import info.anodsplace.evtimer.data.ChargingCalculator
 import info.anodsplace.evtimer.data.ChargingSettings
 import info.anodsplace.evtimer.data.ChargingViewEvent
 import info.anodsplace.evtimer.data.ChargingViewState
@@ -104,7 +105,10 @@ fun ConfigurationScreen(
                 // Max Percentage (collapsed by default, placed above Power as requested)
                 CollapsibleSettingCard(
                     title = "Max",
-                    summary = { valueState -> "Max: ${valueState.settings.maxPercent.roundToInt()}%" },
+                    summary = { valueState ->
+                        val maxKwh = ChargingCalculator.calculateKwh(valueState.settings.batteryCapacity, valueState.settings.maxPercent)
+                        "Max: ${valueState.settings.maxPercent.roundToInt()}% ($maxKwh kWh)"
+                    },
                     viewState = viewState,
                     initiallyExpanded = false,
                     modifier = Modifier
@@ -120,7 +124,10 @@ fun ConfigurationScreen(
                 // Start Percentage (expanded by default)
                 CollapsibleSettingCard(
                     title = "Start",
-                    summary = { valueState -> "Start: ${valueState.settings.startPercent.roundToInt()}%" },
+                    summary = { valueState ->
+                        val startKwh = ChargingCalculator.calculateKwh(valueState.settings.batteryCapacity, valueState.settings.startPercent)
+                        "Start: ${valueState.settings.startPercent.roundToInt()}% ($startKwh kWh)"
+                    },
                     viewState = viewState,
                     initiallyExpanded = true,
                     modifier = Modifier

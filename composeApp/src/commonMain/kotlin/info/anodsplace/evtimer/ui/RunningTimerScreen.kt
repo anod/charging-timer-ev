@@ -47,6 +47,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import info.anodsplace.evtimer.data.ChargingCalculation
+import info.anodsplace.evtimer.data.ChargingCalculator
 import info.anodsplace.evtimer.data.ChargingSettings
 import info.anodsplace.evtimer.data.ChargingViewEvent
 import info.anodsplace.evtimer.data.ChargingViewState
@@ -119,7 +120,8 @@ fun RunningTimerScreen(
             // Battery indicator with animated charging cell
             BatteryChargingIndicator(
                 currentPercent = calculation.estimatedPercent,
-                maxPercent = settings.maxPercent
+                maxPercent = settings.maxPercent,
+                batteryCapacity = settings.batteryCapacity
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -137,14 +139,20 @@ fun RunningTimerScreen(
                         value = "${calculation.chargingSpeed} kW"
                     )
 
+                    val currentKwh = remember(settings.batteryCapacity, calculation.estimatedPercent) {
+                        ChargingCalculator.calculateKwh(settings.batteryCapacity, calculation.estimatedPercent)
+                    }
                     StatRow(
                         label = "Current %",
-                        value = "${calculation.estimatedPercent.roundToInt()}%"
+                        value = "${calculation.estimatedPercent.roundToInt()}% ($currentKwh kWh)"
                     )
 
+                    val targetKwh = remember(settings.batteryCapacity, settings.maxPercent) {
+                        ChargingCalculator.calculateKwh(settings.batteryCapacity, settings.maxPercent)
+                    }
                     StatRow(
                         label = "Target %",
-                        value = "${settings.maxPercent.roundToInt()}%"
+                        value = "${settings.maxPercent.roundToInt()}% ($targetKwh kWh)"
                     )
 
                     StatRow(
@@ -180,12 +188,16 @@ fun RunningTimerScreen(
 fun BatteryChargingIndicator(
     currentPercent: Float,
     maxPercent: Float,
+    batteryCapacity: Float,
     modifier: Modifier = Modifier,
     cellCount: Int = 10
 ) {
     val fraction = if (maxPercent > 0) (currentPercent / maxPercent).coerceIn(0f, 1f) else 0f
     val fullCells = (fraction * cellCount).toInt()
     val isPartial = fraction < 1f && fullCells < cellCount
+    val currentKwh = remember(batteryCapacity, currentPercent) {
+        ChargingCalculator.calculateKwh(batteryCapacity, currentPercent)
+    }
 
     // Blink animation for the currently charging (next) cell
     val infiniteTransition = rememberInfiniteTransition()
@@ -238,7 +250,7 @@ fun BatteryChargingIndicator(
                     )
                 }
             }
-            // Percentage text centered with background for contrast
+            // Percentage and kWh text centered with background for contrast
             Box(
                 modifier = Modifier
                     .align(Alignment.Center)
@@ -246,7 +258,7 @@ fun BatteryChargingIndicator(
                     .padding(horizontal = 10.dp, vertical = 4.dp)
             ) {
                 Text(
-                    text = "${currentPercent.roundToInt()}%",
+                    text = "${currentPercent.roundToInt()}% ($currentKwh kWh)",
                     fontSize = 24.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface
