@@ -5,6 +5,13 @@ import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 
 object ChargingCalculator {
+
+    /**
+     * Calculates the kWh value for a given battery capacity and percentage.
+     */
+    fun calculateKwh(batteryCapacity: Float, percentage: Float): Int {
+        return (batteryCapacity * percentage / 100f).roundToInt()
+    }
     
     fun calculateChargingTime(
         batteryCapacity: Float,

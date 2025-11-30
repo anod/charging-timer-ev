@@ -21,6 +21,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import info.anodsplace.evtimer.data.ChargingCalculator
 import info.anodsplace.evtimer.data.ChargingSettings
 import info.anodsplace.evtimer.data.ChargingViewEvent
 import info.anodsplace.evtimer.data.ChargingViewState
@@ -105,7 +106,7 @@ fun ConfigurationScreen(
                 CollapsibleSettingCard(
                     title = "Max",
                     summary = { valueState ->
-                        val maxKwh = (valueState.settings.batteryCapacity * valueState.settings.maxPercent / 100f).roundToInt()
+                        val maxKwh = ChargingCalculator.calculateKwh(valueState.settings.batteryCapacity, valueState.settings.maxPercent)
                         "Max: ${valueState.settings.maxPercent.roundToInt()}% ($maxKwh kWh)"
                     },
                     viewState = viewState,
@@ -124,7 +125,7 @@ fun ConfigurationScreen(
                 CollapsibleSettingCard(
                     title = "Start",
                     summary = { valueState ->
-                        val startKwh = (valueState.settings.batteryCapacity * valueState.settings.startPercent / 100f).roundToInt()
+                        val startKwh = ChargingCalculator.calculateKwh(valueState.settings.batteryCapacity, valueState.settings.startPercent)
                         "Start: ${valueState.settings.startPercent.roundToInt()}% ($startKwh kWh)"
                     },
                     viewState = viewState,
