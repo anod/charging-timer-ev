@@ -39,6 +39,7 @@ fun PercentageSettingContent(
     suffix: String = "%",
     unitDescription: String = "percent",
     step: Int = 1,
+    additionalInfo: String? = null,
 ) {
     val haptics = LocalHapticFeedback.current
     var text by remember(value) { mutableStateOf(value.roundToInt().toString()) }
@@ -123,5 +124,13 @@ fun PercentageSettingContent(
         steps = sliderSteps,
         modifier = Modifier.semantics { contentDescription = "$label slider value ${value.roundToInt()} $unitDescription" }
     )
+    if (additionalInfo != null) {
+        Text(
+            text = additionalInfo,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.semantics { contentDescription = "$label $additionalInfo" }
+        )
+    }
 }
 

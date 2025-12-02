@@ -113,11 +113,13 @@ fun ConfigurationScreen(
                     initiallyExpanded = false,
                     modifier = Modifier
                 ) {
+                    val maxKwh = ChargingCalculator.calculateKwh(settings.batteryCapacity, settings.maxPercent)
                     PercentageSettingContent(
                         label = "Max",
                         value = viewState.settings.maxPercent,
                         valueRange = 0..100,
-                        onValueChange = { onEvent(ChargingViewEvent.UpdateMaxPercent(it)) }
+                        onValueChange = { onEvent(ChargingViewEvent.UpdateMaxPercent(it)) },
+                        additionalInfo = "$maxKwh kWh"
                     )
                 }
 
@@ -132,11 +134,13 @@ fun ConfigurationScreen(
                     initiallyExpanded = true,
                     modifier = Modifier
                 ) {
+                    val startKwh = ChargingCalculator.calculateKwh(settings.batteryCapacity, settings.startPercent)
                     PercentageSettingContent(
                         label = "Start",
                         value = viewState.settings.startPercent,
                         valueRange = 0..100,
-                        onValueChange = { onEvent(ChargingViewEvent.UpdateStartPercent(it)) }
+                        onValueChange = { onEvent(ChargingViewEvent.UpdateStartPercent(it)) },
+                        additionalInfo = "$startKwh kWh"
                     )
                 }
 
