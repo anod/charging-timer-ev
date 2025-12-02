@@ -129,7 +129,7 @@ fun PercentageSettingContent(
             text = additionalInfo,
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.semantics { contentDescription = "$label $additionalInfo" }
+            modifier = Modifier.semantics { contentDescription = "$label equivalent to $additionalInfo" }
         )
     }
 }
