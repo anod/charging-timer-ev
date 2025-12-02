@@ -14,6 +14,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
@@ -113,7 +114,9 @@ fun ConfigurationScreen(
                     initiallyExpanded = false,
                     modifier = Modifier
                 ) {
-                    val maxKwh = ChargingCalculator.calculateKwh(settings.batteryCapacity, settings.maxPercent)
+                    val maxKwh = remember(settings.batteryCapacity, settings.maxPercent) {
+                        ChargingCalculator.calculateKwh(settings.batteryCapacity, settings.maxPercent)
+                    }
                     PercentageSettingContent(
                         label = "Max",
                         value = viewState.settings.maxPercent,
@@ -134,7 +137,9 @@ fun ConfigurationScreen(
                     initiallyExpanded = true,
                     modifier = Modifier
                 ) {
-                    val startKwh = ChargingCalculator.calculateKwh(settings.batteryCapacity, settings.startPercent)
+                    val startKwh = remember(settings.batteryCapacity, settings.startPercent) {
+                        ChargingCalculator.calculateKwh(settings.batteryCapacity, settings.startPercent)
+                    }
                     PercentageSettingContent(
                         label = "Start",
                         value = viewState.settings.startPercent,
