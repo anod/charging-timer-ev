@@ -8,13 +8,13 @@ import java.time.format.DateTimeFormatter
 
 // Generate version based on current timestamp
 // versionCode: Minutes since 2024-01-01 00:00:00 UTC (monotonically increasing, fits in Int)
+//              Max Int (2,147,483,647) allows ~4083 years from epoch, so overflow won't occur until year 6107
 // versionName: YYYY.MMDD.HHmm format (e.g., 2025.1203.0654)
 val buildTime: Instant = Instant.now()
 val utcTime: LocalDateTime = LocalDateTime.ofInstant(buildTime, ZoneOffset.UTC)
 val versionEpoch: LocalDateTime = LocalDateTime.of(2024, 1, 1, 0, 0, 0)
 val generatedVersionCode: Int = Duration.between(versionEpoch, utcTime).toMinutes().toInt()
-val versionNameFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy.MMdd.HHmm").withZone(ZoneOffset.UTC)
-val generatedVersionName: String = versionNameFormatter.format(buildTime)
+val generatedVersionName: String = utcTime.format(DateTimeFormatter.ofPattern("yyyy.MMdd.HHmm"))
 
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
@@ -133,14 +133,14 @@ tasks.register("updateIosVersion") {
     doLast {
         if (configFile.exists()) {
             var content = configFile.readText()
-            // Update CURRENT_PROJECT_VERSION (versionCode equivalent)
+            // Update CURRENT_PROJECT_VERSION (versionCode equivalent) - anchored to line start
             content = content.replace(
-                Regex("CURRENT_PROJECT_VERSION=.*"),
+                Regex("(?m)^CURRENT_PROJECT_VERSION=.*"),
                 "CURRENT_PROJECT_VERSION=$generatedVersionCode"
             )
-            // Update MARKETING_VERSION (versionName equivalent)
+            // Update MARKETING_VERSION (versionName equivalent) - anchored to line start
             content = content.replace(
-                Regex("MARKETING_VERSION=.*"),
+                Regex("(?m)^MARKETING_VERSION=.*"),
                 "MARKETING_VERSION=$generatedVersionName"
             )
             configFile.writeText(content)
