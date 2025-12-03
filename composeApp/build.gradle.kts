@@ -1,5 +1,20 @@
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import java.time.Duration
+import java.time.Instant
+import java.time.LocalDateTime
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
+
+// Generate version based on current timestamp
+// versionCode: Minutes since 2024-01-01 00:00:00 UTC (monotonically increasing, fits in Int)
+// versionName: YYYY.MMDD.HHmm format (e.g., 2025.1203.0654)
+val buildTime: Instant = Instant.now()
+val utcTime: LocalDateTime = LocalDateTime.ofInstant(buildTime, ZoneOffset.UTC)
+val versionEpoch: LocalDateTime = LocalDateTime.of(2024, 1, 1, 0, 0, 0)
+val generatedVersionCode: Int = Duration.between(versionEpoch, utcTime).toMinutes().toInt()
+val versionNameFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy.MMdd.HHmm").withZone(ZoneOffset.UTC)
+val generatedVersionName: String = versionNameFormatter.format(buildTime)
 
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
@@ -76,8 +91,8 @@ android {
         applicationId = "info.anodsplace.evtimer"
         minSdk = 33
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = generatedVersionCode
+        versionName = generatedVersionName
     }
     packaging {
         resources {
@@ -106,7 +121,30 @@ compose.desktop {
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
             packageName = "info.anodsplace.evtimer"
-            packageVersion = "1.0.0"
+            packageVersion = generatedVersionName
+        }
+    }
+}
+
+// Task to update iOS version info in Config.xcconfig
+tasks.register("updateIosVersion") {
+    val configFile = file("${rootProject.projectDir}/iosApp/Configuration/Config.xcconfig")
+    
+    doLast {
+        if (configFile.exists()) {
+            var content = configFile.readText()
+            // Update CURRENT_PROJECT_VERSION (versionCode equivalent)
+            content = content.replace(
+                Regex("CURRENT_PROJECT_VERSION=.*"),
+                "CURRENT_PROJECT_VERSION=$generatedVersionCode"
+            )
+            // Update MARKETING_VERSION (versionName equivalent)
+            content = content.replace(
+                Regex("MARKETING_VERSION=.*"),
+                "MARKETING_VERSION=$generatedVersionName"
+            )
+            configFile.writeText(content)
+            println("Updated iOS version: CURRENT_PROJECT_VERSION=$generatedVersionCode, MARKETING_VERSION=$generatedVersionName")
         }
     }
 }
