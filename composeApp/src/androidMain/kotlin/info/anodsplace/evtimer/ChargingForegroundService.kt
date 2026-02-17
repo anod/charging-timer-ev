@@ -29,6 +29,7 @@ private const val CHANNEL_ID = "charging_progress"
 private const val NOTIFICATION_ID = 2101
 private const val TAG = "ChargingFgSvc"
 private const val ACTION_STOP_CHARGING = "ACTION_STOP_CHARGING"
+private const val STOP_CHARGING_REQUEST_CODE = 1
 
 class ChargingForegroundService : Service(), KoinComponent {
     private val scope = CoroutineScope(Dispatchers.Main)
@@ -46,6 +47,8 @@ class ChargingForegroundService : Service(), KoinComponent {
         // Handle stop action from notification
         if (intent?.action == ACTION_STOP_CHARGING) {
             scope.launch {
+                // Calling stop() will update the status flow, which will trigger
+                // the collector below to call stopForegroundSafely() and stopSelf()
                 chargingService.stop()
             }
             return START_STICKY
@@ -169,7 +172,7 @@ class ChargingForegroundService : Service(), KoinComponent {
         }
         return PendingIntent.getService(
             this,
-            1,
+            STOP_CHARGING_REQUEST_CODE,
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
