@@ -28,7 +28,7 @@ import java.util.Locale
 private const val CHANNEL_ID = "charging_progress"
 private const val NOTIFICATION_ID = 2101
 private const val TAG = "ChargingFgSvc"
-private const val ACTION_STOP_CHARGING = "ACTION_STOP_CHARGING"
+private const val ACTION_STOP_CHARGING = "info.anodsplace.evtimer.ACTION_STOP_CHARGING"
 private const val STOP_CHARGING_REQUEST_CODE = 1
 
 class ChargingForegroundService : Service(), KoinComponent {
