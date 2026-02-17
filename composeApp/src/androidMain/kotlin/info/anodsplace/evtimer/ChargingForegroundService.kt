@@ -28,6 +28,7 @@ import java.util.Locale
 private const val CHANNEL_ID = "charging_progress"
 private const val NOTIFICATION_ID = 2101
 private const val TAG = "ChargingFgSvc"
+private const val ACTION_STOP_CHARGING = "ACTION_STOP_CHARGING"
 
 class ChargingForegroundService : Service(), KoinComponent {
     private val scope = CoroutineScope(Dispatchers.Main)
@@ -42,6 +43,14 @@ class ChargingForegroundService : Service(), KoinComponent {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // Handle stop action from notification
+        if (intent?.action == ACTION_STOP_CHARGING) {
+            scope.launch {
+                chargingService.stop()
+            }
+            return START_STICKY
+        }
+        
         if (!startedForeground) {
             val initial = chargingService.status.value
             if (initial.isRunning) {
@@ -154,6 +163,18 @@ class ChargingForegroundService : Service(), KoinComponent {
         )
     }
 
+    private fun stopChargingIntent(): PendingIntent {
+        val intent = Intent(this, ChargingForegroundService::class.java).apply {
+            action = ACTION_STOP_CHARGING
+        }
+        return PendingIntent.getService(
+            this,
+            1,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+    }
+
     private fun buildNotification(status: info.anodsplace.evtimer.data.ChargingStatus, percentInt: Int): Notification {
         val calc = status.calculation
         val speed = String.format(Locale.US, "%.1f kW", calc.chargingSpeed)
@@ -162,7 +183,7 @@ class ChargingForegroundService : Service(), KoinComponent {
             val h = remainingMin / 60
             val m = remainingMin % 60
             if (h > 0) "${h}h ${m}m left" else "${m}m left"
-        } else "Updating..."
+        } else if (percentInt >= 100) "Completed" else "Updating..."
         val eta = if (status.estimatedEndTime > 0) {
             DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(status.estimatedEndTime))
         } else null
@@ -181,6 +202,7 @@ class ChargingForegroundService : Service(), KoinComponent {
             .setContentIntent(contentIntent())
             .setProgress(100, percentInt, false)
             .setStyle(NotificationCompat.BigTextStyle().bigText(line))
+            .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Stop", stopChargingIntent())
             .build()
     }
 }
