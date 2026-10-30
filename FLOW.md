@@ -130,10 +130,10 @@
 ### Adding Custom Power
 1. Click '+' chip
 2. Dialog appears
-3. Enter power value (kW)
+3. Enter power value (kW), using a dot or comma as the decimal separator
 4. Click "Add"
-5. New chip appears
-6. Value saved to persistence
+5. The added value is selected and the Power card summary updates; an existing value is selected without adding a duplicate chip
+6. The sorted, distinct power list and selected value are saved together in one settings write
 
 ### Wobble Animation
 - Continuous rotation: -5° ↔ +5° (1 second cycle)

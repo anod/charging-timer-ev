@@ -3,6 +3,7 @@ package info.anodsplace.evtimer.ui
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.OutlinedTextField
@@ -14,6 +15,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import info.anodsplace.evtimer.data.ChargingViewEvent
 
@@ -85,13 +87,14 @@ fun CustomPowerDialog(
             OutlinedTextField(
                 value = powerText,
                 onValueChange = { powerText = it },
-                label = { Text("Power (kW)") }
+                label = { Text("Power (kW)") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
             )
         },
         confirmButton = {
             TextButton(
                 onClick = {
-                    powerText.toFloatOrNull()?.let { power ->
+                    powerText.replace(',', '.').toFloatOrNull()?.let { power ->
                         if (power > 0) {
                             onConfirm(power)
                         }

@@ -52,15 +52,51 @@ class ChargingViewModelTest {
             Dispatchers.resetMain()
         }
     }
+
+    @Test
+    fun addingNewPowerSavesAndSelectsItInOneWrite() = verifyAddedPower(
+        power = 7.2f,
+        expectedPowers = listOf(3.6f, 7f, 7.2f, 11f)
+    )
+
+    @Test
+    fun addingExistingPowerSavesAndSelectsItInOneWrite() = verifyAddedPower(
+        power = 11f,
+        expectedPowers = listOf(3.6f, 7f, 11f)
+    )
+
+    private fun verifyAddedPower(power: Float, expectedPowers: List<Float>) = runTest {
+        val settings = ChargingSettings(availablePowers = listOf(3.6f, 7f, 11f))
+        val repository = ViewModelTestRepository(settings)
+        val service = ViewModelTestService()
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val viewModel = ChargingViewModel(repository, service, ClockTimeFormatter { "" })
+
+        try {
+            runCurrent()
+
+            viewModel.handleEvent(ChargingViewEvent.AddCustomPower(power))
+            runCurrent()
+
+            val expected = settings.copy(chargingPower = power, availablePowers = expectedPowers)
+            assertEquals(listOf(expected), repository.savedSettings)
+            assertEquals(expected, viewModel.viewState.settings)
+        } finally {
+            viewModel.viewModelScope.cancel()
+            Dispatchers.resetMain()
+        }
+    }
 }
 
-private class ViewModelTestRepository : ChargingRepository {
-    private val settings = MutableStateFlow(ChargingSettings())
+private class ViewModelTestRepository(initialSettings: ChargingSettings = ChargingSettings()) : ChargingRepository {
+    private val settings = MutableStateFlow(initialSettings)
     private val session = MutableStateFlow(ChargingSession())
+    val savedSettings = mutableListOf<ChargingSettings>()
 
     override fun observeSettings() = settings
     override fun observeSession() = session
     override suspend fun saveSettings(settings: ChargingSettings) {
+        savedSettings.add(settings)
         this.settings.value = settings
     }
     override suspend fun saveSession(session: ChargingSession) {

@@ -6,4 +6,9 @@ data class ChargingSettings(
     val startPercent: Float = 20f,
     val maxPercent: Float = 80f,
     val availablePowers: List<Float> = listOf(3.6f, 7f, 11f, 22f, 50f, 180f, 360f)
-)
+) {
+    fun withAddedPower(power: Float): ChargingSettings = copy(
+        chargingPower = power,
+        availablePowers = (availablePowers + power).distinct().sorted()
+    )
+}
