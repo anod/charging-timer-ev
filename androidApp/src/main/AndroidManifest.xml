@@ -7,6 +7,7 @@
 
     <application
         android:name=".MainApplication"
+        android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:supportsRtl="true"
@@ -22,7 +23,11 @@
         <service
             android:name=".ChargingForegroundService"
             android:exported="false"
-            android:foregroundServiceType="specialUse" />
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="User-started EV charging timer that estimates charging progress and time remaining while the app is in the background, with an ongoing notification and a stop action. Does not connect to or control a vehicle." />
+        </service>
     </application>
 
 </manifest>

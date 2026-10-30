@@ -33,6 +33,12 @@ in your IDE’s toolbar or build it directly from the terminal:
   .\gradlew.bat :androidApp:assembleDebug
   ```
 
+### Android releases
+
+See [Internal testing releases](docs/releasing.md) for signing setup, required
+GitHub Secrets, the manual Play upload workflow, and the Play Console checklist.
+The [privacy policy](docs/privacy.md) is published from `docs` using GitHub Pages.
+
 ### Build and Run Desktop (JVM) Application
 
 To build and run the development version of the desktop app, use the run configuration from the run widget
