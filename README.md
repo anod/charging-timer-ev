@@ -1,5 +1,10 @@
 This is a Kotlin Multiplatform project targeting Android, iOS, Desktop (JVM).
 
+The running charging screen shows the remaining duration alongside the estimated finish time
+in the local time zone. Clock times use platform time preferences (the device's 12/24-hour
+setting on Android and iOS, and the locale's short time format on desktop). The Android
+charging notification uses the same clock formatter.
+
 * [/shared](./shared/src) is for code that will be shared across your Compose Multiplatform applications.
   It contains several subfolders:
   - [commonMain](./shared/src/commonMain/kotlin) is for code that’s common for all targets.

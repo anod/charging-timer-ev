@@ -157,7 +157,12 @@ fun RunningTimerScreen(
 
                     StatRow(
                         label = "Time Remaining",
-                        value = formatTime(calculation.timeRemainingMinutes)
+                        value = buildString {
+                            append(formatTime(calculation.timeRemainingMinutes))
+                            if (viewState.estimatedEndTimeText.isNotEmpty()) {
+                                append(" \u00b7 ").append(viewState.estimatedEndTimeText)
+                            }
+                        }
                     )
 
                     StatRow(
@@ -464,6 +469,7 @@ private fun RunningTimerScreenPreview() {
     val state = ChargingViewState(
         isRunning = true,
         currentPercent = 45f,
+        estimatedEndTimeText = "15:40",
         settings = ChargingSettings(
             batteryCapacity = 75f,
             chargingPower = 11f,
@@ -490,6 +496,7 @@ private fun RunningTimerScreenAltPreview() {
     val state = ChargingViewState(
         isRunning = true,
         currentPercent = 60f,
+        estimatedEndTimeText = "4:05 PM",
         settings = ChargingSettings(
             batteryCapacity = 60f,
             chargingPower = 7.2f,
