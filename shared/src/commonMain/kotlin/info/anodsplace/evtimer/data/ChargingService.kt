@@ -18,7 +18,8 @@ data class ChargingStatus(
     val startTime: Long = 0L,
     val currentPercent: Float = 0f,
     val estimatedEndTime: Long = 0L,
-    val calculation: ChargingCalculation = ChargingCalculation()
+    val calculation: ChargingCalculation = ChargingCalculation(),
+    val targetPercent: Float = ChargingSettings().maxPercent
 )
 
 /**
@@ -100,7 +101,8 @@ class ChargingServiceImpl(
             startTime = session.startTime,
             currentPercent = currentPercent,
             estimatedEndTime = estimatedEndTime,
-            calculation = calculation
+            calculation = calculation,
+            targetPercent = settings.maxPercent
         )
     }
 
