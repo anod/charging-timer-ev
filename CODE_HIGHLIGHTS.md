@@ -278,36 +278,35 @@ actual class ChargingRepositoryImpl : ChargingRepository {
 ## Build Configuration
 
 ```kotlin
-// Root build.gradle.kts
-plugins {
-    kotlin("multiplatform") version "1.9.22" apply false
-    kotlin("jvm") version "1.9.22" apply false
-    id("org.jetbrains.compose") version "1.5.12" apply false
-}
+// Modules: shared (KMP library), androidApp, desktopApp, iosApp (Xcode); versions live in gradle/libs.versions.toml
 
 // shared/build.gradle.kts
+plugins {
+    alias(libs.plugins.kotlin.multiplatform)
+    alias(libs.plugins.kotlin.multiplatform.android.library)
+    alias(libs.plugins.composeMultiplatform)
+    alias(libs.plugins.composeCompiler)
+}
+
 kotlin {
-    jvm("desktop") {
-        compilations.all {
-            kotlinOptions {
-                jvmTarget = "17"
-            }
-        }
-    }
-    
+    android { namespace = "info.anodsplace.evtimer.shared" /* compileSdk, minSdk from the catalog */ }
+    iosArm64(); iosSimulatorArm64() // framework baseName = "Shared"
+    jvm()
+
     sourceSets {
-        val commonMain by getting {
-            dependencies {
-                implementation(compose.runtime)
-                implementation(compose.foundation)
-                implementation(compose.material3)
-                implementation(compose.ui)
-                implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.5.0")
-                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
-            }
+        commonMain.dependencies {
+            implementation(libs.compose.runtime)
+            implementation(libs.compose.foundation)
+            implementation(libs.compose.material3)
+            implementation(libs.compose.ui)
+            api(libs.koin.core)
+            implementation(libs.androidx.datastore.preferences)
         }
     }
 }
+
+// androidApp/build.gradle.kts: com.android.application (built-in Kotlin) + implementation(project(":shared"))
+// desktopApp/build.gradle.kts: kotlin("jvm") + compose.desktop { application { ... } } + implementation(project(":shared"))
 ```
 
 ## Future Enhancements
