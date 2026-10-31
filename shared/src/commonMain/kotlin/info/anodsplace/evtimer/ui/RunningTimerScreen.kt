@@ -176,7 +176,13 @@ fun RunningTimerScreen(
                 batteryCapacity = settings.batteryCapacity
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            viewState.timeProgress?.let { progress ->
+                TimePredictionBar(
+                    progress = progress,
+                    startTimeText = viewState.startTimeText,
+                    estimatedEndTimeText = viewState.estimatedEndTimeText
+                )
+            }
 
             // Charging Stats
             Card(
@@ -187,14 +193,6 @@ fun RunningTimerScreen(
                     modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 12.dp, bottom = 24.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    viewState.timeProgress?.let { progress ->
-                        TimePredictionBar(
-                            progress = progress,
-                            startTimeText = viewState.startTimeText,
-                            estimatedEndTimeText = viewState.estimatedEndTimeText,
-                            modifier = Modifier.padding(vertical = 12.dp)
-                        )
-                    }
                     EditableStatRow(
                         label = stringResource(Res.string.charging_speed),
                         value = stringResource(
