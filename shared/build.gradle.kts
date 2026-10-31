@@ -32,6 +32,13 @@ val mergeLibraryDefinitions = tasks.register("mergeLibraryDefinitions") {
     }
 }
 
+val appResources = layout.buildDirectory.dir("generated/appResources")
+val prepareAppResources = tasks.register<Sync>("prepareAppResources") {
+    from(layout.projectDirectory.dir("src/commonMain/composeResources"))
+    from(mergeLibraryDefinitions)
+    into(appResources)
+}
+
 val generatedBuildInfo = layout.buildDirectory.dir("generated/buildInfo")
 val appVersion = rootProject.extra["generatedVersionName"] as String
 val generateBuildInfo = tasks.register("generateBuildInfo") {
@@ -47,7 +54,7 @@ val generateBuildInfo = tasks.register("generateBuildInfo") {
 compose.resources {
     publicResClass = true
     packageOfResClass = "info.anodsplace.evtimer.generated.resources"
-    customDirectory("commonMain", mergeLibraryDefinitions.map { generatedLicenseResources.get() })
+    customDirectory("commonMain", prepareAppResources.map { appResources.get() })
 }
 
 kotlin {
