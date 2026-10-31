@@ -32,6 +32,7 @@ data class PresetConfiguration(
         PresetEvent.Reset -> copy(settings = selected.settings.copy(startPercent = settings.startPercent))
         is PresetEvent.Delete -> {
             require(event.id != ChargingRepositoryImpl.CUSTOM_ID) { "The Custom preset cannot be deleted" }
+            require(presets.any { it.id == event.id }) { "Unknown preset: ${event.id}" }
             val next = copy(presets = presets.filterNot { it.id == event.id })
             if (selectedId == event.id) next.reduce(PresetEvent.Select(ChargingRepositoryImpl.CUSTOM_ID)) else next
         }

@@ -60,6 +60,7 @@ class PresetConfigurationTest {
         assertEquals(custom.settings.copy(startPercent = 25f), deleted.settings)
         assertFalse(deleted.isEdited)
         assertFailsWith<IllegalArgumentException> { selected.reduce(PresetEvent.Delete(custom.id)) }
+        assertFailsWith<IllegalArgumentException> { selected.reduce(PresetEvent.Delete("missing")) }
     }
 
     @Test fun customEditsAreSavedDirectlyAndCanBeSavedAsNamedPreset() {
