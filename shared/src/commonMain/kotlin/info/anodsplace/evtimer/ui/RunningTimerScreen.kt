@@ -501,25 +501,26 @@ private fun RunningTimerScreenAltPreview() {
         }
     }
 
-    @Preview(name = "RunningTimerScreen - Time to 80% reached")
-    @Composable
-    private fun RunningTimerScreenReachedPreview() {
-        val state = RunningViewState(
-            estimatedEndTimeText = "6:53 PM",
-            milestoneEstimate = MilestoneEstimate(0, 1_800_000_000_000L, reached = true),
-            milestoneEtaText = "5:48 PM",
-            settings = ChargingSettings(60f, 11f, 20f, 100f),
-            calculation = ChargingCalculation(
-                timeRemainingMinutes = 60,
-                estimatedPercent = 82f,
-                chargingSpeed = 11f
-            ),
-            elapsedMinutes = 202
-        )
-        MaterialTheme {
-            Scaffold {
-                RunningTimerScreen(viewState = state, onEvent = {})
-            }
+}
+
+@Preview(name = "RunningTimerScreen - Time to 80% reached")
+@Composable
+private fun RunningTimerScreenReachedPreview() {
+    val state = RunningViewState(
+        estimatedEndTimeText = "6:53 PM",
+        milestoneEstimate = MilestoneEstimate(0, 1_800_000_000_000L, reached = true),
+        milestoneEtaText = "5:48 PM",
+        settings = ChargingSettings(60f, 11f, 20f, 100f),
+        calculation = ChargingCalculation(
+            timeRemainingMinutes = 60,
+            estimatedPercent = 82f,
+            chargingSpeed = 11f
+        ),
+        elapsedMinutes = 202
+    )
+    MaterialTheme {
+        Scaffold {
+            RunningTimerScreen(viewState = state, onEvent = {})
         }
     }
 }
