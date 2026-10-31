@@ -42,6 +42,7 @@ import info.anodsplace.evtimer.data.ChargingSettings
 import info.anodsplace.evtimer.data.ChargingPreset
 import info.anodsplace.evtimer.data.ConfigurationViewEvent
 import info.anodsplace.evtimer.data.ConfigurationViewState
+import info.anodsplace.evtimer.data.ChargingRepositoryImpl
 import info.anodsplace.evtimer.data.MAX_PRESET_NAME_CODE_POINTS
 import info.anodsplace.evtimer.data.PresetNameError
 import info.anodsplace.evtimer.data.formatLocaleNumber
@@ -66,6 +67,9 @@ fun ConfigurationScreen(
 ) {
     val settings = viewState.settings
     val presets = viewState.presetConfiguration
+    var cardExpansion by remember(presets.selectedId) {
+        mutableStateOf(expandedCards(presets.selectedId))
+    }
     var showNameDialog by rememberSaveable { mutableStateOf(false) }
     var presetName by rememberSaveable { mutableStateOf("") }
     val presetNameValidation = remember(presetName, presets.presets) {
@@ -245,7 +249,8 @@ fun ConfigurationScreen(
                         )
                     },
                     viewState = viewState,
-                    initiallyExpanded = false,
+                    expanded = cardExpansion.battery,
+                    onExpandedChange = { cardExpansion = cardExpansion.copy(battery = it) },
                     modifier = Modifier
                 ) {
                     PercentageSettingContent(
@@ -273,7 +278,8 @@ fun ConfigurationScreen(
                         )
                     },
                     viewState = viewState,
-                    initiallyExpanded = false,
+                    expanded = cardExpansion.max,
+                    onExpandedChange = { cardExpansion = cardExpansion.copy(max = it) },
                     modifier = Modifier
                 ) {
                     val maxKwh = remember(settings.batteryCapacity, settings.maxPercent) {
@@ -306,7 +312,8 @@ fun ConfigurationScreen(
                         )
                     },
                     viewState = viewState,
-                    initiallyExpanded = true,
+                    expanded = cardExpansion.start,
+                    onExpandedChange = { cardExpansion = cardExpansion.copy(start = it) },
                     modifier = Modifier
                 ) {
                     val startKwh = remember(settings.batteryCapacity, settings.startPercent) {
@@ -336,7 +343,8 @@ fun ConfigurationScreen(
                         )
                     },
                     viewState = viewState,
-                    initiallyExpanded = true,
+                    expanded = cardExpansion.power,
+                    onExpandedChange = { cardExpansion = cardExpansion.copy(power = it) },
                     modifier = Modifier
                 ) {
                     ChargingPowerContent(
@@ -363,7 +371,12 @@ fun ConfigurationScreenPreview() {
             maxPercent = 80f
         )
     )
-    MaterialTheme { ConfigurationScreen(viewState = dummyState, onEvent = {}) }
+    MaterialTheme {
+        ConfigurationScreen(
+            viewState = dummyState.copy(selectedPresetId = ChargingRepositoryImpl.CUSTOM_ID),
+            onEvent = {}
+        )
+    }
 }
 
 @Preview

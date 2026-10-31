@@ -68,6 +68,28 @@ fun CollapsibleSettingCard(
     expandedContent: @Composable () -> Unit
 ) {
     var expanded by remember { mutableStateOf(initiallyExpanded) }
+    CollapsibleSettingCard(
+        title = title,
+        summary = summary,
+        viewState = viewState,
+        modifier = modifier,
+        expanded = expanded,
+        onExpandedChange = { expanded = it },
+        expandedContent = expandedContent
+    )
+}
+
+@OptIn(ExperimentalAnimationApi::class)
+@Composable
+fun CollapsibleSettingCard(
+    title: String,
+    summary: @Composable (ConfigurationViewState) -> String,
+    viewState: ConfigurationViewState,
+    expanded: Boolean,
+    onExpandedChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+    expandedContent: @Composable () -> Unit
+) {
     val arrow = if (expanded) "▾" else "▸"
     val summaryText = summary(viewState)
     val collapseDescription = stringResource(Res.string.collapse_setting_description, title, summaryText)
@@ -90,7 +112,7 @@ fun CollapsibleSettingCard(
                         .fillMaxWidth()
                         .clickable {
                             haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                            expanded = false
+                            onExpandedChange(false)
                         }
                         .semantics { contentDescription = collapseDescription }
                         .padding(bottom = 4.dp)
@@ -108,7 +130,7 @@ fun CollapsibleSettingCard(
             ElevatedAssistChip(
                 onClick = {
                     haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                    expanded = true
+                    onExpandedChange(true)
                 },
                 label = { Text(collapsedLabel) },
                 modifier = modifier
