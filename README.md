@@ -137,7 +137,7 @@ restoration is retried when the app becomes visible if Android denies a backgrou
 
 At the target ETA, a separate `charging_complete` high-importance notification repeats
 notification sound and vibration until handled. It respects silent/vibrate mode, channel
-settings and Do Not Disturb; it does not bypass DND. Both **Stop charging** and **Dismiss**
+settings and Do Not Disturb; it does not bypass DND. Both **Stop timer** and **Dismiss**
 cancel the alert's sound/vibration; Dismiss leaves the saved timer running, while Stop
 ends only the app's timer (the app cannot control the vehicle). The same choices appear
 in an Android in-app dialog when the activity is resumed. All alert text uses Android
