@@ -45,6 +45,7 @@ import info.anodsplace.evtimer.data.ConfigurationViewState
 import info.anodsplace.evtimer.data.MAX_PRESET_NAME_CODE_POINTS
 import info.anodsplace.evtimer.data.PresetNameError
 import info.anodsplace.evtimer.data.formatLocaleNumber
+import info.anodsplace.evtimer.data.formatPower
 import info.anodsplace.evtimer.data.normalizeAndValidatePresetName
 import info.anodsplace.evtimer.generated.resources.Res
 import info.anodsplace.evtimer.generated.resources.*
@@ -224,7 +225,7 @@ fun ConfigurationScreen(
                     selected = false,
                     enabled = !viewState.isLoading,
                     onClick = { showNameDialog = true },
-                    label = { Text("+")                     },
+                    label = { Text("+") },
                     modifier = Modifier.semantics { contentDescription = saveAsPresetDescription }
                 )
             }
@@ -330,7 +331,7 @@ fun ConfigurationScreen(
                     summary = { valueState ->
                         stringResource(
                             Res.string.power_summary,
-                            formatLocaleNumber(valueState.settings.chargingPower, 1, 1),
+                            formatPower(valueState.settings.chargingPower),
                             stringResource(Res.string.unit_kw)
                         )
                     },

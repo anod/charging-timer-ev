@@ -7,9 +7,10 @@ formatting is assembled in Android using resource-backed formatters, while the s
 notification logic only decides which formatted parts are needed.
 
 Shared UI number formatting uses the active platform locale, and clock estimates use the
-platform's locale and time preferences. Power is consistently shown with one decimal
-place. Add translations as resource qualifiers when they are ready; do not add a per-app
-Android `localeConfig` until a second language is shipped.
+platform's locale and time preferences. In-app power labels use one minimum and two
+maximum fractional digits to preserve custom-power precision; notification power remains
+at one decimal place. Add translations as resource qualifiers when they are ready; do not
+add a per-app Android `localeConfig` until a second language is shipped.
 
 The built-in preset keeps its existing stored name (`Default`) and identity (`custom`).
 The UI resolves that identity to the localized `default_preset` resource only for display.

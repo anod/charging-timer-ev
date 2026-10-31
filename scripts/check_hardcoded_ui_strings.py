@@ -12,6 +12,7 @@ SOURCE_PATHS = (
     ROOT / "shared/src/commonMain/kotlin/info/anodsplace/evtimer/data/ChargingNotificationText.kt",
     ROOT / "androidApp/src/main/kotlin",
 )
+COMPOSE_RESOURCE_PATH = ROOT / "shared/src/commonMain/composeResources"
 PATTERNS = (
     re.compile(r'\bText\s*\(\s*(?:text\s*=\s*)?"(?:\\.|[^"\\])*[A-Za-z]'),
     re.compile(
@@ -40,6 +41,14 @@ def source_before_previews(source: str) -> str:
 
 def main() -> int:
     failures: list[str] = []
+    for path in sorted(COMPOSE_RESOURCE_PATH.rglob("*.xml")):
+        for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+            if "%%" in line:
+                failures.append(
+                    f"{path.relative_to(ROOT)}:{line_number}: use a single '%' in Compose resources; "
+                    "%% is only escaped by Android string formatting"
+                )
+
     for source_path in SOURCE_PATHS:
         paths = sorted(source_path.rglob("*.kt")) if source_path.is_dir() else [source_path]
         for path in paths:

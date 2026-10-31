@@ -24,7 +24,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import info.anodsplace.evtimer.data.ConfigurationViewEvent
-import info.anodsplace.evtimer.data.formatLocaleNumber
+import info.anodsplace.evtimer.data.formatPower
 import info.anodsplace.evtimer.generated.resources.Res
 import info.anodsplace.evtimer.generated.resources.ac
 import info.anodsplace.evtimer.generated.resources.add
@@ -85,7 +85,7 @@ fun ChargingPowerChips(
                     Text(
                         stringResource(
                             Res.string.power_value,
-                            formatLocaleNumber(power, 1, 1),
+                            formatPower(power),
                             stringResource(Res.string.unit_kw)
                         )
                     )
@@ -145,7 +145,7 @@ fun CustomPowerDialog(
                                     Text(
                                         stringResource(
                                             Res.string.power_value,
-                                            formatLocaleNumber(suggestion.toFloat(), 1, 1),
+                                            formatPower(suggestion.toFloat()),
                                             stringResource(Res.string.unit_kw)
                                         )
                                     )

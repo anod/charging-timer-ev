@@ -38,7 +38,7 @@ jobs:
         run: ./gradlew :androidApp:assembleDebug
 
       - name: Verify storage, host tests and Android backup rules
-        run: ./gradlew :shared:jvmTest :shared:testAndroidHostTest :shared:verifyCommonMainChargingDatabaseMigration :androidApp:lintDebug
+        run: ./gradlew :shared:jvmTest :shared:testAndroidHostTest :shared:verifyCommonMainChargingDatabaseMigration :androidApp:testDebugUnitTest :androidApp:lintDebug
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v7

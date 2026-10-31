@@ -5,3 +5,5 @@ expect fun formatLocaleNumber(
     minimumFractionDigits: Int,
     maximumFractionDigits: Int
 ): String
+
+fun formatPower(value: Float): String = formatLocaleNumber(value, 1, 2)

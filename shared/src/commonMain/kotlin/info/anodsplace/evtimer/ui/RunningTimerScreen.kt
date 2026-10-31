@@ -58,13 +58,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import info.anodsplace.evtimer.data.formatLocaleNumber
 import info.anodsplace.evtimer.data.ChargingCalculation
 import info.anodsplace.evtimer.data.ChargingCalculator
 import info.anodsplace.evtimer.data.ChargingSettings
+import info.anodsplace.evtimer.data.MILESTONE_PERCENT
 import info.anodsplace.evtimer.data.MilestoneEstimate
 import info.anodsplace.evtimer.data.RunningViewEvent
 import info.anodsplace.evtimer.data.RunningViewState
+import info.anodsplace.evtimer.data.formatLocaleNumber
+import info.anodsplace.evtimer.data.formatPower
 import info.anodsplace.evtimer.material.MaterialShapes
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -176,7 +178,7 @@ fun RunningTimerScreen(
                         label = stringResource(Res.string.charging_speed),
                         value = stringResource(
                             Res.string.power_value,
-                            formatLocaleNumber(calculation.chargingSpeed, 1, 1),
+                            formatPower(calculation.chargingSpeed),
                             stringResource(Res.string.unit_kw)
                         ),
                         actionLabel = stringResource(Res.string.change_charging_speed),
@@ -227,7 +229,7 @@ fun RunningTimerScreen(
                         StatRow(
                             label = stringResource(
                                 Res.string.time_to_percent,
-                                formatLocaleNumber(80f, 0, 0)
+                                formatLocaleNumber(MILESTONE_PERCENT, 0, 0)
                             ),
                             value = if (viewState.milestoneEtaText.isNotEmpty()) {
                                 stringResource(
