@@ -12,6 +12,8 @@ A Kotlin Multiplatform (KMP) application for managing EV charging sessions with 
 - **Charging Power Selection**: 
   - Predefined chips for common powers: 3.6, 7, 11, 22 kW
   - '+' button to add custom power values via dialog
+  - Adding a custom power selects it immediately; existing values are selected without duplicate chips
+  - The sorted, distinct power list and selection are saved together; decimal input accepts dots and commas
   - Custom powers are persisted and available in future sessions
 - **Start Percentage**: Slider from 0-100%
 - **Max Percentage**: Slider from 0-100%

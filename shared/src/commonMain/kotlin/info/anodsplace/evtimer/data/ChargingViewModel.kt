@@ -94,12 +94,7 @@ class ChargingViewModel(
     }
 
     private fun addCustomPower(power: Float) {
-        val newPowers = viewState.settings.availablePowers.toMutableList()
-        if (!newPowers.contains(power)) {
-            newPowers.add(power)
-            newPowers.sort()
-            saveSettings(viewState.settings.copy(availablePowers = newPowers))
-        }
+        saveSettings(viewState.settings.withAddedPower(power))
     }
 
     private fun startCharging() {
