@@ -6,13 +6,15 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 
 data class ChargingViewState(
+    val isLoading: Boolean = true,
     val isRunning: Boolean = false,
     val startTime: Long = 0L,
     val currentPercent: Float = 0f,
     val estimatedEndTime: Long = 0L,
     val estimatedEndTimeText: String = "",
     val settings: ChargingSettings = ChargingSettings(),
-    val calculation: ChargingCalculation = ChargingCalculation()
+    val calculation: ChargingCalculation = ChargingCalculation(),
+    val elapsedMinutes: Int = 0
 )
 
 data class ChargingCalculation(
@@ -39,6 +41,7 @@ class ChargingViewModel(
     private val service: ChargingService,
     private val clockTimeFormatter: ClockTimeFormatter
 ) : BaseFlowViewModel<ChargingViewState, ChargingViewEvent, ChargingViewAction>() {
+    private var latestSettings = ChargingSettings.DEFAULT
 
     init {
         viewState = ChargingViewState()
@@ -49,7 +52,18 @@ class ChargingViewModel(
                 service.status
             ) { settings, status -> settings to status }
                 .collect { (settings, status) ->
+                    if (status.isLoading) return@collect
+                    latestSettings = settings
+                    val sessionSettings = status.snapshot?.let {
+                        settings.copy(
+                            batteryCapacity = it.batteryCapacity,
+                            startPercent = it.startPercent,
+                            maxPercent = it.targetPercent,
+                            chargingPower = status.calculation.chargingSpeed
+                        )
+                    } ?: settings
                     viewState = ChargingViewState(
+                        isLoading = false,
                         isRunning = status.isRunning,
                         startTime = status.startTime,
                         currentPercent = status.currentPercent,
@@ -57,35 +71,40 @@ class ChargingViewModel(
                         estimatedEndTimeText = if (status.estimatedEndTime > 0L) {
                             clockTimeFormatter.format(status.estimatedEndTime)
                         } else "",
-                        settings = settings,
-                        calculation = status.calculation
+                        settings = sessionSettings,
+                        calculation = status.calculation,
+                        elapsedMinutes = status.elapsedMinutes
                     )
                 }
         }
     }
 
     override fun handleEvent(event: ChargingViewEvent) {
+        if (viewState.isLoading) return
         when (event) {
             is ChargingViewEvent.StartCharging -> startCharging()
             is ChargingViewEvent.StopCharging -> stopCharging()
             is ChargingViewEvent.UpdateBatteryCapacity -> saveSettings(
-                viewState.settings.copy(
+                latestSettings.copy(
                     batteryCapacity = event.capacity
                 )
             )
             is ChargingViewEvent.UpdateChargingPower -> saveSettings(
-                viewState.settings.copy(
+                latestSettings.copy(
                     chargingPower = event.power
                 )
             )
-            is ChargingViewEvent.AddCustomPower -> addCustomPower(event.power)
+            is ChargingViewEvent.AddCustomPower -> {
+                if (event.power.isFinite() && event.power > 0f) addCustomPower(event.power)
+                else println("Charging settings: rejecting invalid custom power")
+            }
             is ChargingViewEvent.UpdateStartPercent -> saveSettings(
-                viewState.settings.copy(
+                latestSettings.copy(
                     startPercent = event.percent
                 )
             )
             is ChargingViewEvent.UpdateMaxPercent -> saveSettings(
-                viewState.settings.copy(
+                latestSettings.copy(
                     maxPercent = event.percent
                 )
             )
@@ -94,7 +113,7 @@ class ChargingViewModel(
     }
 
     private fun addCustomPower(power: Float) {
-        saveSettings(viewState.settings.withAddedPower(power))
+        saveSettings(latestSettings.withAddedPower(power))
     }
 
     private fun startCharging() {

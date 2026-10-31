@@ -57,7 +57,7 @@ class ChargingForegroundService : Service(), KoinComponent {
         
         if (!startedForeground) {
             val initial = chargingService.status.value
-            if (initial.isRunning) {
+            if (!initial.isLoading && initial.isRunning) {
                 val initialPercent = initial.currentPercent.toInt().coerceIn(0, 100)
                 startInForeground(buildNotification(initial, initialPercent))
                 lastPercentInt = initialPercent
@@ -66,6 +66,7 @@ class ChargingForegroundService : Service(), KoinComponent {
         if (collectorJob == null) {
             collectorJob = scope.launch {
                 chargingService.status.collectLatest { status ->
+                    if (status.isLoading) return@collectLatest
                     if (status.isRunning) {
                         val percentInt = status.currentPercent.toInt().coerceIn(0, 100)
                         val shouldUpdate = !startedForeground || lastPercentInt != percentInt
