@@ -5,6 +5,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.resetMain
@@ -34,7 +35,7 @@ class ChargingViewModelTest {
         }
         val service = ChargingServiceImpl(repository, backgroundScope, clock)
         val running = RunningViewModel(repository, service, ClockTimeFormatter { "ETA:$it" })
-        val config = ConfigurationViewModel(repository, service)
+        val config = ConfigurationViewModel(repository, service, repository)
         val navigation = NavigationViewModel(service)
         try {
             runCurrent()
@@ -72,7 +73,7 @@ class ChargingViewModelTest {
     fun rejectsNonFiniteCustomPowerWithoutPersistingIt() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val repo = ViewModelTestRepository()
-        val viewModel = ConfigurationViewModel(repo, ViewModelTestService())
+        val viewModel = ConfigurationViewModel(repo, ViewModelTestService(), repo)
         try {
             runCurrent()
             listOf(Float.POSITIVE_INFINITY, Float.NaN, 0f, -7f).forEach {
@@ -91,7 +92,7 @@ class ChargingViewModelTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val repository = ViewModelTestRepository(ChargingSettings(75f, 7f, 30f, 90f))
         val service = ViewModelTestService().apply { status.value = ChargingStatus() }
-        val viewModel = ConfigurationViewModel(repository, service)
+        val viewModel = ConfigurationViewModel(repository, service, repository)
         try {
             runCurrent()
             assertTrue(viewModel.viewState.isLoading)
@@ -120,7 +121,7 @@ class ChargingViewModelTest {
             )
         }
         val viewModel = RunningViewModel(repository, service, ClockTimeFormatter { "" })
-        val config = ConfigurationViewModel(repository, service)
+        val config = ConfigurationViewModel(repository, service, repository)
         try {
             runCurrent()
             repository.saveSettings(ChargingSettings(100f, 50f, 40f, 90f))
@@ -152,7 +153,7 @@ class ChargingViewModelTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val repository = ViewModelTestRepository()
         val service = ViewModelTestService()
-        val viewModel = ConfigurationViewModel(repository, service)
+        val viewModel = ConfigurationViewModel(repository, service, repository)
         val actions = mutableListOf<ConfigurationViewAction>()
         val actionJob = backgroundScope.launch { viewModel.viewActions.collect { actions += it } }
         try {
@@ -298,7 +299,7 @@ class ChargingViewModelTest {
         val repository = ViewModelTestRepository(settings)
         val service = ViewModelTestService()
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
-        val viewModel = ConfigurationViewModel(repository, service)
+        val viewModel = ConfigurationViewModel(repository, service, repository)
 
         try {
             runCurrent()
@@ -316,12 +317,22 @@ class ChargingViewModelTest {
     }
 }
 
-private class ViewModelTestRepository(initialSettings: ChargingSettings = ChargingSettings()) : ChargingRepository {
+private class ViewModelTestRepository(initialSettings: ChargingSettings = ChargingSettings()) : ChargingRepository, PresetRepository {
     private val settings = MutableStateFlow(initialSettings)
     private val session = MutableStateFlow(ChargingSession())
     val savedSettings = mutableListOf<ChargingSettings>()
 
     override fun observeSettings() = settings
+    override fun observeConfiguration() = settings.map {
+        PresetConfiguration(listOf(ChargingPreset("custom", "Default", it)), "custom", it)
+    }
+    override fun observePresets() = observeConfiguration().map { it.presets }
+    override suspend fun updateSelectedPreset() = Unit
+    override suspend fun saveAsPreset(name: String) = Unit
+    override suspend fun resetPreset() = Unit
+    override suspend fun savePreset(preset: ChargingPreset) = Unit
+    override suspend fun deletePreset(id: String) = Unit
+    override suspend fun selectPreset(id: String) = Unit
     override fun observeSession() = session
     override suspend fun saveSettings(settings: ChargingSettings) {
         savedSettings.add(settings)

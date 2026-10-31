@@ -15,9 +15,13 @@ import info.anodsplace.evtimer.data.ChargingService
 import info.anodsplace.evtimer.data.ChargingSession
 import info.anodsplace.evtimer.data.ChargingSettings
 import info.anodsplace.evtimer.data.ChargingStatus
+import info.anodsplace.evtimer.data.ChargingPreset
+import info.anodsplace.evtimer.data.PresetConfiguration
+import info.anodsplace.evtimer.data.PresetRepository
 import info.anodsplace.evtimer.data.ClockTimeFormatter
 import info.anodsplace.evtimer.uiModule
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.map
 import org.koin.compose.KoinApplication
 import org.koin.dsl.module
 import org.koin.compose.viewmodel.koinViewModel
@@ -31,12 +35,14 @@ class DesktopNavigationTest {
     @Suppress("DEPRECATION")
     fun escapePopsRunningWithoutClickingOrFocusingAnyControl() = runDesktopComposeUiTest {
         val service = DesktopTestService()
+        val repository = DesktopTestRepository()
         lateinit var navigation: NavigationViewModel
         lateinit var focusManager: FocusManager
         setContent {
             KoinApplication(application = {
                 modules(uiModule, module {
-                    single<ChargingRepository> { DesktopTestRepository() }
+                    single<ChargingRepository> { repository }
+                    single<PresetRepository> { repository }
                     single<ChargingService> { service }
                     single<ClockTimeFormatter> { ClockTimeFormatter { "" } }
                 })
@@ -86,10 +92,20 @@ private class DesktopTestService : ChargingService {
     override fun refresh() = Unit
 }
 
-private class DesktopTestRepository : ChargingRepository {
+private class DesktopTestRepository : ChargingRepository, PresetRepository {
     private val settings = MutableStateFlow(ChargingSettings())
     private val session = MutableStateFlow(ChargingSession())
     override fun observeSettings() = settings
+    override fun observeConfiguration() = settings.map {
+        PresetConfiguration(listOf(ChargingPreset("custom", "Default", it)), "custom", it)
+    }
+    override fun observePresets() = observeConfiguration().map { it.presets }
+    override suspend fun updateSelectedPreset() = Unit
+    override suspend fun saveAsPreset(name: String) = Unit
+    override suspend fun resetPreset() = Unit
+    override suspend fun savePreset(preset: ChargingPreset) = Unit
+    override suspend fun deletePreset(id: String) = Unit
+    override suspend fun selectPreset(id: String) = Unit
     override fun observeSession() = session
     override suspend fun saveSettings(settings: ChargingSettings) { this.settings.value = settings }
     override suspend fun saveSession(session: ChargingSession) { this.session.value = session }

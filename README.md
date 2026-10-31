@@ -6,17 +6,30 @@ setting on Android and iOS, and the locale's short time format on desktop). The 
 charging notification uses the same clock formatter.
 
 Starting a timer persists a session snapshot (capacity, start/target percentages,
-optional preset identity, efficiency and timestamped power segments) in SQLDelight
+optional preset identity and edited flag, efficiency and timestamped power segments) in SQLDelight
 2.4.1 SQLite storage. Presets and ordered power options, sessions and their power
 segments are structured tables; completed sessions retain estimated end percentage,
 optional actual percentage and review status. DataStore keeps selected preset, start
-percentage and simple preferences. Later settings edits affect the next session, not
+percentage, unsaved named-preset edits and simple preferences. Later settings edits affect the next session, not
 one already running. A transactional, idempotent migration imports legacy settings
-as the Custom preset and preserves every segment of an existing running snapshot
+as the Default preset and preserves every segment of an existing running snapshot
 before publishing loaded status. Its database marker commits before legacy-key
 cleanup, so an interrupted migration never imports twice.
 Android's app-update receiver waits for that loaded status and restarts the charging
 foreground service only when the migrated session is still running.
+
+Config starts with the built-in Default preset, seeded from existing manual settings.
+Default always appears first and cannot be renamed or deleted. Selecting a named preset
+applies capacity, charging power, target and its power options, but never the session's
+start percentage. Named-preset edits stay selected with a clear `*` marker.
+Tap the selected edited chip to open its anchored Update preset / Reset menu.
+Update preset commits edits; Reset reapplies saved values. Matching saved values clears
+the marker. Default edits save directly. The permanent `+` pill opens Save as new preset
+from any preset, creates and selects a named preset, and leaves the original unchanged.
+No banner or conditional button shifts the settings when selecting or editing presets.
+Names accept emoji and
+must not be blank; advanced name rules and preset management are separate features.
+Selecting another preset discards the previous working edits.
 
 Android uses AndroidSqliteDriver, iOS NativeSqliteDriver, and desktop JdbcSqliteDriver
 with `charging.db` in the platform app-data directory. SQLDelight migration verification
@@ -108,7 +121,7 @@ The [privacy policy](docs/privacy.md) is published from `docs` using GitHub Page
 ### Backup & restore
 
 Android Auto Backup and Google's device-to-device migration can include presets,
-power options, charging history and simple preferences, subject to the user's
+power options, charging history, unsaved preset edits and simple preferences, subject to the user's
 backup settings and transport availability. Both modes explicitly allow only
 `databases/charging.db`, its rollback journal (`charging.db-journal`), defensive
 WAL recovery file (`charging.db-wal`) and
@@ -126,6 +139,13 @@ If the framework refuses DELETE, a warning is logged instead of blocking startup
 the allow-list also includes WAL to retain committed rows in that fallback.
 SQLite rebuilds the disposable shared-memory (`-shm`) file.
 Older schemas migrate on open, including the committed v1 backup baseline.
+Schema v3 adds a session `preset_edited` flag (false for existing sessions) and renames
+the built-in preset to Default while keeping its internal `custom` id unchanged.
+Already-recorded session names are not renamed. Snapshot
+identity, edited flag and values remain independent of later preset edits or deletion.
+Working edits use separate keys in the already allow-listed DataStore file, not the
+saved SQL preset. They survive process death and restore with their selected preset.
+Missing, mismatched or malformed draft state logs a warning and selects Default.
 
 Restored running timers **never resume automatically**. A no-backup installation
 marker detects a database arriving on another installation; the backup agent also
@@ -133,7 +153,7 @@ records restore completion, including preferences-only restores or restores over
 an existing installation. Before loaded status, the timer becomes an interrupted
 history entry with its original snapshot, no fabricated end percentage, and a
 restore-detection timestamp. Start a new timer explicitly to continue charging.
-Missing or stale selected-preset preferences fall back to Custom and valid defaults.
+Missing or stale selected-preset preferences fall back to Default and valid defaults.
 Unreadable/corrupt preferences are logged and replaced with defaults without
 discarding a valid restored database.
 Normal updates retain the local marker and continue the local running session.

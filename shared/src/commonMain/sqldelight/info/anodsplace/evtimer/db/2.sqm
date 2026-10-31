@@ -1,0 +1,2 @@
+ALTER TABLE charge_session ADD COLUMN preset_edited INTEGER NOT NULL DEFAULT 0;
+UPDATE preset SET name = 'Default' WHERE id = 'custom';

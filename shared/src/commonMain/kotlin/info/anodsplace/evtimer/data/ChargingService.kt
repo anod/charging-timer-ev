@@ -146,10 +146,9 @@ class ChargingServiceImpl(
     override suspend fun start() = sessionMutex.withLock {
         status.first { !it.isLoading }
         if (repository.observeSession().first().isRunning) return@withLock
-        val settings = repository.observeSettings().first()
         val now = clock.now().toEpochMilliseconds()
         repository.saveSession(
-            ChargingSession(isRunning = true, snapshot = ChargingSessionSnapshot.from(settings, now))
+            ChargingSession(isRunning = true, snapshot = repository.createSnapshot(now))
         )
     }
 

@@ -8,10 +8,13 @@ import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 
 interface ChargingRepository {
     suspend fun saveSettings(settings: ChargingSettings)
     fun observeSettings(): Flow<ChargingSettings>
+    suspend fun createSnapshot(startedAt: Long): ChargingSessionSnapshot =
+        ChargingSessionSnapshot.from(observeSettings().first(), startedAt)
 
     // Session
     suspend fun saveSession(session: ChargingSession)
@@ -33,6 +36,8 @@ data class ChargingSession(
 
 internal object SessionPreferences {
     val selectedPreset = stringPreferencesKey("selected_preset")
+    val draftPreset = stringPreferencesKey("draft_preset")
+    val draftValues = stringPreferencesKey("draft_values")
     val batteryCapacity = floatPreferencesKey("battery_capacity")
     val chargingPower = floatPreferencesKey("charging_power")
     val startPercent = floatPreferencesKey("start_percent")
@@ -46,6 +51,7 @@ internal object SessionPreferences {
     private val efficiency = floatPreferencesKey("snapshot_efficiency")
     private val presetId = stringPreferencesKey("snapshot_preset_id")
     private val presetName = stringPreferencesKey("snapshot_preset_name")
+    private val presetEdited = booleanPreferencesKey("snapshot_preset_edited")
     private val segments = stringPreferencesKey("snapshot_segments")
 
     fun clearStructuredData(prefs: MutablePreferences) {
@@ -86,6 +92,7 @@ internal object SessionPreferences {
             prefs.remove(efficiency)
             prefs.remove(presetId)
             prefs.remove(presetName)
+            prefs.remove(presetEdited)
             prefs.remove(segments)
             return
         }
@@ -95,6 +102,7 @@ internal object SessionPreferences {
         prefs[efficiency] = snapshot.efficiency
         snapshot.presetId?.let { prefs[presetId] = it } ?: prefs.remove(presetId)
         snapshot.presetName?.let { prefs[presetName] = it } ?: prefs.remove(presetName)
+        prefs[presetEdited] = snapshot.presetEdited
         prefs[segments] = snapshot.segments.joinToString(",") { "${it.startedAt}:${it.powerKw}" }
     }
 
@@ -107,6 +115,7 @@ internal object SessionPreferences {
             efficiency = requireNotNull(prefs[efficiency]),
             presetId = prefs[presetId],
             presetName = prefs[presetName],
+            presetEdited = prefs[presetEdited] ?: false,
             segments = storedSegments.split(",").map {
                 val parts = it.split(":")
                 require(parts.size == 2) { "Invalid persisted power segment" }

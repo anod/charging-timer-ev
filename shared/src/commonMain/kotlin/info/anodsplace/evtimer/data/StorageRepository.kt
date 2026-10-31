@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -21,6 +22,10 @@ import kotlin.time.Clock
 data class ChargingPreset(val id: String, val name: String, val settings: ChargingSettings)
 
 interface PresetRepository {
+    fun observeConfiguration(): Flow<PresetConfiguration>
+    suspend fun updateSelectedPreset()
+    suspend fun saveAsPreset(name: String)
+    suspend fun resetPreset()
     fun observePresets(): Flow<List<ChargingPreset>>
     suspend fun savePreset(preset: ChargingPreset)
     suspend fun deletePreset(id: String)
@@ -58,7 +63,7 @@ class ChargingRepositoryImpl(
             val prefs = dataStore.data.first()
             database.transaction {
                 if (queries.migrationDone().executeAsOne() == 0L) {
-                    putPreset(ChargingPreset(CUSTOM_ID, "Custom", SessionPreferences.readSettings(prefs)))
+                    putPreset(ChargingPreset(CUSTOM_ID, "Default", SessionPreferences.readSettings(prefs)))
                     queries.markMigrated()
                     val snapshot = try {
                         SessionPreferences.readSnapshot(prefs) ?: if (prefs[SessionPreferences.isRunning] == true) {
@@ -74,9 +79,10 @@ class ChargingRepositoryImpl(
                     if (snapshot != null) putSession(ChargingSession(prefs[SessionPreferences.isRunning] == true, snapshot))
                 }
                 if (queries.presetById(CUSTOM_ID).executeAsOneOrNull() == null) {
-                    println("Charging storage: missing Custom preset; restoring defaults")
-                    putPreset(ChargingPreset(CUSTOM_ID, "Custom", ChargingSettings.DEFAULT))
+                    println("Charging storage: missing Default preset; restoring defaults")
+                    putPreset(ChargingPreset(CUSTOM_ID, "Default", ChargingSettings.DEFAULT))
                 }
+                queries.normalizeDefaultName()
                 recoverActiveSession()
                 if (restoreState.requiresInterruption) {
                     println("Charging storage: restored timer interrupted; explicit start required")
@@ -88,7 +94,18 @@ class ChargingRepositoryImpl(
             dataStore.edit {
                 val selected = it[SessionPreferences.selectedPreset]
                 if (selected == null || queries.presetById(selected).executeAsOneOrNull() == null) {
+                    println("Charging storage: missing preset selection; selecting Default")
                     it[SessionPreferences.selectedPreset] = CUSTOM_ID
+                }
+                val draftId = it[SessionPreferences.draftPreset]
+                val draftValues = it[SessionPreferences.draftValues]
+                if ((draftId != null || draftValues != null) &&
+                    (draftId == CUSTOM_ID || draftId != it[SessionPreferences.selectedPreset] ||
+                        draftValues == null || decodePresetDraft(draftValues) == null)) {
+                    println("Charging storage: invalid preset draft; selecting Default")
+                    it[SessionPreferences.selectedPreset] = CUSTOM_ID
+                    it.remove(SessionPreferences.draftPreset)
+                    it.remove(SessionPreferences.draftValues)
                 }
                 SessionPreferences.clearStructuredData(it)
             }
@@ -112,6 +129,7 @@ class ChargingRepositoryImpl(
 
     private fun putPreset(preset: ChargingPreset) {
         require(preset.id.isNotBlank() && preset.name.isNotBlank())
+        require(preset.id != CUSTOM_ID || preset.name == "Default") { "The Default preset cannot be renamed" }
         validate(preset.settings)
         val settings = preset.settings
         queries.putPreset(preset.id, preset.name, settings.batteryCapacity.toDouble(),
@@ -138,9 +156,7 @@ class ChargingRepositoryImpl(
             queries.allOptions().asFlow()
         ) { _, _ ->
             transaction {
-                queries.allPresets().executeAsList().map {
-                    ChargingPreset(it.id, it.name, settings(it, ChargingSettings.DEFAULT.startPercent))
-                }
+                readPresets()
             }
         })
     }
@@ -148,43 +164,95 @@ class ChargingRepositoryImpl(
     override suspend fun savePreset(preset: ChargingPreset) { transaction { putPreset(preset) } }
 
     override suspend fun deletePreset(id: String) {
-        require(id != CUSTOM_ID) { "The Custom preset cannot be deleted" }
-        transaction {
-            require(queries.presetById(id).executeAsOneOrNull() != null) { "Unknown preset: $id" }
-            queries.deletePreset(id)
-        }
-        dataStore.edit { if (it[SessionPreferences.selectedPreset] == id) it[SessionPreferences.selectedPreset] = CUSTOM_ID }
+        changeConfiguration(PresetEvent.Delete(id))
     }
 
     override suspend fun selectPreset(id: String) {
-        transaction { require(queries.presetById(id).executeAsOneOrNull() != null) { "Unknown preset: $id" } }
-        dataStore.edit { it[SessionPreferences.selectedPreset] = id }
+        changeConfiguration(PresetEvent.Select(id))
     }
 
     override suspend fun saveSettings(settings: ChargingSettings) {
         validate(settings)
-        initialize()
-        val id = dataStore.data.first()[SessionPreferences.selectedPreset] ?: CUSTOM_ID
-        transaction {
-            val row = queries.presetById(id).executeAsOneOrNull() ?: queries.presetById(CUSTOM_ID).executeAsOne()
-            putPreset(ChargingPreset(row.id, row.name, settings))
-        }
-        dataStore.edit { it[SessionPreferences.startPercent] = settings.startPercent }
+        changeConfiguration(PresetEvent.Edit(settings))
     }
 
-    override fun observeSettings(): Flow<ChargingSettings> = flow {
+    private fun readPresets(): List<ChargingPreset> = queries.allPresets().executeAsList().map {
+        ChargingPreset(it.id, it.name, settings(it, ChargingSettings.DEFAULT.startPercent))
+    }.sortedBy { if (it.id == CUSTOM_ID) 0 else 1 }
+
+    private fun configuration(prefs: Preferences, presets: List<ChargingPreset>): PresetConfiguration {
+        val selected = presets.firstOrNull { it.id == prefs[SessionPreferences.selectedPreset] }
+            ?: presets.first { it.id == CUSTOM_ID }
+        val draft = if (selected.id != CUSTOM_ID && prefs[SessionPreferences.draftPreset] == selected.id) {
+            prefs[SessionPreferences.draftValues]?.let(::decodePresetDraft)
+        } else null
+        return PresetConfiguration(presets, selected.id, (draft ?: selected.settings).copy(
+            startPercent = SessionPreferences.readSettings(prefs).startPercent
+        ))
+    }
+
+    override fun observeConfiguration(): Flow<PresetConfiguration> = flow {
         initialize()
-        emitAll(combine(dataStore.data, observePresets()) { prefs, presets ->
-            val selected = presets.firstOrNull { it.id == prefs[SessionPreferences.selectedPreset] }
-                ?: presets.first { it.id == CUSTOM_ID }
-            selected.settings.copy(startPercent = SessionPreferences.readSettings(prefs).startPercent)
+        emitAll(combine(dataStore.data, observePresets()) { _, _ ->
+            withContext(Dispatchers.Default) {
+                mutex.withLock { configuration(dataStore.data.first(), readPresets()) }
+            }
         })
+    }
+
+    override fun observeSettings(): Flow<ChargingSettings> =
+        observeConfiguration().map { it.settings }
+
+    override suspend fun updateSelectedPreset() = changeConfiguration(PresetEvent.Update)
+    override suspend fun resetPreset() = changeConfiguration(PresetEvent.Reset)
+
+    @OptIn(kotlin.uuid.ExperimentalUuidApi::class)
+    override suspend fun saveAsPreset(name: String) =
+        changeConfiguration(PresetEvent.SaveNew(kotlin.uuid.Uuid.random().toString(), name))
+
+    private suspend fun changeConfiguration(event: PresetEvent) {
+        initialize()
+        withContext(Dispatchers.Default) {
+            mutex.withLock {
+                val before = configuration(dataStore.data.first(), readPresets())
+                if (event is PresetEvent.Select) require(before.presets.any { it.id == event.id }) { "Unknown preset: ${event.id}" }
+                val after = before.reduce(event)
+                database.transaction {
+                    after.presets.filter { it !in before.presets }.forEach(::putPreset)
+                    before.presets.filter { old -> after.presets.none { it.id == old.id } }
+                        .forEach { queries.deletePreset(it.id) }
+                }
+                dataStore.edit {
+                    it[SessionPreferences.selectedPreset] = after.selectedId
+                    it[SessionPreferences.startPercent] = after.settings.startPercent
+                    if (after.isEdited) {
+                        it[SessionPreferences.draftPreset] = after.selectedId
+                        it[SessionPreferences.draftValues] = after.settings.encodeDraft()
+                    } else {
+                        it.remove(SessionPreferences.draftPreset)
+                        it.remove(SessionPreferences.draftValues)
+                    }
+                }
+            }
+        }
+    }
+
+    override suspend fun createSnapshot(startedAt: Long): ChargingSessionSnapshot {
+        initialize()
+        return withContext(Dispatchers.Default) {
+            mutex.withLock {
+                val state = configuration(dataStore.data.first(), readPresets())
+                ChargingSessionSnapshot.from(state.settings, startedAt).copy(
+                    presetId = state.selectedId, presetName = state.selected.name, presetEdited = state.isEdited
+                )
+            }
+        }
     }
 
     private fun snapshot(row: Charge_session) = ChargingSessionSnapshot(
         row.battery_capacity.toFloat(), row.start_percent.toFloat(), row.target_percent.toFloat(),
         queries.segments(row.id).executeAsList().map { PowerSegment(it.started_at, it.power_kw.toFloat()) },
-        row.preset_id, row.preset_name, row.efficiency.toFloat()
+        row.preset_id, row.preset_name, row.efficiency.toFloat(), row.preset_edited
     )
 
     private fun recoverActiveSession() {
@@ -201,7 +269,8 @@ class ChargingRepositoryImpl(
     private fun putSession(session: ChargingSession) {
         val snapshot = session.snapshot ?: return
         queries.putSession(snapshot.startTime, snapshot.batteryCapacity.toDouble(), snapshot.startPercent.toDouble(),
-            snapshot.targetPercent.toDouble(), snapshot.efficiency.toDouble(), snapshot.presetId, snapshot.presetName, session.isRunning)
+            snapshot.targetPercent.toDouble(), snapshot.efficiency.toDouble(), snapshot.presetId, snapshot.presetName,
+            session.isRunning, snapshot.presetEdited)
         queries.clearSegments(snapshot.startTime)
         snapshot.segments.forEach { queries.putSegment(snapshot.startTime, it.startedAt, it.powerKw.toDouble()) }
         queries.setCurrentSession(snapshot.startTime)
