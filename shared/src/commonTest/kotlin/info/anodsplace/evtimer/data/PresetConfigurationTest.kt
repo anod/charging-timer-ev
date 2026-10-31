@@ -95,7 +95,7 @@ class PresetConfigurationTest {
         val changed = initial.reduce(PresetEvent.Edit(initial.settings.withAddedPower(50f)))
         assertEquals(changed.settings, changed.selected.settings)
         assertFalse(changed.isEdited)
-        val saved = changed.reduce(PresetEvent.SaveNew("new", "Home"))
+        val saved = changed.reduce(PresetEvent.SaveNew("new", "Weekend"))
         assertEquals(changed.selected, saved.presets.first { it.id == custom.id })
         assertEquals("new", saved.selectedId)
     }
