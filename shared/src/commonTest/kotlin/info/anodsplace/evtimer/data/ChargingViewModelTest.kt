@@ -350,5 +350,7 @@ private class ViewModelTestService : ChargingService {
     override val status = MutableStateFlow(ChargingStatus(isLoading = false))
     override suspend fun start() { starts++ }
     override suspend fun stop() { stops++ }
+    val powerChanges = mutableListOf<Float>()
+    override suspend fun changePower(powerKw: Float) { powerChanges += powerKw }
     override fun refresh() { refreshes++ }
 }
