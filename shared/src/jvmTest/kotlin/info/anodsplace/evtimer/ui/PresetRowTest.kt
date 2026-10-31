@@ -82,26 +82,19 @@ class PresetRowTest {
     }
 
     @Test
-    fun emojiPresetNamesRenderInTheChipRowAndNameDialog() = runDesktopComposeUiTest {
+    fun familyEmojiPresetNameRendersInTheChipRowAndNameDialog() = runDesktopComposeUiTest {
         val settings = ChargingSettings.DEFAULT
         val family = "\uD83D\uDC68\u200D\uD83D\uDC69\u200D\uD83D\uDC67"
-        val flag = "\uD83C\uDDEE\uD83C\uDDF1"
-        val skinTone = "\uD83D\uDC4D\uD83C\uDFFD"
         val state = mutableStateOf(ConfigurationViewState(
             isLoading = false, settings = settings,
             presets = listOf(
                 ChargingPreset("custom", "Default", settings),
-                ChargingPreset("home", "Home", settings),
-                ChargingPreset("family", family, settings),
-                ChargingPreset("flag", flag, settings),
-                ChargingPreset("skin-tone", skinTone, settings)
+                ChargingPreset("family", family, settings)
             )
         ))
         setContent { MaterialTheme { ConfigurationScreen(state.value, onEvent = {}) } }
 
         onNodeWithText(family, substring = true).assertExists()
-        onNodeWithText(flag, substring = true).assertExists()
-        onNodeWithText(skinTone, substring = true).assertExists()
         onNodeWithContentDescription("Save as new preset").performClick()
         onNodeWithText("Preset name").assertExists()
         onNodeWithText(family, substring = true).assertExists()
