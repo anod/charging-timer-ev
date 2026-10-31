@@ -19,9 +19,9 @@
     <string name="battery_capacity">Battery Capacity</string>
     <string name="battery_summary">Battery: %1$s %2$s</string>
     <string name="max">Max</string>
-    <string name="max_summary">%1$s: %2$s%% (%3$s %4$s)</string>
+    <string name="max_summary">%1$s: %2$s% (%3$s %4$s)</string>
     <string name="start">Start</string>
-    <string name="start_summary">%1$s: %2$s%% (%3$s %4$s)</string>
+    <string name="start_summary">%1$s: %2$s% (%3$s %4$s)</string>
     <string name="charging_power">Charging Power</string>
     <string name="power_summary">Power: %1$s %2$s</string>
     <string name="unit_kw">kW</string>
@@ -36,14 +36,14 @@
     <string name="current_percent">Current %</string>
     <string name="target_percent">Target %</string>
     <string name="time_remaining">Time Remaining</string>
-    <string name="time_to_percent">Time to %1$s%%</string>
+    <string name="time_to_percent">Time to %1$s%</string>
     <string name="elapsed_time">Elapsed Time</string>
     <string name="reached">Reached</string>
     <string name="complete">Complete</string>
     <string name="duration_hours_minutes">%1$s %2$s</string>
     <string name="stop_timer">Stop Timer</string>
     <string name="apply">Apply</string>
-    <string name="percent_and_energy">%1$s%% (%2$s %3$s)</string>
+    <string name="percent_and_energy">%1$s% (%2$s %3$s)</string>
     <string name="value_with_separator">%1$s · %2$s</string>
 
     <string name="add_custom_power">Add Custom Power</string>
