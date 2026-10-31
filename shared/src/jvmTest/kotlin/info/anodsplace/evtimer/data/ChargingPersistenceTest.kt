@@ -43,7 +43,7 @@ class ChargingPersistenceTest {
                 migrations = listOf(ChargingSessionMigration()),
                 scope = CoroutineScope(Dispatchers.IO + newJob), produceFile = { file }
             )
-            val repo = ChargingRepositoryImpl(upgraded, ChargingDatabase(driver), Clock.System)
+            val repo = ChargingRepositoryImpl(upgraded, ChargingDatabase(driver), Clock.System, LocalStorageRestoreState)
             val session = repo.observeSession().first()
             assertTrue(session.isRunning)
             assertEquals(1_800_000_000_123L, session.startTime)
@@ -58,7 +58,7 @@ class ChargingPersistenceTest {
                 migrations = listOf(ChargingSessionMigration()),
                 scope = CoroutineScope(Dispatchers.IO + restartJob), produceFile = { file }
             )
-            val restored = ChargingRepositoryImpl(restarted, ChargingDatabase(driver), Clock.System)
+            val restored = ChargingRepositoryImpl(restarted, ChargingDatabase(driver), Clock.System, LocalStorageRestoreState)
             assertEquals(session, restored.observeSession().first())
             assertEquals(newSettings, restored.observeSettings().first())
             val segmented = expected.copy(

@@ -37,7 +37,7 @@ class StorageRepositoryTest {
         val database = ChargingDatabase(driver)
         var now = 123_000L
         val clock = object : Clock { override fun now() = Instant.fromEpochMilliseconds(now) }
-        fun repository() = ChargingRepositoryImpl(store, database, clock)
+        fun repository() = ChargingRepositoryImpl(store, database, clock, LocalStorageRestoreState)
         val repo = repository()
         suspend fun close() {
             job.cancelAndJoin()

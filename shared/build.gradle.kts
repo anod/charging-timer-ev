@@ -38,6 +38,8 @@ kotlin {
     jvm()
 
     sourceSets {
+        androidMain { kotlin.srcDir("src/jvmAndroidMain/kotlin") }
+        jvmMain { kotlin.srcDir("src/jvmAndroidMain/kotlin") }
         androidMain.dependencies { implementation(libs.sqldelight.android.driver) }
         iosMain.dependencies { implementation(libs.sqldelight.native.driver) }
         jvmMain.dependencies { implementation(libs.sqldelight.sqlite.driver) }

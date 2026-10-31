@@ -46,7 +46,7 @@ class ChargingRepositoryImpl(
     private val dataStore: DataStore<Preferences>,
     private val database: ChargingDatabase,
     private val clock: Clock,
-    private val restoreState: StorageRestoreState = LocalStorageRestoreState
+    private val restoreState: StorageRestoreState
 ) : ChargingRepository, PresetRepository, ChargingHistoryRepository {
     private val queries = database.storageQueries
     private val mutex = Mutex()

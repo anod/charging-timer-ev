@@ -12,6 +12,46 @@ import kotlin.test.assertTrue
 
 class StorageBackupTest {
     @Test
+    fun unsupportedJournalModeDoesNotPreventStartup() {
+        JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY, schema = ChargingDatabase.Schema).use {
+            configureBackupJournal(it)
+            ChargingDatabase(it).storageQueries.putPreset("custom", "Custom", 83.0, 11.0, 100.0)
+            assertEquals("Custom", ChargingDatabase(it).storageQueries.presetById("custom").executeAsOne().name)
+        }
+    }
+
+    @Test
+    fun fallbackWalBackupRetainsCommittedRowsWithoutSharedMemoryFile() {
+        val directory = Files.createTempDirectory("evtimer-wal-backup").toFile()
+        val source = File(directory, "source.db")
+        val backup = File(directory, "backup.db")
+        try {
+            DriverManager.getConnection("jdbc:sqlite:${source.path}").use { connection ->
+                connection.createStatement().use { statement ->
+                    statement.execute("PRAGMA journal_mode=WAL")
+                    statement.execute("PRAGMA wal_autocheckpoint=0")
+                    statement.execute("CREATE TABLE payload(value INTEGER)")
+                    statement.execute("INSERT INTO payload VALUES(42)")
+                    source.copyTo(backup)
+                    File("${source.path}-wal").copyTo(File("${backup.path}-wal"))
+                }
+            }
+            assertFalse(File("${backup.path}-shm").exists())
+            DriverManager.getConnection("jdbc:sqlite:${backup.path}").use { connection ->
+                connection.createStatement().use { statement ->
+                    statement.executeQuery("SELECT value FROM payload").use {
+                        assertTrue(it.next())
+                        assertEquals(42, it.getInt(1))
+                    }
+                }
+            }
+        } finally {
+            directory.listFiles()!!.forEach { check(it.delete()) }
+            check(directory.delete())
+        }
+    }
+
+    @Test
     fun committedRowsAreInMainDatabaseWithDeleteJournal() {
         val directory = Files.createTempDirectory("evtimer-backup").toFile()
         val source = File(directory, "source.db")

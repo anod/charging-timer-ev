@@ -17,9 +17,10 @@ fun configureBackupJournal(driver: SqlDriver) {
     val mode = driver.executeQuery(
         null, "PRAGMA journal_mode = DELETE",
         { cursor ->
-            check(cursor.next().value) { "Missing SQLite journal mode" }
-            QueryResult.Value(cursor.getString(0))
+            QueryResult.Value(if (cursor.next().value) cursor.getString(0) else null)
         }, 0
     ).value
-    check(mode == "delete") { "SQLite backup requires DELETE journal mode, got $mode" }
+    if (mode != "delete") {
+        println("Charging storage: SQLite retained journal mode $mode; backup includes WAL for recovery")
+    }
 }

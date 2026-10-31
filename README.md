@@ -110,17 +110,21 @@ The [privacy policy](docs/privacy.md) is published from `docs` using GitHub Page
 Android Auto Backup and Google's device-to-device migration can include presets,
 power options, charging history and simple preferences, subject to the user's
 backup settings and transport availability. Both modes explicitly allow only
-`databases/charging.db`, its rollback journal (`charging.db-journal`) and
+`databases/charging.db`, its rollback journal (`charging.db-journal`), defensive
+WAL recovery file (`charging.db-wal`) and
 `files/.charging_settings.preferences_pb` (including the leading dot). Other files,
 notification-dismissal preferences, installation/restore markers, caches and
 no-backup files are excluded. Cloud backup has a 25 MB per-app quota; Android's
 device-transfer limit is 2 GB. This is not an app-managed export or a guarantee
 that Google will retain or restore a particular backup.
 
-The Android database uses **DELETE**, not WAL, journaling. Committed rows live in
+The Android database requests **DELETE**, not WAL, journaling. Committed rows live in
 the main database; including the rollback journal also permits recovery if the
 system stops the writer during an uncommitted transaction. Android stops the app
 while performing Auto Backup; no custom checkpoint or live-file copying is needed.
+If the framework refuses DELETE, a warning is logged instead of blocking startup;
+the allow-list also includes WAL to retain committed rows in that fallback.
+SQLite rebuilds the disposable shared-memory (`-shm`) file.
 Older schemas migrate on open, including the committed v1 backup baseline.
 
 Restored running timers **never resume automatically**. A no-backup installation
@@ -141,6 +145,8 @@ inconsistent database/preferences and stopped restore state. Pixel restore
 simulation uses app-local file swaps, not backup-transport switching or uninstall.
 Actual Google cloud/D2D transport execution and iOS backup behavior require
 separate validation; the developer cannot access the user's Google backup.
+JVM and iOS currently use `LocalStorageRestoreState`, which never interrupts;
+iCloud backup/transfer behavior is unvalidated.
 
 ### Build and Run Desktop (JVM) Application
 
