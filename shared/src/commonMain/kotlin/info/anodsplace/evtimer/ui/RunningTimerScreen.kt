@@ -142,7 +142,7 @@ fun RunningTimerScreen(
 
                     viewState.milestoneEstimate?.let { estimate ->
                         StatRow(
-                            label = "To 80%",
+                            label = "Time to 80%",
                             value = buildString {
                                 append(formatTime(estimate.minutesRemaining))
                                 if (viewState.milestoneEtaText.isNotEmpty()) {
@@ -450,7 +450,7 @@ fun StaticMaterialShapesBackground(
 
 private fun lerp(a: Float, b: Float, f: Float): Float = a + (b - a) * f
 
-@Preview(name = "RunningTimerScreen - estimate hidden at 80% target")
+@Preview(name = "RunningTimerScreen - Time to 80% hidden")
 @Composable
 private fun RunningTimerScreenPreview() {
     val state = RunningViewState(
@@ -475,7 +475,7 @@ private fun RunningTimerScreenPreview() {
     }
 }
 
-@Preview(name = "RunningTimerScreen - 80% estimate shown")
+@Preview(name = "RunningTimerScreen - Time to 80% shown")
 @Composable
 private fun RunningTimerScreenAltPreview() {
     val state = RunningViewState(
