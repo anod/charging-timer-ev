@@ -263,6 +263,18 @@ class ChargingViewModelTest {
             assertEquals(estimate, viewModel.viewState.milestoneEstimate)
             assertEquals("ETA:12345", viewModel.viewState.milestoneEtaText)
             assertEquals(listOf(60_000L, 12_345L), formattedTimes)
+
+            service.status.value = service.status.value.copy(
+                milestoneEstimate = estimate.copy(minutesRemaining = 0, reached = true)
+            )
+            runCurrent()
+            assertTrue(viewModel.viewState.milestoneEstimate!!.reached)
+            assertEquals("ETA:12345", viewModel.viewState.milestoneEtaText)
+
+            service.status.value = ChargingStatus(isLoading = false)
+            runCurrent()
+            assertEquals(null, viewModel.viewState.milestoneEstimate)
+            assertEquals("", viewModel.viewState.milestoneEtaText)
         } finally {
             viewModel.viewModelScope.cancel()
             Dispatchers.resetMain()

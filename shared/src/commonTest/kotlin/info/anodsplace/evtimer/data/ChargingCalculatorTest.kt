@@ -45,7 +45,7 @@ class ChargingCalculatorTest {
     }
 
     @Test
-    fun milestoneEstimateIsAbsentWhenTargetOrCurrentPercentReachesEighty() {
+    fun milestoneEstimateIsAbsentWhenTargetOrStartPercentReachesEighty() {
         val start = snapshot.startTime
         assertEquals(null, ChargingCalculator.estimateMilestone(snapshot, start))
         assertEquals(
@@ -55,13 +55,34 @@ class ChargingCalculatorTest {
                 start
             )
         )
-        assertEquals(
-            null,
-            ChargingCalculator.estimateMilestone(
-                snapshot.copy(targetPercent = 100f),
-                start + 180 * 60_000L
-            )
+        assertEquals(null, ChargingCalculator.estimateMilestone(snapshot.copy(targetPercent = 60f), start))
+        assertEquals(null, ChargingCalculator.estimateMilestone(snapshot.copy(startPercent = 85f, targetPercent = 100f), start))
+    }
+
+    @Test
+    fun milestoneCrossingTimeStaysStableAcrossLaterTicksAndRestoredSnapshots() {
+        val session = snapshot.copy(targetPercent = 100f)
+        val crossing = session.startTime + 180 * 60_000L
+        val reached = MilestoneEstimate(0, crossing, reached = true)
+        assertEquals(MilestoneEstimate(0, crossing), ChargingCalculator.estimateMilestone(session, crossing - 1))
+        assertEquals(reached, ChargingCalculator.estimateMilestone(session, crossing))
+        assertEquals(reached, ChargingCalculator.estimateMilestone(session, crossing + 60_000L))
+        assertEquals(reached, ChargingCalculator.estimateMilestone(session.copy(), crossing + 180 * 60_000L))
+    }
+
+    @Test
+    fun milestoneCrossingTimeIntegratesSpeedChangeBeforeEightyAndIgnoresChangesAfterIt() {
+        val start = snapshot.startTime
+        val session = snapshot.copy(
+            targetPercent = 100f,
+            segments = listOf(PowerSegment(start, 12f), PowerSegment(start + 60 * 60_000L, 24f))
         )
+        val crossing = start + 120 * 60_000L
+        assertEquals(MilestoneEstimate(30, crossing), ChargingCalculator.estimateMilestone(session, start + 90 * 60_000L))
+        val reached = MilestoneEstimate(0, crossing, reached = true)
+        assertEquals(reached, ChargingCalculator.estimateMilestone(session, crossing))
+        val later = session.copy(segments = session.segments + PowerSegment(crossing + 10 * 60_000L, 7f))
+        assertEquals(reached, ChargingCalculator.estimateMilestone(later, crossing + 60 * 60_000L))
     }
 
     @Test

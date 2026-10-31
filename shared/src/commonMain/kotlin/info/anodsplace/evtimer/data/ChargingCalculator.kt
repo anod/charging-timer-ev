@@ -7,7 +7,8 @@ const val MILESTONE_PERCENT = 80f
 
 data class MilestoneEstimate(
     val minutesRemaining: Int,
-    val estimatedTime: Long
+    val estimatedTime: Long,
+    val reached: Boolean = false
 )
 
 object ChargingCalculator {
@@ -61,15 +62,18 @@ object ChargingCalculator {
 
     fun estimateMilestone(snapshot: ChargingSessionSnapshot, now: Long): MilestoneEstimate? {
         if (snapshot.targetPercent <= MILESTONE_PERCENT ||
-            percentAt(snapshot, now) >= MILESTONE_PERCENT
+            snapshot.startPercent >= MILESTONE_PERCENT
         ) return null
 
-        val minutesToMilestone = minutesToReach(snapshot, now, MILESTONE_PERCENT)
-        if (minutesToMilestone <= 0.0) return null
+        val crossingTime = snapshot.startTime + ceil(
+            minutesToReach(snapshot, snapshot.startTime, MILESTONE_PERCENT) * 60_000.0
+        ).toLong()
+        val minutesToMilestone = (crossingTime - now).coerceAtLeast(0L) / 60_000.0
 
         return MilestoneEstimate(
             minutesRemaining = minutesToMilestone.roundToInt(),
-            estimatedTime = now + ceil(minutesToMilestone * 60_000.0).toLong()
+            estimatedTime = crossingTime,
+            reached = now >= crossingTime
         )
     }
 

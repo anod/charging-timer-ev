@@ -144,7 +144,7 @@ fun RunningTimerScreen(
                         StatRow(
                             label = "Time to 80%",
                             value = buildString {
-                                append(formatTime(estimate.minutesRemaining))
+                                append(if (estimate.reached) "Reached" else formatElapsedTime(estimate.minutesRemaining))
                                 if (viewState.milestoneEtaText.isNotEmpty()) {
                                     append(" \u00b7 ").append(viewState.milestoneEtaText)
                                 }
@@ -487,7 +487,7 @@ private fun RunningTimerScreenAltPreview() {
             chargingPower = 7.2f,
             availablePowers = listOf(3.6f, 7.2f, 11f),
             startPercent = 10f,
-            maxPercent = 90f
+            maxPercent = 100f
         ),
         calculation = ChargingCalculation(
             timeRemainingMinutes = 120,
@@ -498,6 +498,28 @@ private fun RunningTimerScreenAltPreview() {
     MaterialTheme {
         Scaffold {
             RunningTimerScreen(viewState = state, onEvent = {})
+        }
+    }
+
+    @Preview(name = "RunningTimerScreen - Time to 80% reached")
+    @Composable
+    private fun RunningTimerScreenReachedPreview() {
+        val state = RunningViewState(
+            estimatedEndTimeText = "6:53 PM",
+            milestoneEstimate = MilestoneEstimate(0, 1_800_000_000_000L, reached = true),
+            milestoneEtaText = "5:48 PM",
+            settings = ChargingSettings(60f, 11f, 20f, 100f),
+            calculation = ChargingCalculation(
+                timeRemainingMinutes = 60,
+                estimatedPercent = 82f,
+                chargingSpeed = 11f
+            ),
+            elapsedMinutes = 202
+        )
+        MaterialTheme {
+            Scaffold {
+                RunningTimerScreen(viewState = state, onEvent = {})
+            }
         }
     }
 }

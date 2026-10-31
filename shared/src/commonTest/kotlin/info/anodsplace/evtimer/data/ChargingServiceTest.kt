@@ -180,6 +180,17 @@ class ChargingServiceTest {
             ),
             service.status.value.milestoneEstimate
         )
+
+        clock.milliseconds += 11_781_819L
+        service.refresh()
+        val reached = service.status.value.milestoneEstimate
+        assertEquals(MilestoneEstimate(0, clock.milliseconds, reached = true), reached)
+        clock.milliseconds += 60_000L
+        service.refresh()
+        assertEquals(reached, service.status.value.milestoneEstimate)
+        service.stop()
+        runCurrent()
+        assertEquals(null, service.status.value.milestoneEstimate)
     }
 
     @Test
