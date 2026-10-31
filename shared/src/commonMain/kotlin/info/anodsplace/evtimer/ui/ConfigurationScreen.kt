@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.Button
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilterChip
@@ -24,7 +23,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.Switch
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
@@ -35,12 +35,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.jetbrains.compose.resources.stringResource
+import org.jetbrains.compose.resources.painterResource
 import info.anodsplace.evtimer.data.ChargingCalculator
 import info.anodsplace.evtimer.data.ChargingSettings
 import info.anodsplace.evtimer.data.ChargingPreset
@@ -67,7 +67,8 @@ fun ConfigurationScreen(
     viewState: ConfigurationViewState,
     onEvent: (ConfigurationViewEvent) -> Unit,
     modifier: Modifier = Modifier,
-    initiallyShowPresetMenu: Boolean = false
+    initiallyShowPresetMenu: Boolean = false,
+    onOpenSettings: () -> Unit = {}
 ) {
     val settings = viewState.settings
     val presets = viewState.presetConfiguration
@@ -175,11 +176,17 @@ fun ConfigurationScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text(
-                text = stringResource(Res.string.app_title),
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold
-            )
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = stringResource(Res.string.app_title),
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f)
+                )
+                IconButton(onClick = onOpenSettings) {
+                    Icon(painterResource(Res.drawable.ic_settings), stringResource(Res.string.settings_title))
+                }
+            }
 
             Row(
                 modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
@@ -236,19 +243,6 @@ fun ConfigurationScreen(
                     label = { Text("+") },
                     modifier = Modifier.semantics { contentDescription = saveAsPresetDescription }
                 )
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).toggleable(
-                    value = viewState.notifyAt80,
-                    enabled = !viewState.isLoading,
-                    role = Role.Switch,
-                    onValueChange = { onEvent(ConfigurationViewEvent.SetNotifyAt80(it)) }
-                ),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(stringResource(Res.string.notify_at_80), modifier = Modifier.weight(1f))
-                Switch(checked = viewState.notifyAt80, onCheckedChange = null, enabled = !viewState.isLoading)
             }
 
             FlowRow(

@@ -1,6 +1,9 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import groovy.json.JsonOutput
+import groovy.json.JsonSlurper
 
 plugins {
+    alias(libs.plugins.aboutlibraries)
     alias(libs.plugins.sqldelight)
     alias(libs.plugins.kotlin.multiplatform)
     alias(libs.plugins.kotlin.multiplatform.android.library)
@@ -8,9 +11,43 @@ plugins {
     alias(libs.plugins.composeCompiler)
 }
 
+val generatedLicenseResources = layout.buildDirectory.dir("generated/licenseResources")
+val licenseReports = listOf(project, project(":androidApp"), project(":desktopApp")).map {
+    it.layout.buildDirectory.file("generated/aboutLibraries/aboutlibraries.json")
+}
+val mergeLibraryDefinitions = tasks.register("mergeLibraryDefinitions") {
+    dependsOn(":shared:exportLibraryDefinitions", ":androidApp:exportLibraryDefinitions", ":desktopApp:exportLibraryDefinitions")
+    inputs.files(licenseReports)
+    outputs.dir(generatedLicenseResources)
+    doLast {
+        val reports = licenseReports.map { requireNotNull(JsonSlurper().parse(it.get().asFile) as? Map<*, *>) }
+        val libraries = reports.flatMap { requireNotNull(it["libraries"] as? List<*>) }
+            .distinctBy { requireNotNull(it as? Map<*, *>)["uniqueId"] }
+        val licenses = reports.flatMap { requireNotNull(it["licenses"] as? Map<*, *>).entries }
+            .associate { it.key to it.value }
+        check(libraries.isNotEmpty() && licenses.isNotEmpty()) { "Generated OSS license metadata is empty" }
+        val output = generatedLicenseResources.get().file("files/aboutlibraries.json").asFile
+        output.parentFile.mkdirs()
+        output.writeText(JsonOutput.toJson(mapOf("libraries" to libraries, "licenses" to licenses)))
+    }
+}
+
+val generatedBuildInfo = layout.buildDirectory.dir("generated/buildInfo")
+val appVersion = rootProject.extra["generatedVersionName"] as String
+val generateBuildInfo = tasks.register("generateBuildInfo") {
+    inputs.property("appVersion", appVersion)
+    outputs.dir(generatedBuildInfo)
+    doLast {
+        val output = generatedBuildInfo.get().file("info/anodsplace/evtimer/BuildInfo.kt").asFile
+        output.parentFile.mkdirs()
+        output.writeText("package info.anodsplace.evtimer\n\ninternal const val APP_VERSION = \"$appVersion\"\n")
+    }
+}
+
 compose.resources {
     publicResClass = true
     packageOfResClass = "info.anodsplace.evtimer.generated.resources"
+    customDirectory("commonMain", mergeLibraryDefinitions.map { generatedLicenseResources.get() })
 }
 
 kotlin {
@@ -43,12 +80,15 @@ kotlin {
     jvm()
 
     sourceSets {
+        commonMain { kotlin.srcDir(generateBuildInfo) }
         androidMain { kotlin.srcDir("src/jvmAndroidMain/kotlin") }
         jvmMain { kotlin.srcDir("src/jvmAndroidMain/kotlin") }
         androidMain.dependencies { implementation(libs.sqldelight.android.driver) }
         iosMain.dependencies { implementation(libs.sqldelight.native.driver) }
         jvmMain.dependencies { implementation(libs.sqldelight.sqlite.driver) }
         commonMain.dependencies {
+            implementation(libs.aboutlibraries.core)
+            implementation(libs.aboutlibraries.compose.m3)
             implementation(libs.sqldelight.runtime)
             implementation(libs.sqldelight.coroutines)
             implementation(project(":lib:viewmodel"))

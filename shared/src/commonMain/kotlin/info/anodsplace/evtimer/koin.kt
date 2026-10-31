@@ -9,6 +9,7 @@ import info.anodsplace.evtimer.data.ChargingService
 import info.anodsplace.evtimer.data.ChargingServiceImpl
 import info.anodsplace.evtimer.data.ConfigurationViewModel
 import info.anodsplace.evtimer.data.RunningViewModel
+import info.anodsplace.evtimer.data.SettingsViewModel
 import info.anodsplace.evtimer.ui.NavigationViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -42,6 +43,7 @@ val commonModule = module {
 val uiModule = module {
     viewModelOf(::ConfigurationViewModel)
     viewModelOf(::RunningViewModel)
+    viewModelOf(::SettingsViewModel)
     viewModelOf(::NavigationViewModel)
 }
 

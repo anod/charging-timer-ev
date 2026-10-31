@@ -140,11 +140,13 @@ sound and vibration, respecting the phone's notification settings. Tap it to ope
 and dismiss it. A single wake-up timer follows the current future ETA, including speed
 changes; stopping cancels that timer and the notification. The running screen shows a
 resource-backed **Finished** headline at the target, with no completion popup.
-Configuration also has an always-visible **Notify at 80%** switch, on by default.
+The Configuration gear opens Settings, with a **Notify at 80%** switch, on by default.
 It controls a second one-shot notification when a session starting below 80% reaches
 80%, if the target is higher. Switching it off cancels that notification and its timer.
 This app-wide Boolean is stored in the existing backup-covered DataStore preference
 file, independently of presets, drafts and session snapshots.
+Settings also shows the build's app version, source code and privacy-policy links,
+and bundled OSS licenses generated from the app and shared dependency graphs.
 
 ### Android releases
 

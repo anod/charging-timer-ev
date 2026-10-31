@@ -9,6 +9,8 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.assertIsOn
+import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import info.anodsplace.evtimer.data.ChargingRepository
 import info.anodsplace.evtimer.data.ChargingService
@@ -31,6 +33,40 @@ import kotlin.test.assertFalse
 
 @OptIn(ExperimentalTestApi::class, androidx.compose.ui.InternalComposeUiApi::class)
 class DesktopNavigationTest {
+    @Test
+    fun settingsGearMovesPreferenceOutOfConfigurationAndPreservesItOnBack() = runDesktopComposeUiTest {
+        val repository = DesktopTestRepository()
+        setContent {
+            KoinApplication(application = {
+                modules(uiModule, module {
+                    single<ChargingRepository> { repository }
+                    single<PresetRepository> { repository }
+                    single<ChargingService> { DesktopTestService(isRunning = false) }
+                    single<ClockTimeFormatter> { ClockTimeFormatter { "" } }
+                })
+            }) {
+                ChargingTimerApp()
+            }
+        }
+        onNodeWithText("Notify at 80%").assertDoesNotExist()
+        onNodeWithContentDescription("Settings").performClick()
+        onNodeWithText("Notify at 80%").assertIsOn().performClick()
+        onNodeWithText("Notify at 80%").assertIsOff()
+        onNodeWithText("About").assertExists()
+        onNodeWithText("Source code").assertExists()
+        onNodeWithText("Privacy policy").assertExists()
+        onNodeWithText("Open-source licenses").assertExists()
+        onNodeWithContentDescription("Back").performClick()
+        onNodeWithText("Start Timer").assertExists()
+        onNodeWithText("Notify at 80%").assertDoesNotExist()
+        onNodeWithContentDescription("Settings").performClick()
+        onNodeWithText("Notify at 80%").assertIsOff()
+        onNodeWithText("Open-source licenses").performClick()
+        onNodeWithContentDescription("Back").performClick()
+        onNodeWithText("About").assertExists()
+        onNodeWithText("Notify at 80%").assertIsOff()
+    }
+
     @Test
     @Suppress("DEPRECATION")
     fun escapePopsRunningWithoutClickingOrFocusingAnyControl() = runDesktopComposeUiTest {
@@ -85,8 +121,8 @@ class DesktopNavigationTest {
     }
 }
 
-private class DesktopTestService : ChargingService {
-    override val status = MutableStateFlow(ChargingStatus(isLoading = false, isRunning = true))
+private class DesktopTestService(isRunning: Boolean = true) : ChargingService {
+    override val status = MutableStateFlow(ChargingStatus(isLoading = false, isRunning = isRunning))
     override suspend fun start() = Unit
     override suspend fun stop() { status.value = ChargingStatus(isLoading = false) }
     override suspend fun changePower(powerKw: Float) = Unit

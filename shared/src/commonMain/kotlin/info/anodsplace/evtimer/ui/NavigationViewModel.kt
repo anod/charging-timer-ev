@@ -10,7 +10,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 enum class Destination {
-    Config, Running, EndSummary, History, Settings, PresetEditor
+    Config, Running, EndSummary, History, Settings, Licenses, PresetEditor
 }
 
 class NavigationViewModel(service: ChargingService) : ViewModel() {
