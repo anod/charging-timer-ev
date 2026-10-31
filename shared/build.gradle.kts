@@ -16,17 +16,18 @@ val licenseReports = listOf(project, project(":androidApp"), project(":desktopAp
     it.layout.buildDirectory.file("generated/aboutLibraries/aboutlibraries.json")
 }
 val mergeLibraryDefinitions = tasks.register("mergeLibraryDefinitions") {
+    val inputFiles = licenseReports.map { it.get().asFile }
+    val output = generatedLicenseResources.get().file("files/aboutlibraries.json").asFile
     dependsOn(":shared:exportLibraryDefinitions", ":androidApp:exportLibraryDefinitions", ":desktopApp:exportLibraryDefinitions")
-    inputs.files(licenseReports)
+    inputs.files(inputFiles)
     outputs.dir(generatedLicenseResources)
     doLast {
-        val reports = licenseReports.map { requireNotNull(JsonSlurper().parse(it.get().asFile) as? Map<*, *>) }
+        val reports = inputFiles.map { requireNotNull(JsonSlurper().parse(it) as? Map<*, *>) }
         val libraries = reports.flatMap { requireNotNull(it["libraries"] as? List<*>) }
             .distinctBy { requireNotNull(it as? Map<*, *>)["uniqueId"] }
         val licenses = reports.flatMap { requireNotNull(it["licenses"] as? Map<*, *>).entries }
             .associate { it.key to it.value }
         check(libraries.isNotEmpty() && licenses.isNotEmpty()) { "Generated OSS license metadata is empty" }
-        val output = generatedLicenseResources.get().file("files/aboutlibraries.json").asFile
         output.parentFile.mkdirs()
         output.writeText(JsonOutput.toJson(mapOf("libraries" to libraries, "licenses" to licenses)))
     }
@@ -42,12 +43,13 @@ val prepareAppResources = tasks.register<Sync>("prepareAppResources") {
 val generatedBuildInfo = layout.buildDirectory.dir("generated/buildInfo")
 val appVersion = rootProject.extra["generatedVersionName"] as String
 val generateBuildInfo = tasks.register("generateBuildInfo") {
-    inputs.property("appVersion", appVersion)
+    val version = appVersion
+    val output = generatedBuildInfo.get().file("info/anodsplace/evtimer/BuildInfo.kt").asFile
+    inputs.property("appVersion", version)
     outputs.dir(generatedBuildInfo)
     doLast {
-        val output = generatedBuildInfo.get().file("info/anodsplace/evtimer/BuildInfo.kt").asFile
         output.parentFile.mkdirs()
-        output.writeText("package info.anodsplace.evtimer\n\ninternal const val APP_VERSION = \"$appVersion\"\n")
+        output.writeText("package info.anodsplace.evtimer\n\ninternal const val APP_VERSION = \"$version\"\n")
     }
 }
 
