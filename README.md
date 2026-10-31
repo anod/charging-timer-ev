@@ -72,6 +72,17 @@ in your IDE’s toolbar or build it directly from the terminal:
 The Android charging notification shows current-to-target progress (for example, `45% → 80%`).
 When no time remains, it shows `Target reached · 80%` for the configured target.
 Charging speed, remaining duration while charging, and the ETA clock time are also displayed.
+On Android 16 (API 36) and newer, it requests a Live Update with a current-battery-percent
+status-bar chip, a battery tracker, and progress segments/points at charging speed changes.
+Changes within the same whole battery percent share a point/segment boundary to avoid
+zero-length segments. Live Update content is public on the lock screen.
+Android 13–15 retain the expanded text notification and standard progress bar.
+If Live Updates are disabled, starting a session offers a link to the app's system
+Live Update settings alongside the notification-permission flow; the ordinary notification
+continues to work without promotion. Dismissing a notification suppresses further posts
+for that session, including after reopening the app. It does not stop the saved timer;
+use the notification's Stop action or stop it in the app. Background foreground-service
+restoration is retried when the app becomes visible if Android denies a background start.
 
 ### Android releases
 
