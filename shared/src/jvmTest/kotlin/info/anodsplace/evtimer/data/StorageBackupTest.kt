@@ -146,33 +146,34 @@ class StorageBackupTest {
             check(file.delete())
         }
 
-        @Test
-        fun v2BackupMigratesAndKeepsPresetSelectionDataAndSessionIdentity() {
-            val file = Files.createTempFile("evtimer-v2-restore", ".db").toFile()
-            try {
-                File("src/commonMain/sqldelight/databases/2.db").copyTo(file, overwrite = true)
-                DriverManager.getConnection("jdbc:sqlite:${file.path}").use { connection ->
-                    connection.createStatement().use {
-                        it.execute("PRAGMA user_version=2")
-                        it.execute("INSERT INTO preset VALUES('custom','Custom',83,11,100)")
-                        it.execute("INSERT INTO preset VALUES('home','Home',60,7,80)")
-                        it.execute("INSERT INTO charge_session(id,battery_capacity,start_percent,target_percent,efficiency,preset_id,preset_name,is_running) VALUES(123,60,25,80,1,'home','Home',1)")
-                        it.execute("INSERT INTO power_segment VALUES(123,123,7)")
-                        it.execute("INSERT INTO storage_migration VALUES(1,123)")
-                    }
+    }
+
+    @Test
+    fun v2BackupMigratesAndKeepsPresetSelectionDataAndSessionIdentity() {
+        val file = Files.createTempFile("evtimer-v2-restore", ".db").toFile()
+        try {
+            File("src/commonMain/sqldelight/databases/2.db").copyTo(file, overwrite = true)
+            DriverManager.getConnection("jdbc:sqlite:${file.path}").use { connection ->
+                connection.createStatement().use {
+                    it.execute("PRAGMA user_version=2")
+                    it.execute("INSERT INTO preset VALUES('custom','Custom',83,11,100)")
+                    it.execute("INSERT INTO preset VALUES('home','Home',60,7,80)")
+                    it.execute("INSERT INTO charge_session(id,battery_capacity,start_percent,target_percent,efficiency,preset_id,preset_name,is_running) VALUES(123,60,25,80,1,'home','Home',1)")
+                    it.execute("INSERT INTO power_segment VALUES(123,123,7)")
+                    it.execute("INSERT INTO storage_migration VALUES(1,123)")
                 }
-                JdbcSqliteDriver("jdbc:sqlite:${file.path}", schema = ChargingDatabase.Schema).use { driver ->
-                    val queries = ChargingDatabase(driver).storageQueries
-                    assertEquals(2, queries.allPresets().executeAsList().size)
-                    val session = queries.activeSession().executeAsOne()
-                    assertEquals("home", session.preset_id)
-                    assertEquals("Home", session.preset_name)
-                    assertFalse(session.preset_edited)
-                    assertTrue(session.is_running)
-                }
-            } finally {
-                check(file.delete())
             }
+            JdbcSqliteDriver("jdbc:sqlite:${file.path}", schema = ChargingDatabase.Schema).use { driver ->
+                val queries = ChargingDatabase(driver).storageQueries
+                assertEquals(2, queries.allPresets().executeAsList().size)
+                val session = queries.activeSession().executeAsOne()
+                assertEquals("home", session.preset_id)
+                assertEquals("Home", session.preset_name)
+                assertFalse(session.preset_edited)
+                assertTrue(session.is_running)
+            }
+        } finally {
+            check(file.delete())
         }
     }
 }
