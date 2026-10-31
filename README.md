@@ -149,7 +149,7 @@ otherwise `setAndAllowWhileIdle` (which may be delayed by minutes). There is no
 `USE_EXACT_ALARM` permission. Every session ETA change, including a speed change,
 replaces the alarm; stopping cancels it. Dismissing the Live Update does not cancel
 completion scheduling. Device-local completion delivery/acknowledgment preferences
-are explicitly excluded from cloud backup and device transfer, and receivers validate
+are excluded by the cloud backup and device-transfer allow-lists, and receivers validate
 the loaded running session and ETA before alerting. Restored interrupted history cannot
 produce a stale alert. App updates and exact-alarm grants re-evaluate scheduling.
 Boot rescheduling is not implemented here: #32 can call

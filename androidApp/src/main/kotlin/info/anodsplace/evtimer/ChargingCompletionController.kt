@@ -22,7 +22,7 @@ class ChargingCompletionController(
 ) {
     private val alarmManager = context.getSystemService(AlarmManager::class.java)
     private val notifier = ChargingCompletionNotifier(context)
-    // Device-local delivery/acknowledgment state, explicitly excluded from backup.
+    // Device-local delivery/acknowledgment state, excluded by the backup allow-list.
     private val preferences = context.getSharedPreferences("charging_completion", Context.MODE_PRIVATE)
     private var scheduled: ChargingCompletionPlan? = null
     private val mutablePendingSession = MutableStateFlow<Long?>(null)
