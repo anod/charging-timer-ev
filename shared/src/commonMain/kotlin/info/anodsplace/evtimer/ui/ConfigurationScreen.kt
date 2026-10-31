@@ -64,6 +64,11 @@ fun ConfigurationScreen(
     }
 
     if (showNameDialog) {
+        val error = when (presetNameValidation.error) {
+            PresetNameError.EMPTY, null -> null
+            PresetNameError.TOO_LONG -> "Preset name must be at most 32 Unicode code points"
+            PresetNameError.ALREADY_EXISTS -> "A preset with this name already exists"
+        }
         AlertDialog(
             onDismissRequest = { showNameDialog = false },
             title = { Text("Save as new preset") },
@@ -74,7 +79,7 @@ fun ConfigurationScreen(
                         onValueChange = { presetName = it },
                         label = { Text("Preset name") },
                         singleLine = true,
-                        isError = presetNameValidation.error != null
+                        isError = error != null
                     )
                     Row(
                         modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
@@ -88,11 +93,6 @@ fun ConfigurationScreen(
                                 label = { Text(emoji) }
                             )
                         }
-                    }
-                    val error = when (presetNameValidation.error) {
-                        PresetNameError.EMPTY, null -> null
-                        PresetNameError.TOO_LONG -> "Preset name must be at most 32 Unicode code points"
-                        PresetNameError.ALREADY_EXISTS -> "A preset with this name already exists"
                     }
                     if (error != null) {
                         Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)

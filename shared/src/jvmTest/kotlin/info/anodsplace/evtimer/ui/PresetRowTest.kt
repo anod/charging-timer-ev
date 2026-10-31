@@ -10,6 +10,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.text.AnnotatedString
@@ -19,6 +20,8 @@ import info.anodsplace.evtimer.data.ConfigurationViewEvent
 import info.anodsplace.evtimer.data.ConfigurationViewState
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 @OptIn(ExperimentalTestApi::class)
 class PresetRowTest {
@@ -83,6 +86,31 @@ class PresetRowTest {
             onNodeWithText("Save").performClick()
             assertEquals(ConfigurationViewEvent.SaveAsPreset("\u26A1 Highway"), events.last())
         }
+    }
+
+    @Test
+    fun nameDialogOnlyShowsErrorStateForDisplayedValidationErrors() = runDesktopComposeUiTest {
+        val settings = ChargingSettings.DEFAULT
+        val state = ConfigurationViewState(
+            isLoading = false, settings = settings,
+            presets = listOf(ChargingPreset("custom", "Default", settings))
+        )
+        setContent { MaterialTheme { ConfigurationScreen(state, onEvent = {}) } }
+        onNodeWithContentDescription("Save as new preset").performClick()
+        fun hasError() = onNodeWithText("Preset name").fetchSemanticsNode().config
+            .contains(SemanticsProperties.Error)
+        assertFalse(hasError())
+        onNodeWithText("Save").assertIsNotEnabled()
+        onNodeWithText("Preset name").performTextReplacement("   ")
+        assertFalse(hasError())
+        onNodeWithText("Save").assertIsNotEnabled()
+        onNodeWithText("Preset name").performTextReplacement("default")
+        assertTrue(hasError())
+        onNodeWithText("A preset with this name already exists").assertExists()
+        onNodeWithText("Save").assertIsNotEnabled()
+        onNodeWithText("Preset name").performTextReplacement("")
+        assertFalse(hasError())
+        onNodeWithText("Save").assertIsNotEnabled()
     }
 
     @Test
