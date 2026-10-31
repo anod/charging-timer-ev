@@ -75,6 +75,7 @@ import info.anodsplace.evtimer.data.TimeProgress
 import info.anodsplace.evtimer.data.timeProgress
 import info.anodsplace.evtimer.data.formatLocaleNumber
 import info.anodsplace.evtimer.data.formatPower
+import info.anodsplace.evtimer.generated.resources.charging_finished
 import kotlin.math.roundToInt
 import info.anodsplace.evtimer.generated.resources.Res
 import info.anodsplace.evtimer.generated.resources.apply
@@ -156,7 +157,9 @@ fun RunningTimerScreen(
             verticalArrangement = Arrangement.spacedBy(32.dp)
         ) {
             Text(
-                text = stringResource(Res.string.charging_in_progress),
+                text = stringResource(
+                    if (viewState.isFinished) Res.string.charging_finished else Res.string.charging_in_progress
+                ),
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold
             )

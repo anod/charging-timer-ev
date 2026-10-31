@@ -139,9 +139,9 @@ At the target ETA, a separate `charging_complete` high-importance notification r
 notification sound and vibration until handled. It respects silent/vibrate mode, channel
 settings and Do Not Disturb; it does not bypass DND. Both **Stop timer** and **Dismiss**
 cancel the alert's sound/vibration; Dismiss leaves the saved timer running, while Stop
-ends only the app's timer (the app cannot control the vehicle). The same choices appear
-in an Android in-app dialog when the activity is resumed. All alert text uses Android
-string resources, like the existing Live Update settings dialog.
+ends only the app's timer (the app cannot control the vehicle). The running screen shows
+**Finished** when the target is reached; there is no in-app completion popup. Notification
+text uses Android string resources and the finished headline uses Compose resources.
 
 The shared `ChargingCompletionPlanner` plans from the snapshot-derived ETA. Android
 uses a wakeup `setExactAndAllowWhileIdle` alarm when exact-alarm access is available,

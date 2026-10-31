@@ -10,8 +10,6 @@ import info.anodsplace.evtimer.data.ChargingCompletionPlan
 import info.anodsplace.evtimer.data.ChargingCompletionPlanner
 import info.anodsplace.evtimer.data.ChargingService
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 /** Independent of progress-notification dismissal; no vehicle is controlled. */
@@ -22,11 +20,9 @@ class ChargingCompletionController(
 ) {
     private val alarmManager = context.getSystemService(AlarmManager::class.java)
     private val notifier = ChargingCompletionNotifier(context)
-    // Device-local delivery/acknowledgment state, excluded by the backup allow-list.
+    // Device-local delivery marker, excluded by the backup allow-list.
     private val preferences = context.getSharedPreferences("charging_completion", Context.MODE_PRIVATE)
     private var scheduled: ChargingCompletionPlan? = null
-    private val mutablePendingSession = MutableStateFlow<Long?>(null)
-    val pendingSession = mutablePendingSession.asStateFlow()
 
     init {
         scope.launch {
@@ -42,10 +38,7 @@ class ChargingCompletionController(
         val alerted = if (preferences.contains(KEY_SESSION)) preferences.getLong(KEY_SESSION, 0L) else null
         if (!status.isRunning || (alerted != null && alerted != status.startTime)) {
             notifier.cancel()
-            mutablePendingSession.value = null
             if (alerted != null) saveState(null)
-        } else if (alerted == status.startTime && !preferences.getBoolean(KEY_DISMISSED, false)) {
-            mutablePendingSession.value = alerted
         }
         val plan = ChargingCompletionPlanner.plan(status, alerted)
         if (plan == null) {
@@ -71,19 +64,12 @@ class ChargingCompletionController(
         scheduled = null
         alarmManager.cancel(alarmIntent())
         notifier.post(sessionId)
-        mutablePendingSession.value = sessionId
     }
 
-    fun dismiss(sessionId: Long, stopCharging: Boolean = false) {
+    fun dismiss(sessionId: Long) {
         if (!preferences.contains(KEY_SESSION) || preferences.getLong(KEY_SESSION, 0L) != sessionId) return
         // Cancel first: removing FLAG_INSISTENT stops both system-managed effects.
         notifier.cancel()
-        mutablePendingSession.value = null
-        saveState(sessionId, dismissed = true)
-        if (stopCharging) scope.launch {
-            val status = chargingService.status.value
-            if (status.isRunning && status.startTime == sessionId) chargingService.stop()
-        }
     }
 
     private fun schedule(plan: ChargingCompletionPlan) {
@@ -113,10 +99,10 @@ class ChargingCompletionController(
         }, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
     )
 
-    private fun saveState(sessionId: Long?, dismissed: Boolean = false) {
+    private fun saveState(sessionId: Long?) {
         val editor = preferences.edit()
         if (sessionId == null) editor.clear() else {
-            editor.putLong(KEY_SESSION, sessionId).putBoolean(KEY_DISMISSED, dismissed)
+            editor.putLong(KEY_SESSION, sessionId)
         }
         if (!editor.commit()) Log.e("ChargingComplete", "Could not persist completion delivery state")
     }
@@ -125,6 +111,5 @@ class ChargingCompletionController(
         const val ACTION_COMPLETE = "info.anodsplace.evtimer.CHARGING_COMPLETE"
         const val EXTRA_TARGET_TIME = "target_time"
         private const val KEY_SESSION = "session_id"
-        private const val KEY_DISMISSED = "dismissed"
     }
 }

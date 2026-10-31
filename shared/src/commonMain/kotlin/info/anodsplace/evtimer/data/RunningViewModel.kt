@@ -38,7 +38,10 @@ data class RunningViewState(
     val milestoneEtaText: String = "",
     val startTimeText: String = "",
     val timeProgress: TimeProgress? = null
-)
+) {
+    val isFinished: Boolean
+        get() = !isLoading && estimatedEndTime > 0L && calculation.timeRemainingMinutes == 0
+}
 
 sealed interface RunningViewAction
 
