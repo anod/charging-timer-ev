@@ -40,6 +40,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -50,12 +51,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Matrix
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -76,11 +72,7 @@ import info.anodsplace.evtimer.data.TimeProgress
 import info.anodsplace.evtimer.data.timeProgress
 import info.anodsplace.evtimer.data.formatLocaleNumber
 import info.anodsplace.evtimer.data.formatPower
-import info.anodsplace.evtimer.material.MaterialShapes
-import kotlin.math.min
 import kotlin.math.roundToInt
-import kotlin.random.Random
-import info.anodsplace.evtimer.material.internal.toPath as polygonToPath
 import info.anodsplace.evtimer.generated.resources.Res
 import info.anodsplace.evtimer.generated.resources.apply
 import info.anodsplace.evtimer.generated.resources.charging_in_progress
@@ -149,11 +141,7 @@ fun RunningTimerScreen(
     }
 
     Box(modifier = modifier.fillMaxSize()) {
-        // Static background shapes
-        StaticMaterialShapesBackground(
-            modifier = Modifier.fillMaxSize(),
-            shapeCount = 14
-        )
+        ChargingWavesBackground(modifier = Modifier.fillMaxSize())
 
         Column(
             modifier = Modifier
@@ -578,153 +566,6 @@ fun formatTime(minutes: Int): String {
     }
 }
 
-// -----------------------------------------------------------------------------
-// Static background implementation: randomly placed non-overlapping shapes
-// -----------------------------------------------------------------------------
-
-private data class ShapePlacement(
-    val shapeIndex: Int,
-    val cx: Float,
-    val cy: Float,
-    val size: Float,
-    val color: Color,
-    val bounds: Rect
-)
-
-private fun generatePlacements(
-    random: Random,
-    width: Float,
-    height: Float,
-    shapeCount: Int,
-    shapePaths: List<Path>,
-    colors: List<Color>
-): List<ShapePlacement> {
-    if (width <= 0f || height <= 0f || shapeCount <= 0) return emptyList()
-    if (shapePaths.isEmpty()) return emptyList()
-    // Precompute bounds once per shape as requested
-    val shapeBounds: List<Rect> = shapePaths.map { it.getBounds() }
-
-    val result = mutableListOf<ShapePlacement>()
-    val maxAttempts = shapeCount * 200
-    val padding = 8f
-    val minSize = min(width, height) * 0.10f
-    val maxSize = min(width, height) * 0.28f
-    var attempts = 0
-    while (result.size < shapeCount && attempts < maxAttempts) {
-        attempts++
-        val size = lerp(minSize, maxSize, random.nextFloat())
-        val r = size / 2f
-        val cx = r + random.nextFloat() * (width - 2 * r)
-        val cy = r + random.nextFloat() * (height - 2 * r)
-        val shapeIndex = random.nextInt(shapePaths.size)
-        val nb = shapeBounds[shapeIndex]
-        val scale = size
-        val finalLeft = cx + nb.left * scale
-        val finalTop = cy + nb.top * scale
-        val finalRight = cx + nb.right * scale
-        val finalBottom = cy + nb.bottom * scale
-        val finalBounds = Rect(finalLeft, finalTop, finalRight, finalBottom)
-        val overlaps = result.any { placed ->
-            val b2 = placed.bounds
-            !(finalBounds.right + padding < b2.left ||
-                    finalBounds.left - padding > b2.right ||
-                    finalBounds.bottom + padding < b2.top ||
-                    finalBounds.top - padding > b2.bottom)
-        }
-        if (!overlaps) {
-            val baseColor = if (colors.isNotEmpty()) colors.random(random) else Color(0xFF607D8B)
-            val alpha = lerp(0.08f, 0.16f, random.nextFloat())
-            val placement = ShapePlacement(shapeIndex, cx, cy, size, baseColor.copy(alpha = alpha), finalBounds)
-            result += placement
-        }
-    }
-    return result
-}
-
-@Composable
-fun StaticMaterialShapesBackground(
-    modifier: Modifier = Modifier,
-    shapeCount: Int = 14
-) {
-    val rndSeed = remember(shapeCount) { Random.nextInt() }
-    val random = remember(rndSeed) { Random(rndSeed) }
-    val shapesCatalog = remember {
-        listOf(
-            MaterialShapes.Circle,
-            MaterialShapes.Square,
-            MaterialShapes.Slanted,
-            MaterialShapes.Arch,
-            MaterialShapes.Fan,
-            MaterialShapes.Arrow,
-            MaterialShapes.SemiCircle,
-            MaterialShapes.Oval,
-            MaterialShapes.Pill,
-            MaterialShapes.Triangle,
-            MaterialShapes.Diamond,
-            MaterialShapes.ClamShell,
-            MaterialShapes.Pentagon,
-            MaterialShapes.Gem,
-            MaterialShapes.Sunny,
-            MaterialShapes.VerySunny,
-            MaterialShapes.Cookie4Sided,
-            MaterialShapes.Cookie6Sided,
-            MaterialShapes.Cookie7Sided,
-            MaterialShapes.Cookie9Sided,
-            MaterialShapes.Cookie12Sided,
-            MaterialShapes.Ghostish,
-            MaterialShapes.Clover4Leaf,
-            MaterialShapes.Clover8Leaf,
-            MaterialShapes.Burst,
-            MaterialShapes.SoftBurst,
-            MaterialShapes.Boom,
-            MaterialShapes.SoftBoom,
-            MaterialShapes.Flower,
-            MaterialShapes.Puffy,
-            MaterialShapes.PuffyDiamond,
-            MaterialShapes.PixelCircle,
-            MaterialShapes.PixelTriangle,
-            MaterialShapes.Bun,
-            MaterialShapes.Heart
-        )
-    }
-    // Convert polygons to paths once (they are already normalized)
-    val shapePaths = remember(shapesCatalog) { shapesCatalog.map { it.polygonToPath() } }
-    val colorScheme = MaterialTheme.colorScheme
-    val palette = remember(colorScheme) {
-        listOf(
-            colorScheme.primary,
-            colorScheme.secondary,
-            colorScheme.tertiary,
-            colorScheme.primaryContainer,
-            colorScheme.secondaryContainer,
-            colorScheme.tertiaryContainer
-        ).distinct()
-    }
-    BoxWithConstraints(modifier = modifier) {
-        val density = LocalDensity.current
-        val widthPx = with(density) { maxWidth.toPx() }
-        val heightPx = with(density) { maxHeight.toPx() }
-        val placements = remember(widthPx, heightPx, shapeCount, palette) {
-            generatePlacements(random, widthPx, heightPx, shapeCount, shapePaths, palette)
-        }
-        val displayPaths = remember(placements, shapePaths) {
-            val matrix = Matrix()
-            placements.map { p ->
-                val base = shapePaths[p.shapeIndex]
-                val transformed = Path().apply { addPath(base) }
-                matrix.reset(); matrix.scale(p.size, p.size); matrix.translate(p.cx, p.cy)
-                transformed.transform(matrix)
-                transformed to p.color
-            }
-        }
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            displayPaths.forEach { (path, color) -> drawPath(path, color) }
-        }
-    }
-}
-
-private fun lerp(a: Float, b: Float, f: Float): Float = a + (b - a) * f
-
 @Preview(name = "RunningTimerScreen - Time to 80% hidden")
 @Composable
 private fun RunningTimerScreenPreview() {
@@ -812,13 +653,22 @@ private fun TimePredictionsOneHourPreview() = TimePredictionsPreview(90)
 @Composable
 private fun TimePredictionsUnderOneHourPreview() = TimePredictionsPreview(150)
 
+@Preview(name = "Fixed decorative waves - light", widthDp = 412, heightDp = 892)
 @Composable
-private fun TimePredictionsPreview(elapsed: Int) {
+private fun RunningWavesLightPreview() = TimePredictionsPreview(15, darkTheme = false)
+
+@Preview(name = "Fixed decorative waves - dark", widthDp = 412, heightDp = 892)
+@Composable
+private fun RunningWavesDarkPreview() = TimePredictionsPreview(15, darkTheme = true)
+
+@Composable
+private fun TimePredictionsPreview(elapsed: Int, darkTheme: Boolean = false) {
     val start = 1_800_000_000_000L
     val snapshot = ChargingSessionSnapshot(60f, 20f, 80f, listOf(PowerSegment(start, 12f)))
     val now = start + elapsed * 60_000L
     val end = start + 180 * 60_000L
-    MaterialTheme {
+    AppTheme(darkTheme = darkTheme, dynamicColor = false) {
+        Surface {
         RunningTimerScreen(
             viewState = RunningViewState(
                 isLoading = false,
@@ -837,5 +687,6 @@ private fun TimePredictionsPreview(elapsed: Int) {
             ),
             onEvent = {}
         )
+        }
     }
 }
