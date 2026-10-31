@@ -38,6 +38,10 @@ in your IDE’s toolbar or build it directly from the terminal:
   .\gradlew.bat :androidApp:assembleDebug
   ```
 
+The Android charging notification shows current-to-target progress (for example, `45% → 80%`).
+When no time remains, it shows `Target reached · 80%` for the configured target.
+Charging speed, remaining duration while charging, and the ETA clock time are also displayed.
+
 ### Android releases
 
 See [Internal testing releases](docs/releasing.md) for signing setup, required

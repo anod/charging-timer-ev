@@ -81,6 +81,7 @@ class ChargingServiceTest {
         testScheduler.runCurrent()
 
         val status = service.status.value
+        assertEquals(settings.maxPercent, status.targetPercent)
         // Expected percent increase: (60% / 180min) * 30 = 10% => 30% total
         val expectedPercent = 30f
         assertApprox(expectedPercent, status.currentPercent, 0.6f) // allow some rounding tolerance
@@ -92,6 +93,36 @@ class ChargingServiceTest {
         // Estimated end time should equal startTime + totalMinutes * 60_000
         val expectedEndTime = startTime + 180 * 60_000L
         assertEquals(expectedEndTime, status.estimatedEndTime, "Estimated end time mismatch")
+    }
+
+    @OptIn(ExperimentalTime::class)
+    @Test
+    fun completedSessionKeepsConfiguredTarget() = runTest {
+        val repo = FakeChargingRepository()
+        repo.saveSettings(
+            ChargingSettings(
+                batteryCapacity = 60f,
+                chargingPower = 12f,
+                startPercent = 20f,
+                maxPercent = 80f
+            )
+        )
+        val service = ChargingServiceImpl(repo, backgroundScope)
+        testScheduler.runCurrent()
+
+        repo.saveSession(
+            ChargingSession(
+                isRunning = true,
+                startTime = Clock.System.now().toEpochMilliseconds() - 181 * 60_000L
+            )
+        )
+        testScheduler.runCurrent()
+
+        val status = service.status.value
+        assertTrue(status.isRunning)
+        assertEquals(0, status.calculation.timeRemainingMinutes)
+        assertEquals(80f, status.currentPercent)
+        assertEquals(80f, status.targetPercent)
     }
 
     private fun assertApprox(expected: Float, actual: Float, tolerance: Float) {

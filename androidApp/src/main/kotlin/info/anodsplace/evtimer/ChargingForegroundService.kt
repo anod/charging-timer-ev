@@ -14,6 +14,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import info.anodsplace.evtimer.data.ChargingService
 import info.anodsplace.evtimer.data.ClockTimeFormatter
+import info.anodsplace.evtimer.data.buildChargingNotificationText
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -181,21 +182,10 @@ class ChargingForegroundService : Service(), KoinComponent {
     private fun buildNotification(status: info.anodsplace.evtimer.data.ChargingStatus, percentInt: Int): Notification {
         val calc = status.calculation
         val speed = String.format(Locale.US, "%.1f kW", calc.chargingSpeed)
-        val remainingMin = calc.timeRemainingMinutes
-        val remainingText = if (remainingMin > 0) {
-            val h = remainingMin / 60
-            val m = remainingMin % 60
-            if (h > 0) "${h}h ${m}m left" else "${m}m left"
-        } else if (percentInt >= 100) "Completed" else "Updating..."
         val eta = if (status.estimatedEndTime > 0) {
             clockTimeFormatter.format(status.estimatedEndTime)
         } else null
-        val line = buildString {
-            append(percentInt).append('%')
-            append(" • ").append(speed)
-            append(" • ").append(remainingText)
-            if (eta != null) append(" • ETA ").append(eta)
-        }
+        val line = buildChargingNotificationText(status, percentInt, speed, eta)
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("EV Charging")
             .setContentText(line)
