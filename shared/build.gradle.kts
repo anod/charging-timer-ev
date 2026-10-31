@@ -8,6 +8,11 @@ plugins {
     alias(libs.plugins.composeCompiler)
 }
 
+compose.resources {
+    publicResClass = true
+    packageOfResClass = "info.anodsplace.evtimer.generated.resources"
+}
+
 kotlin {
     android {
         namespace = "info.anodsplace.evtimer.shared"

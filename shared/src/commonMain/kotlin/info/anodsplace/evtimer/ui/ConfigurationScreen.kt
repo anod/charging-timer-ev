@@ -36,13 +36,19 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import org.jetbrains.compose.resources.stringResource
 import info.anodsplace.evtimer.data.ChargingCalculator
 import info.anodsplace.evtimer.data.ChargingSettings
 import info.anodsplace.evtimer.data.ChargingPreset
 import info.anodsplace.evtimer.data.ConfigurationViewEvent
 import info.anodsplace.evtimer.data.ConfigurationViewState
+import info.anodsplace.evtimer.data.MAX_PRESET_NAME_CODE_POINTS
 import info.anodsplace.evtimer.data.PresetNameError
+import info.anodsplace.evtimer.data.formatLocaleNumber
+import info.anodsplace.evtimer.data.formatPower
 import info.anodsplace.evtimer.data.normalizeAndValidatePresetName
+import info.anodsplace.evtimer.generated.resources.Res
+import info.anodsplace.evtimer.generated.resources.*
 import kotlin.math.roundToInt
 
 private val presetEmojiSuggestions = listOf(
@@ -72,18 +78,18 @@ fun ConfigurationScreen(
     if (showNameDialog) {
         val error = when (presetNameValidation.error) {
             PresetNameError.EMPTY, null -> null
-            PresetNameError.TOO_LONG -> "Preset name must be at most 32 Unicode code points"
-            PresetNameError.ALREADY_EXISTS -> "A preset with this name already exists"
+            PresetNameError.TOO_LONG -> stringResource(Res.string.preset_name_too_long, MAX_PRESET_NAME_CODE_POINTS)
+            PresetNameError.ALREADY_EXISTS -> stringResource(Res.string.preset_name_exists)
         }
         AlertDialog(
             onDismissRequest = { showNameDialog = false },
-            title = { Text("Save as new preset") },
+            title = { Text(stringResource(Res.string.save_as_new_preset)) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(
                         value = presetName,
                         onValueChange = { presetName = it },
-                        label = { Text("Preset name") },
+                        label = { Text(stringResource(Res.string.preset_name)) },
                         singleLine = true,
                         isError = error != null
                     )
@@ -115,10 +121,10 @@ fun ConfigurationScreen(
                         showNameDialog = false
                         presetName = ""
                     }
-                ) { Text("Save") }
+                ) { Text(stringResource(Res.string.save)) }
             },
             dismissButton = {
-                TextButton(onClick = { showNameDialog = false }) { Text("Cancel") }
+                TextButton(onClick = { showNameDialog = false }) { Text(stringResource(Res.string.cancel)) }
             }
         )
     }
@@ -128,15 +134,16 @@ fun ConfigurationScreen(
         modifier = modifier.fillMaxSize(),
         bottomBar = {
             val invalidRange = settings.startPercent >= settings.maxPercent
+            val startErrorDescription = stringResource(Res.string.start_percent_error_description)
             Column(modifier = Modifier.fillMaxWidth()) {
                 if (invalidRange) {
                     Text(
-                        text = "Start % is more than Max %",
+                        text = stringResource(Res.string.start_percent_exceeds_max),
                         color = MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.bodySmall,
                         modifier = Modifier
                             .padding(start = 24.dp, end = 24.dp, top = 8.dp)
-                            .semantics { contentDescription = "error start must be less than max" }
+                            .semantics { contentDescription = startErrorDescription }
                             .align(Alignment.CenterHorizontally)
                     )
                 }
@@ -148,7 +155,7 @@ fun ConfigurationScreen(
                         .padding(horizontal = 16.dp, vertical = 12.dp)
                         .height(56.dp)
                 ) {
-                    Text("Start Timer", fontSize = 18.sp)
+                    Text(stringResource(Res.string.start_timer), fontSize = 18.sp)
                 }
             }
         }
@@ -161,7 +168,7 @@ fun ConfigurationScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Text(
-                text = "Charging Timer for EV",
+                text = stringResource(Res.string.app_title),
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold
             )
@@ -170,6 +177,7 @@ fun ConfigurationScreen(
                 modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                val saveAsPresetDescription = stringResource(Res.string.save_as_new_preset_description)
                 viewState.presets.forEach { preset ->
                     val selected = preset.id == presets.selectedId
                     Box {
@@ -180,21 +188,31 @@ fun ConfigurationScreen(
                                 else if (!selected) onEvent(ConfigurationViewEvent.SelectPreset(preset.id))
                             },
                             enabled = !viewState.isLoading,
-                            label = { Text(preset.name + if (selected && presets.isEdited) " *" else "") }
+                            label = {
+                                Text(
+                                    if (preset.id == "custom") {
+                                        stringResource(Res.string.default_preset)
+                                    } else if (selected && presets.isEdited) {
+                                        stringResource(Res.string.edited_preset_name, preset.name)
+                                    } else {
+                                        preset.name
+                                    }
+                                )
+                            }
                         )
                         DropdownMenu(
                             expanded = selected && presets.isEdited && showPresetMenu,
                             onDismissRequest = { showPresetMenu = false }
                         ) {
                             DropdownMenuItem(
-                                text = { Text("Update preset") },
+                                text = { Text(stringResource(Res.string.update_preset)) },
                                 onClick = {
                                     showPresetMenu = false
                                     onEvent(ConfigurationViewEvent.UpdatePreset)
                                 }
                             )
                             DropdownMenuItem(
-                                text = { Text("Reset") },
+                                text = { Text(stringResource(Res.string.reset)) },
                                 onClick = {
                                     showPresetMenu = false
                                     onEvent(ConfigurationViewEvent.ResetPreset)
@@ -208,7 +226,7 @@ fun ConfigurationScreen(
                     enabled = !viewState.isLoading,
                     onClick = { showNameDialog = true },
                     label = { Text("+") },
-                    modifier = Modifier.semantics { contentDescription = "Save as new preset" }
+                    modifier = Modifier.semantics { contentDescription = saveAsPresetDescription }
                 )
             }
 
@@ -218,29 +236,41 @@ fun ConfigurationScreen(
             ) {
                 // Battery Capacity (collapsed by default)
                 CollapsibleSettingCard(
-                    title = "Battery Capacity",
-                    summary = { valueState -> "Battery: ${valueState.settings.batteryCapacity.roundToInt()} kWh" },
+                    title = stringResource(Res.string.battery_capacity),
+                    summary = { valueState ->
+                        stringResource(
+                            Res.string.battery_summary,
+                            formatLocaleNumber(valueState.settings.batteryCapacity, 0, 0),
+                            stringResource(Res.string.unit_kwh)
+                        )
+                    },
                     viewState = viewState,
                     initiallyExpanded = false,
                     modifier = Modifier
                 ) {
                     PercentageSettingContent(
-                        label = "Battery Capacity",
+                        label = stringResource(Res.string.battery_capacity),
                         value = viewState.settings.batteryCapacity,
                         valueRange = 10..120,
                         onValueChange = { onEvent(ConfigurationViewEvent.UpdateBatteryCapacity(it)) },
-                        suffix = "kWh",
-                        unitDescription = "kilowatt hours",
+                        suffix = stringResource(Res.string.unit_kwh),
+                        unitDescription = stringResource(Res.string.unit_kilowatt_hours),
                         step = 1
                     )
                 }
 
                 // Max Percentage (collapsed by default, placed above Power as requested)
                 CollapsibleSettingCard(
-                    title = "Max",
+                    title = stringResource(Res.string.max),
                     summary = { valueState ->
                         val maxKwh = ChargingCalculator.calculateKwh(valueState.settings.batteryCapacity, valueState.settings.maxPercent)
-                        "Max: ${valueState.settings.maxPercent.roundToInt()}% ($maxKwh kWh)"
+                        stringResource(
+                            Res.string.max_summary,
+                            stringResource(Res.string.max),
+                            formatLocaleNumber(valueState.settings.maxPercent.roundToInt().toFloat(), 0, 0),
+                            formatLocaleNumber(maxKwh.toFloat(), 0, 2),
+                            stringResource(Res.string.unit_kwh)
+                        )
                     },
                     viewState = viewState,
                     initiallyExpanded = false,
@@ -250,20 +280,30 @@ fun ConfigurationScreen(
                         ChargingCalculator.calculateKwh(settings.batteryCapacity, settings.maxPercent)
                     }
                     PercentageSettingContent(
-                        label = "Max",
+                        label = stringResource(Res.string.max),
                         value = viewState.settings.maxPercent,
                         valueRange = 0..100,
                         onValueChange = { onEvent(ConfigurationViewEvent.UpdateMaxPercent(it)) },
-                        additionalInfo = "$maxKwh kWh"
+                        additionalInfo = stringResource(
+                            Res.string.power_value,
+                            formatLocaleNumber(maxKwh.toFloat(), 0, 2),
+                            stringResource(Res.string.unit_kwh)
+                        )
                     )
                 }
 
                 // Start Percentage (expanded by default)
                 CollapsibleSettingCard(
-                    title = "Start",
+                    title = stringResource(Res.string.start),
                     summary = { valueState ->
                         val startKwh = ChargingCalculator.calculateKwh(valueState.settings.batteryCapacity, valueState.settings.startPercent)
-                        "Start: ${valueState.settings.startPercent.roundToInt()}% ($startKwh kWh)"
+                        stringResource(
+                            Res.string.start_summary,
+                            stringResource(Res.string.start),
+                            formatLocaleNumber(valueState.settings.startPercent.roundToInt().toFloat(), 0, 0),
+                            formatLocaleNumber(startKwh.toFloat(), 0, 2),
+                            stringResource(Res.string.unit_kwh)
+                        )
                     },
                     viewState = viewState,
                     initiallyExpanded = true,
@@ -273,18 +313,28 @@ fun ConfigurationScreen(
                         ChargingCalculator.calculateKwh(settings.batteryCapacity, settings.startPercent)
                     }
                     PercentageSettingContent(
-                        label = "Start",
+                        label = stringResource(Res.string.start),
                         value = viewState.settings.startPercent,
                         valueRange = 0..100,
                         onValueChange = { onEvent(ConfigurationViewEvent.UpdateStartPercent(it)) },
-                        additionalInfo = "$startKwh kWh"
+                        additionalInfo = stringResource(
+                            Res.string.power_value,
+                            formatLocaleNumber(startKwh.toFloat(), 0, 2),
+                            stringResource(Res.string.unit_kwh)
+                        )
                     )
                 }
 
                 // Charging Power (expanded by default, moved below Max)
                 CollapsibleSettingCard(
-                    title = "Charging Power",
-                    summary = { valueState -> "Power: ${valueState.settings.chargingPower} kW" },
+                    title = stringResource(Res.string.charging_power),
+                    summary = { valueState ->
+                        stringResource(
+                            Res.string.power_summary,
+                            formatPower(valueState.settings.chargingPower),
+                            stringResource(Res.string.unit_kw)
+                        )
+                    },
                     viewState = viewState,
                     initiallyExpanded = true,
                     modifier = Modifier

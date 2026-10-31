@@ -57,7 +57,11 @@ class ChargingForegroundService : Service(), KoinComponent {
                         stopForeground(STOP_FOREGROUND_REMOVE)
                         stopSelf()
                     } else {
-                        val content = ChargingNotificationContent.from(status, clockTimeFormatter)
+                        val content = ChargingNotificationContent.from(
+                            status,
+                            clockTimeFormatter,
+                            chargingNotificationTextFormatter(this@ChargingForegroundService)
+                        )
                         if (content != lastContent) {
                             notifier.post(content)
                             lastContent = content

@@ -61,20 +61,56 @@ import androidx.compose.ui.unit.sp
 import info.anodsplace.evtimer.data.ChargingCalculation
 import info.anodsplace.evtimer.data.ChargingCalculator
 import info.anodsplace.evtimer.data.ChargingSettings
+import info.anodsplace.evtimer.data.MILESTONE_PERCENT
 import info.anodsplace.evtimer.data.MilestoneEstimate
 import info.anodsplace.evtimer.data.RunningViewEvent
 import info.anodsplace.evtimer.data.RunningViewState
+import info.anodsplace.evtimer.data.formatLocaleNumber
+import info.anodsplace.evtimer.data.formatPower
 import info.anodsplace.evtimer.material.MaterialShapes
 import kotlin.math.min
 import kotlin.math.roundToInt
 import kotlin.random.Random
 import info.anodsplace.evtimer.material.internal.toPath as polygonToPath
+import info.anodsplace.evtimer.generated.resources.Res
+import info.anodsplace.evtimer.generated.resources.apply
+import info.anodsplace.evtimer.generated.resources.charging_in_progress
+import info.anodsplace.evtimer.generated.resources.charging_speed
+import info.anodsplace.evtimer.generated.resources.change_charging_speed
+import info.anodsplace.evtimer.generated.resources.change_speed
+import info.anodsplace.evtimer.generated.resources.complete
+import info.anodsplace.evtimer.generated.resources.current_percent
+import info.anodsplace.evtimer.generated.resources.duration_hours_minutes
+import info.anodsplace.evtimer.generated.resources.elapsed_time
+import info.anodsplace.evtimer.generated.resources.hours_short
+import info.anodsplace.evtimer.generated.resources.minutes_short
+import info.anodsplace.evtimer.generated.resources.percent_and_energy
+import info.anodsplace.evtimer.generated.resources.power_value
+import info.anodsplace.evtimer.generated.resources.reached
+import info.anodsplace.evtimer.generated.resources.stop_timer
+import info.anodsplace.evtimer.generated.resources.target_percent
+import info.anodsplace.evtimer.generated.resources.time_remaining
+import info.anodsplace.evtimer.generated.resources.time_to_percent
+import info.anodsplace.evtimer.generated.resources.unit_kw
+import info.anodsplace.evtimer.generated.resources.unit_kwh
+import info.anodsplace.evtimer.generated.resources.value_with_separator
+import org.jetbrains.compose.resources.stringResource
+import org.jetbrains.compose.resources.pluralStringResource
 
+@Composable
 fun formatElapsedTime(minutes: Int): String {
-    if (minutes <= 0) return "0m"
+    if (minutes <= 0) return pluralStringResource(Res.plurals.minutes_short, 0, 0)
     val hours = minutes / 60
     val mins = minutes % 60
-    return if (hours > 0) "${hours}h ${mins}m" else "${mins}m"
+    return if (hours > 0) {
+        stringResource(
+            Res.string.duration_hours_minutes,
+            pluralStringResource(Res.plurals.hours_short, hours, hours),
+            pluralStringResource(Res.plurals.minutes_short, mins, mins)
+        )
+    } else {
+        pluralStringResource(Res.plurals.minutes_short, mins, mins)
+    }
 }
 
 @Composable
@@ -115,7 +151,7 @@ fun RunningTimerScreen(
             verticalArrangement = Arrangement.spacedBy(32.dp)
         ) {
             Text(
-                text = "Charging in Progress",
+                text = stringResource(Res.string.charging_in_progress),
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold
             )
@@ -139,9 +175,13 @@ fun RunningTimerScreen(
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     EditableStatRow(
-                        label = "Charging Speed",
-                        value = "${calculation.chargingSpeed} kW",
-                        actionLabel = "Change charging speed",
+                        label = stringResource(Res.string.charging_speed),
+                        value = stringResource(
+                            Res.string.power_value,
+                            formatPower(calculation.chargingSpeed),
+                            stringResource(Res.string.unit_kw)
+                        ),
+                        actionLabel = stringResource(Res.string.change_charging_speed),
                         onClick = { showChangeSpeed = true }
                     )
 
@@ -150,42 +190,64 @@ fun RunningTimerScreen(
                         ChargingCalculator.calculateKwh(settings.batteryCapacity, calculation.estimatedPercent)
                     }
                     StatRow(
-                        label = "Current %",
-                        value = "${calculation.estimatedPercent.roundToInt()}% ($currentKwh kWh)"
+                        label = stringResource(Res.string.current_percent),
+                        value = stringResource(
+                            Res.string.percent_and_energy,
+                            formatLocaleNumber(calculation.estimatedPercent.roundToInt().toFloat(), 0, 0),
+                            formatLocaleNumber(currentKwh.toFloat(), 0, 2),
+                            stringResource(Res.string.unit_kwh)
+                        )
                     )
 
                     val targetKwh = remember(settings.batteryCapacity, settings.maxPercent) {
                         ChargingCalculator.calculateKwh(settings.batteryCapacity, settings.maxPercent)
                     }
                     StatRow(
-                        label = "Target %",
-                        value = "${settings.maxPercent.roundToInt()}% ($targetKwh kWh)"
+                        label = stringResource(Res.string.target_percent),
+                        value = stringResource(
+                            Res.string.percent_and_energy,
+                            formatLocaleNumber(settings.maxPercent.roundToInt().toFloat(), 0, 0),
+                            formatLocaleNumber(targetKwh.toFloat(), 0, 2),
+                            stringResource(Res.string.unit_kwh)
+                        )
                     )
 
                     StatRow(
-                        label = "Time Remaining",
-                        value = buildString {
-                            append(formatTime(calculation.timeRemainingMinutes))
-                            if (viewState.estimatedEndTimeText.isNotEmpty()) {
-                                append(" \u00b7 ").append(viewState.estimatedEndTimeText)
-                            }
+                        label = stringResource(Res.string.time_remaining),
+                        value = if (viewState.estimatedEndTimeText.isNotEmpty()) {
+                            stringResource(
+                                Res.string.value_with_separator,
+                                formatTime(calculation.timeRemainingMinutes),
+                                viewState.estimatedEndTimeText
+                            )
+                        } else {
+                            formatTime(calculation.timeRemainingMinutes)
                         }
                     )
 
                     viewState.milestoneEstimate?.let { estimate ->
                         StatRow(
-                            label = "Time to 80%",
-                            value = buildString {
-                                append(if (estimate.reached) "Reached" else formatElapsedTime(estimate.minutesRemaining))
-                                if (viewState.milestoneEtaText.isNotEmpty()) {
-                                    append(" \u00b7 ").append(viewState.milestoneEtaText)
-                                }
+                            label = stringResource(
+                                Res.string.time_to_percent,
+                                formatLocaleNumber(MILESTONE_PERCENT, 0, 0)
+                            ),
+                            value = if (viewState.milestoneEtaText.isNotEmpty()) {
+                                stringResource(
+                                    Res.string.value_with_separator,
+                                    if (estimate.reached) stringResource(Res.string.reached)
+                                    else formatElapsedTime(estimate.minutesRemaining),
+                                    viewState.milestoneEtaText
+                                )
+                            } else if (estimate.reached) {
+                                stringResource(Res.string.reached)
+                            } else {
+                                formatElapsedTime(estimate.minutesRemaining)
                             }
                         )
                     }
 
                     StatRow(
-                        label = "Elapsed Time",
+                        label = stringResource(Res.string.elapsed_time),
                         value = formatElapsedTime(viewState.elapsedMinutes)
                     )
                     }
@@ -203,7 +265,7 @@ fun RunningTimerScreen(
                     contentColor = MaterialTheme.colorScheme.error
                 )
             ) {
-                Text("Stop Timer", fontSize = 18.sp)
+                Text(stringResource(Res.string.stop_timer), fontSize = 18.sp)
             }
         }
     }
@@ -230,7 +292,7 @@ fun ChangeSpeedSheet(
                 .padding(bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text("Change speed", style = MaterialTheme.typography.titleLarge)
+            Text(stringResource(Res.string.change_speed), style = MaterialTheme.typography.titleLarge)
             ChargingPowerChips(
                 powers = (powers + currentPower).distinct().sorted(),
                 selectedPower = selected,
@@ -241,7 +303,7 @@ fun ChangeSpeedSheet(
                 onClick = { onApply(selected) },
                 enabled = selected != currentPower,
                 modifier = Modifier.fillMaxWidth().height(56.dp)
-            ) { Text("Apply") }
+            ) { Text(stringResource(Res.string.apply)) }
         }
     }
     if (showCustomPowerDialog) {
@@ -330,7 +392,12 @@ fun BatteryChargingIndicator(
                     .padding(horizontal = 10.dp, vertical = 4.dp)
             ) {
                 Text(
-                    text = "${currentPercent.roundToInt()}% ($currentKwh kWh)",
+                    text = stringResource(
+                        Res.string.percent_and_energy,
+                        formatLocaleNumber(currentPercent.roundToInt().toFloat(), 0, 0),
+                        formatLocaleNumber(currentKwh.toFloat(), 0, 2),
+                        stringResource(Res.string.unit_kwh)
+                    ),
                     fontSize = 24.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface
@@ -417,14 +484,19 @@ fun EditableStatRow(
     }
 }
 
+@Composable
 fun formatTime(minutes: Int): String {
-    if (minutes <= 0) return "Complete"
+    if (minutes <= 0) return stringResource(Res.string.complete)
     val hours = minutes / 60
     val mins = minutes % 60
     return if (hours > 0) {
-        "${hours}h ${mins}m"
+        stringResource(
+            Res.string.duration_hours_minutes,
+            pluralStringResource(Res.plurals.hours_short, hours, hours),
+            pluralStringResource(Res.plurals.minutes_short, mins, mins)
+        )
     } else {
-        "${mins}m"
+        pluralStringResource(Res.plurals.minutes_short, mins, mins)
     }
 }
 
