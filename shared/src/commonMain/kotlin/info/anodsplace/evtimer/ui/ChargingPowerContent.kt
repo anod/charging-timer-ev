@@ -1,9 +1,13 @@
 package info.anodsplace.evtimer.ui
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.OutlinedTextField
@@ -73,6 +77,7 @@ fun ChargingPowerChips(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun CustomPowerDialog(
     onDismiss: () -> Unit,
@@ -86,13 +91,38 @@ fun CustomPowerDialog(
         onDismissRequest = onDismiss,
         title = { Text("Add Custom Power") },
         text = {
-            OutlinedTextField(
-                value = powerText,
-                onValueChange = { powerText = it },
-                label = { Text("Power (kW)") },
-                isError = powerText.isNotEmpty() && !validPower,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
-            )
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedTextField(
+                    value = powerText,
+                    onValueChange = { powerText = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Power (kW)") },
+                    singleLine = true,
+                    isError = powerText.isNotEmpty() && !validPower,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
+                )
+                listOf(
+                    "AC" to listOf("2.3", "3.6", "7", "11", "22"),
+                    "DC" to listOf("50", "100", "150")
+                ).forEach { (label, suggestions) ->
+                    Text(label)
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        suggestions.forEach { suggestion ->
+                            FilterChip(
+                                selected = power == suggestion.toFloat(),
+                                onClick = { powerText = suggestion },
+                                label = { Text("$suggestion kW") }
+                            )
+                        }
+                    }
+                }
+            }
         },
         confirmButton = {
             TextButton(
