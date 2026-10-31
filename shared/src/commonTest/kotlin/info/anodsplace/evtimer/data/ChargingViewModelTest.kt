@@ -240,6 +240,36 @@ class ChargingViewModelTest {
     }
 
     @Test
+    fun formatsMilestoneEtaWithTheSameClockTimeFormatter() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val repository = ViewModelTestRepository()
+        val service = ViewModelTestService()
+        val formattedTimes = mutableListOf<Long>()
+        val viewModel = RunningViewModel(repository, service, ClockTimeFormatter {
+            formattedTimes += it
+            "ETA:$it"
+        })
+        try {
+            runCurrent()
+            val estimate = MilestoneEstimate(minutesRemaining = 196, estimatedTime = 12_345L)
+            service.status.value = ChargingStatus(
+                isLoading = false,
+                isRunning = true,
+                estimatedEndTime = 60_000L,
+                milestoneEstimate = estimate
+            )
+            runCurrent()
+
+            assertEquals(estimate, viewModel.viewState.milestoneEstimate)
+            assertEquals("ETA:12345", viewModel.viewState.milestoneEtaText)
+            assertEquals(listOf(60_000L, 12_345L), formattedTimes)
+        } finally {
+            viewModel.viewModelScope.cancel()
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
     fun addingNewPowerSavesAndSelectsItInOneWrite() = verifyAddedPower(
         power = 7.2f,
         expectedPowers = listOf(3.6f, 7f, 7.2f, 11f)

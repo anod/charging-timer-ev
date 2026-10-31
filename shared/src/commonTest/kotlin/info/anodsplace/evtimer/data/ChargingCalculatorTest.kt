@@ -34,6 +34,37 @@ class ChargingCalculatorTest {
     }
 
     @Test
+    fun milestoneEstimateIncludesRoundedMinutesAndEta() {
+        val start = snapshot.startTime
+        val targetAboveEighty = snapshot.copy(targetPercent = 100f, segments = listOf(PowerSegment(start, 11f)))
+
+        assertEquals(
+            MilestoneEstimate(minutesRemaining = 196, estimatedTime = start + 11_781_819L),
+            ChargingCalculator.estimateMilestone(targetAboveEighty, start)
+        )
+    }
+
+    @Test
+    fun milestoneEstimateIsAbsentWhenTargetOrCurrentPercentReachesEighty() {
+        val start = snapshot.startTime
+        assertEquals(null, ChargingCalculator.estimateMilestone(snapshot, start))
+        assertEquals(
+            null,
+            ChargingCalculator.estimateMilestone(
+                snapshot.copy(startPercent = 80f, targetPercent = 100f),
+                start
+            )
+        )
+        assertEquals(
+            null,
+            ChargingCalculator.estimateMilestone(
+                snapshot.copy(targetPercent = 100f),
+                start + 180 * 60_000L
+            )
+        )
+    }
+
+    @Test
     fun segmentsIntegrateEnergyWithoutRewritingThePast() {
         val start = snapshot.startTime
         val segmented = snapshot.copy(

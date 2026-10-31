@@ -47,6 +47,7 @@ import androidx.compose.ui.unit.sp
 import info.anodsplace.evtimer.data.ChargingCalculation
 import info.anodsplace.evtimer.data.ChargingCalculator
 import info.anodsplace.evtimer.data.ChargingSettings
+import info.anodsplace.evtimer.data.MilestoneEstimate
 import info.anodsplace.evtimer.data.RunningViewEvent
 import info.anodsplace.evtimer.data.RunningViewState
 import info.anodsplace.evtimer.material.MaterialShapes
@@ -138,6 +139,18 @@ fun RunningTimerScreen(
                             }
                         }
                     )
+
+                    viewState.milestoneEstimate?.let { estimate ->
+                        StatRow(
+                            label = "To 80%",
+                            value = buildString {
+                                append(formatTime(estimate.minutesRemaining))
+                                if (viewState.milestoneEtaText.isNotEmpty()) {
+                                    append(" \u00b7 ").append(viewState.milestoneEtaText)
+                                }
+                            }
+                        )
+                    }
 
                     StatRow(
                         label = "Elapsed Time",
@@ -437,7 +450,7 @@ fun StaticMaterialShapesBackground(
 
 private fun lerp(a: Float, b: Float, f: Float): Float = a + (b - a) * f
 
-@Preview(name = "RunningTimerScreen")
+@Preview(name = "RunningTimerScreen - estimate hidden at 80% target")
 @Composable
 private fun RunningTimerScreenPreview() {
     val state = RunningViewState(
@@ -462,11 +475,13 @@ private fun RunningTimerScreenPreview() {
     }
 }
 
-@Preview(name = "RunningTimerScreen Alt")
+@Preview(name = "RunningTimerScreen - 80% estimate shown")
 @Composable
 private fun RunningTimerScreenAltPreview() {
     val state = RunningViewState(
         estimatedEndTimeText = "4:05 PM",
+        milestoneEstimate = MilestoneEstimate(35, 14 * 60L + 5),
+        milestoneEtaText = "2:05 PM",
         settings = ChargingSettings(
             batteryCapacity = 60f,
             chargingPower = 7.2f,

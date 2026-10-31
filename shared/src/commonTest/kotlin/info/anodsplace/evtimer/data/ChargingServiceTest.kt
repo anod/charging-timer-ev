@@ -164,6 +164,25 @@ class ChargingServiceTest {
     }
 
     @Test
+    fun runningStatusIncludesEstimateToEightyPercent() = runTest {
+        val repo = FakeChargingRepository()
+        repo.saveSettings(ChargingSettings(60f, 11f, 20f, 100f))
+        val clock = FakeClock()
+        val service = ChargingServiceImpl(repo, backgroundScope, clock)
+        runCurrent()
+        service.start()
+        runCurrent()
+
+        assertEquals(
+            MilestoneEstimate(
+                minutesRemaining = 196,
+                estimatedTime = clock.milliseconds + 11_781_819L
+            ),
+            service.status.value.milestoneEstimate
+        )
+    }
+
+    @Test
     fun completedSessionKeepsTargetAndOriginalEta() = runTest {
         val repo = FakeChargingRepository()
         val clock = FakeClock()
