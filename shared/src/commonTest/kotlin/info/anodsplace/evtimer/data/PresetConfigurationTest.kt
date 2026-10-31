@@ -61,6 +61,12 @@ class PresetConfigurationTest {
         assertEquals(family, normalizeAndValidatePresetName(family, emptyList()).name)
         assertEquals(flag, normalizeAndValidatePresetName(flag, emptyList()).name)
         assertEquals(skinTone, normalizeAndValidatePresetName(skinTone, emptyList()).name)
+        assertEquals("a".repeat(27) + family,
+            normalizeAndValidatePresetName("a".repeat(27) + family, emptyList()).name)
+        assertEquals("a".repeat(30) + flag,
+            normalizeAndValidatePresetName("a".repeat(30) + flag, emptyList()).name)
+        assertEquals("a".repeat(30) + skinTone,
+            normalizeAndValidatePresetName("a".repeat(30) + skinTone, emptyList()).name)
         assertEquals(PresetNameError.TOO_LONG,
             normalizeAndValidatePresetName("a".repeat(28) + family, emptyList()).error)
     }
