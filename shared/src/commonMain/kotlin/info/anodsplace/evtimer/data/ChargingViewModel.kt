@@ -94,7 +94,10 @@ class ChargingViewModel(
                     chargingPower = event.power
                 )
             )
-            is ChargingViewEvent.AddCustomPower -> addCustomPower(event.power)
+            is ChargingViewEvent.AddCustomPower -> {
+                if (event.power.isFinite() && event.power > 0f) addCustomPower(event.power)
+                else println("Charging settings: rejecting invalid custom power")
+            }
             is ChargingViewEvent.UpdateStartPercent -> saveSettings(
                 latestSettings.copy(
                     startPercent = event.percent

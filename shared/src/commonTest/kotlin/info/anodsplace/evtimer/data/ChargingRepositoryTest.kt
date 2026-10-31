@@ -10,6 +10,42 @@ import kotlin.test.assertTrue
 
 class ChargingRepositoryTest {
     @Test
+    fun nonFiniteOrInvalidSettingsUseValidDefaults() {
+        val prefs = mutablePreferencesOf(
+            SessionPreferences.batteryCapacity to Float.NaN,
+            SessionPreferences.chargingPower to Float.POSITIVE_INFINITY,
+            SessionPreferences.startPercent to -1f,
+            SessionPreferences.maxPercent to 101f,
+            SessionPreferences.availablePowers to "Infinity,NaN,0,-7,11"
+        )
+        assertEquals(ChargingSettings.DEFAULT.copy(availablePowers = listOf(11f)), SessionPreferences.readSettings(prefs))
+    }
+
+    @Test
+    fun corruptSnapshotIsClearedBeforePublishingLoadedSession() = runTest {
+        val prefs = mutablePreferencesOf(SessionPreferences.isRunning to true)
+        SessionPreferences.writeSnapshot(prefs, ChargingSessionSnapshot.from(ChargingSettings.DEFAULT, 123L))
+        prefs[androidx.datastore.preferences.core.stringPreferencesKey("snapshot_segments")] = "bad"
+        val migration = ChargingSessionMigration()
+        assertTrue(migration.shouldMigrate(prefs))
+        val recovered = migration.migrate(prefs)
+        assertEquals(false, recovered[SessionPreferences.isRunning])
+        assertEquals(0L, recovered[SessionPreferences.startTime])
+        assertEquals(null, SessionPreferences.readSnapshot(recovered))
+        assertFalse(migration.shouldMigrate(recovered))
+        prefs[SessionPreferences.isRunning] = false
+        assertTrue(migration.shouldMigrate(prefs))
+    }
+
+    @Test
+    fun legacySessionWithMissingStartTimeIsCleared() = runTest {
+        val prefs = mutablePreferencesOf(SessionPreferences.isRunning to true)
+        val recovered = ChargingSessionMigration().migrate(prefs)
+        assertEquals(false, recovered[SessionPreferences.isRunning])
+        assertEquals(null, SessionPreferences.readSnapshot(recovered))
+    }
+
+    @Test
     fun settingsUseOneDefaultsSource() {
         assertEquals(ChargingSettings.DEFAULT, ChargingSettings())
         assertEquals(ChargingSettings.DEFAULT, SessionPreferences.readSettings(mutablePreferencesOf()))

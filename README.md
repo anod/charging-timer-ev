@@ -17,7 +17,10 @@ Progress and predictions stop at the snapshot target; time-to-reach accepts any
 percentage from 0 to 100 and assumes continued charging at the last segment's power.
 Efficiency is an energy multiplier (1.0 preserves the existing estimates). Remaining
 minutes are rounded up only for display, while ETA retains millisecond precision.
-The injected clock drives updates at the next whole percent, at most 60 seconds apart.
+The injected clock drives updates at the next elapsed-minute, displayed remaining-minute,
+or half-percent boundary (covering rounded screen and truncated notification percentages),
+at most 60 seconds apart. Invalid persisted settings use validated defaults with a warning;
+an invalid snapshot is logged and cleared before loaded status is published.
 
 * [/shared](./shared/src) is for code that will be shared across your Compose Multiplatform applications.
   It contains several subfolders:

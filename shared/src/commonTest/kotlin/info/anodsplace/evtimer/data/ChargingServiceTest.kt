@@ -13,6 +13,9 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import kotlin.math.ceil
+import kotlin.math.floor
+import kotlin.math.roundToInt
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
@@ -43,6 +46,57 @@ private class FakeChargingRepository : ChargingRepository {
 
 @OptIn(ExperimentalCoroutinesApi::class, ExperimentalTime::class)
 class ChargingServiceTest {
+    @Test
+    fun slowTickerWithArbitraryPhaseTracksEveryDisplayedBoundary() = verifyDisplayBoundaries(11f)
+
+    @Test
+    fun fastTickerWithArbitraryPhaseTracksEveryDisplayedBoundary() = verifyDisplayBoundaries(180f)
+
+    private fun verifyDisplayBoundaries(power: Float) = runTest {
+        val epoch = 1_800_000_000_000L
+        val clock = object : Clock {
+            override fun now() = Instant.fromEpochMilliseconds(epoch + testScheduler.currentTime)
+        }
+        val snapshot = ChargingSessionSnapshot.from(ChargingSettings(83f, power, 60f, 100f), epoch - 30_000L)
+        val repo = FakeChargingRepository()
+        repo.saveSession(ChargingSession(true, snapshot))
+        val service = ChargingServiceImpl(repo, backgroundScope, clock)
+        runCurrent()
+        val remaining = ChargingCalculator.minutesToReach(snapshot, epoch, 100f)
+        val nextRounded = floor(ChargingCalculator.percentAt(snapshot, epoch).toDouble()) + 0.5
+        val roundedTarget = if (nextRounded > ChargingCalculator.percentAt(snapshot, epoch)) {
+            nextRounded.toFloat()
+        } else (nextRounded + 1.0).toFloat()
+        val percentBoundary = ceil(
+            ChargingCalculator.minutesToReach(snapshot, epoch, roundedTarget) * 60_000.0
+        ).toLong()
+        val remainingBoundary = ceil((remaining - (ceil(remaining) - 1.0)) * 60_000.0).toLong()
+        val checks = listOf(
+            Triple(30_000L, { service.status.value.elapsedMinutes }, 1),
+            Triple(remainingBoundary, { service.status.value.calculation.timeRemainingMinutes }, ceil(remaining).toInt() - 1),
+            Triple(percentBoundary, { service.status.value.currentPercent.roundToInt() }, roundedTarget.roundToInt())
+        ).sortedBy { it.first }
+        for ((boundary, value, expected) in checks) {
+            advanceTimeBy(boundary - 100L - testScheduler.currentTime)
+            runCurrent()
+            assertEquals(expected - if (boundary == remainingBoundary) -1 else 1, value(), "Before boundary at $boundary ms")
+            advanceTimeBy(1_100L)
+            runCurrent()
+            assertEquals(expected, value(), "Within one second after boundary at $boundary ms")
+        }
+        // Notification's truncated percent must also update on its whole-percent boundary.
+        val wholePercent = floor(ChargingCalculator.percentAt(snapshot, epoch).toDouble()).toFloat() + 1f
+        val wholeBoundary = ceil(ChargingCalculator.minutesToReach(snapshot, epoch, wholePercent) * 60_000.0).toLong()
+        if (wholeBoundary > testScheduler.currentTime + 100L) {
+            advanceTimeBy(wholeBoundary - 100L - testScheduler.currentTime)
+            runCurrent()
+            assertEquals(wholePercent.toInt() - 1, service.status.value.currentPercent.toInt())
+            advanceTimeBy(1_100L)
+            runCurrent()
+            assertEquals(wholePercent.toInt(), service.status.value.currentPercent.toInt())
+        }
+    }
+
     @Test
     fun startStopLifecycleSnapshotsCurrentSettings() = runTest {
         val repo = FakeChargingRepository()

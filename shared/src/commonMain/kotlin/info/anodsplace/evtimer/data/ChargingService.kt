@@ -123,11 +123,20 @@ class ChargingServiceImpl(
     private fun nextTickDelay(): Long {
         val snapshot = lastSession.snapshot ?: return 60_000L
         val now = clock.now().toEpochMilliseconds()
+        val elapsed = (now - snapshot.startTime).coerceAtLeast(0L)
+        val elapsedBoundary = 60_000L - elapsed % 60_000L
         val percent = ChargingCalculator.percentAt(snapshot, now)
-        if (percent >= snapshot.targetPercent) return 60_000L
-        val nextPercent = minOf(floor(percent.toDouble()).toFloat() + 1f, snapshot.targetPercent)
-        return ceil(ChargingCalculator.minutesToReach(snapshot, now, nextPercent) * 60_000.0)
-            .toLong().coerceIn(1L, 60_000L)
+        if (percent >= snapshot.targetPercent) return elapsedBoundary
+        val remaining = ChargingCalculator.minutesToReach(snapshot, now, snapshot.targetPercent)
+        val remainingBoundary = ceil((remaining - (ceil(remaining) - 1.0)) * 60_000.0).toLong()
+        val nextPercent = minOf(
+            ((floor(percent.toDouble() * 2.0) + 1.0) / 2.0).toFloat(),
+            snapshot.targetPercent
+        )
+        val percentBoundary = ceil(
+            ChargingCalculator.minutesToReach(snapshot, now, nextPercent) * 60_000.0
+        ).toLong()
+        return minOf(elapsedBoundary, remainingBoundary, percentBoundary, 60_000L).coerceAtLeast(10L)
     }
 
     override suspend fun start() = sessionMutex.withLock {

@@ -18,6 +18,24 @@ import kotlin.test.assertTrue
 @OptIn(ExperimentalCoroutinesApi::class)
 class ChargingViewModelTest {
     @Test
+    fun rejectsNonFiniteCustomPowerWithoutPersistingIt() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val repo = ViewModelTestRepository()
+        val viewModel = ChargingViewModel(repo, ViewModelTestService(), ClockTimeFormatter { "" })
+        try {
+            runCurrent()
+            listOf(Float.POSITIVE_INFINITY, Float.NaN, 0f, -7f).forEach {
+                viewModel.handleEvent(ChargingViewEvent.AddCustomPower(it))
+            }
+            runCurrent()
+            assertEquals(emptyList(), repo.savedSettings)
+        } finally {
+            viewModel.viewModelScope.cancel()
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
     fun ignoresDefaultsAndEventsWhileSessionIsLoading() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val repository = ViewModelTestRepository(ChargingSettings(75f, 7f, 30f, 90f))

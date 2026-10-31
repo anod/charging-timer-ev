@@ -85,13 +85,26 @@ internal object SessionPreferences {
     private val segments = stringPreferencesKey("snapshot_segments")
 
     fun readSettings(prefs: Preferences): ChargingSettings = ChargingSettings(
-        batteryCapacity = prefs[batteryCapacity] ?: ChargingSettings.DEFAULT.batteryCapacity,
-        chargingPower = prefs[chargingPower] ?: ChargingSettings.DEFAULT.chargingPower,
-        startPercent = prefs[startPercent] ?: ChargingSettings.DEFAULT.startPercent,
-        maxPercent = prefs[maxPercent] ?: ChargingSettings.DEFAULT.maxPercent,
+        batteryCapacity = validSetting(prefs, batteryCapacity, ChargingSettings.DEFAULT.batteryCapacity) { it > 0f },
+        chargingPower = validSetting(prefs, chargingPower, ChargingSettings.DEFAULT.chargingPower) { it > 0f },
+        startPercent = validSetting(prefs, startPercent, ChargingSettings.DEFAULT.startPercent) { it in 0f..100f },
+        maxPercent = validSetting(prefs, maxPercent, ChargingSettings.DEFAULT.maxPercent) { it in 0f..100f },
         availablePowers = prefs[availablePowers]?.split(",")?.mapNotNull { it.toFloatOrNull() }
+            ?.filter { it.isFinite() && it > 0f }
             ?.takeIf { it.isNotEmpty() } ?: ChargingSettings.DEFAULT.availablePowers
     )
+
+    private fun validSetting(
+        prefs: Preferences,
+        key: Preferences.Key<Float>,
+        default: Float,
+        isValid: (Float) -> Boolean
+    ): Float {
+        val value = prefs[key] ?: return default
+        if (value.isFinite() && isValid(value)) return value
+        println("Charging settings: invalid ${key.name}; using default")
+        return default
+    }
 
     fun writeSnapshot(prefs: MutablePreferences, snapshot: ChargingSessionSnapshot?) {
         if (snapshot == null) {
@@ -132,21 +145,28 @@ internal object SessionPreferences {
 }
 
 internal class ChargingSessionMigration : DataMigration<Preferences> {
-    override suspend fun shouldMigrate(currentData: Preferences): Boolean =
-        currentData[SessionPreferences.isRunning] == true &&
-            SessionPreferences.readSnapshot(currentData) == null
+    override suspend fun shouldMigrate(currentData: Preferences): Boolean = try {
+        val snapshot = SessionPreferences.readSnapshot(currentData)
+        currentData[SessionPreferences.isRunning] == true && snapshot == null
+    } catch (_: IllegalArgumentException) {
+        true
+    }
 
     override suspend fun migrate(currentData: Preferences): Preferences =
         currentData.toMutablePreferences().apply {
-            SessionPreferences.writeSnapshot(
-                this,
-                ChargingSessionSnapshot.from(
+            try {
+                val existing = SessionPreferences.readSnapshot(currentData)
+                val snapshot = existing ?: ChargingSessionSnapshot.from(
                     SessionPreferences.readSettings(currentData),
-                    requireNotNull(currentData[SessionPreferences.startTime]) {
-                        "Running legacy session is missing its start time"
-                    }
+                    requireNotNull(currentData[SessionPreferences.startTime])
                 )
-            )
+                SessionPreferences.writeSnapshot(this, snapshot)
+            } catch (_: IllegalArgumentException) {
+                println("Charging session: invalid persisted snapshot or legacy start time; clearing session")
+                this[SessionPreferences.isRunning] = false
+                this[SessionPreferences.startTime] = 0L
+                SessionPreferences.writeSnapshot(this, null)
+            }
         }
 
     override suspend fun cleanUp() = Unit

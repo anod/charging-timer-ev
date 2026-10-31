@@ -79,6 +79,8 @@ fun CustomPowerDialog(
     onConfirm: (Float) -> Unit
 ) {
     var powerText by remember { mutableStateOf("") }
+    val power = powerText.replace(',', '.').toFloatOrNull()
+    val validPower = power != null && power.isFinite() && power > 0f
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -88,17 +90,15 @@ fun CustomPowerDialog(
                 value = powerText,
                 onValueChange = { powerText = it },
                 label = { Text("Power (kW)") },
+                isError = powerText.isNotEmpty() && !validPower,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
             )
         },
         confirmButton = {
             TextButton(
+                enabled = validPower,
                 onClick = {
-                    powerText.replace(',', '.').toFloatOrNull()?.let { power ->
-                        if (power > 0) {
-                            onConfirm(power)
-                        }
-                    }
+                    onConfirm(requireNotNull(power))
                 }
             ) { Text("Add") }
         },
