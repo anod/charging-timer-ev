@@ -15,6 +15,8 @@ class RunningCompletionStateTest {
         )
         assertFalse(running.isFinished)
         assertFalse(running.copy(calculation = ChargingCalculation(20, 80f)).isFinished)
+        assertFalse(running.copy(calculation = ChargingCalculation(1, 100f)).isFinished)
+        assertFalse(running.copy(calculation = ChargingCalculation(0, 99.99f)).isFinished)
         val finished = running.copy(calculation = ChargingCalculation(0, 100f))
         assertTrue(finished.isFinished)
         assertFalse(finished.copy(isLoading = true).isFinished)

@@ -24,7 +24,11 @@ class RunningCompletionScreenTest {
         onNodeWithText("Charging in Progress").assertExists()
         onNodeWithText("Finished").assertDoesNotExist()
         runOnIdle {
-            state.value = state.value.copy(calculation = ChargingCalculation(timeRemainingMinutes = 0))
+            state.value = state.value.copy(
+                calculation = ChargingCalculation(
+                    timeRemainingMinutes = 0, estimatedPercent = state.value.settings.maxPercent
+                )
+            )
         }
         onNodeWithText("Finished").assertExists()
         onNodeWithText("Charging in Progress").assertDoesNotExist()

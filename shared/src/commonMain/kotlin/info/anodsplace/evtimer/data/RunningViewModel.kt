@@ -40,7 +40,8 @@ data class RunningViewState(
     val timeProgress: TimeProgress? = null
 ) {
     val isFinished: Boolean
-        get() = !isLoading && estimatedEndTime > 0L && calculation.timeRemainingMinutes == 0
+        get() = !isLoading && estimatedEndTime > 0L &&
+            calculation.timeRemainingMinutes == 0 && calculation.estimatedPercent >= settings.maxPercent
 }
 
 sealed interface RunningViewAction
