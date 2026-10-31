@@ -13,6 +13,8 @@ import kotlinx.coroutines.flow.first
 interface ChargingRepository {
     suspend fun saveSettings(settings: ChargingSettings)
     fun observeSettings(): Flow<ChargingSettings>
+    fun observeNotifyAt80(): Flow<Boolean>
+    suspend fun setNotifyAt80(enabled: Boolean)
     suspend fun createSnapshot(startedAt: Long): ChargingSessionSnapshot =
         ChargingSessionSnapshot.from(observeSettings().first(), startedAt)
 
@@ -35,6 +37,7 @@ data class ChargingSession(
 }
 
 internal object SessionPreferences {
+    val notifyAt80 = booleanPreferencesKey("notify_at_80")
     val selectedPreset = stringPreferencesKey("selected_preset")
     val draftPreset = stringPreferencesKey("draft_preset")
     val draftValues = stringPreferencesKey("draft_values")

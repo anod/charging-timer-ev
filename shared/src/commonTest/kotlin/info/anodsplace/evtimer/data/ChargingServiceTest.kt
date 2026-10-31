@@ -26,6 +26,9 @@ private class FakeClock(var milliseconds: Long = 1_800_000_000_000L) : Clock {
 }
 
 private class FakeChargingRepository : ChargingRepository {
+    private val notifyAt80 = MutableStateFlow(true)
+    override fun observeNotifyAt80() = notifyAt80
+    override suspend fun setNotifyAt80(enabled: Boolean) { notifyAt80.value = enabled }
     val settings = MutableStateFlow(ChargingSettings(60f, 12f, 20f, 80f))
     val session = MutableStateFlow(ChargingSession())
     var writes = 0
@@ -252,6 +255,9 @@ class ChargingServiceTest {
         val clock = FakeClock()
         val snapshot = ChargingSessionSnapshot.from(settings, clock.milliseconds - 60_000L)
         val repo = object : ChargingRepository {
+            private val notifyAt80 = MutableStateFlow(true)
+            override fun observeNotifyAt80() = notifyAt80
+            override suspend fun setNotifyAt80(enabled: Boolean) { notifyAt80.value = enabled }
             val session = MutableStateFlow(ChargingSession(true, snapshot))
             var writes = 0
             override fun observeSettings() = flow { loaded.await(); emit(settings) }

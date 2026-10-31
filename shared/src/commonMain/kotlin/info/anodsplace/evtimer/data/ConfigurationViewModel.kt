@@ -11,7 +11,8 @@ data class ConfigurationViewState(
     val isLoading: Boolean = true,
     val settings: ChargingSettings = ChargingSettings(),
     val presets: List<ChargingPreset> = listOf(ChargingPreset(ChargingRepositoryImpl.CUSTOM_ID, "Default", ChargingSettings.DEFAULT)),
-    val selectedPresetId: String = ChargingRepositoryImpl.CUSTOM_ID
+    val selectedPresetId: String = ChargingRepositoryImpl.CUSTOM_ID,
+    val notifyAt80: Boolean = true
 ) {
     val presetConfiguration get() = PresetConfiguration(presets, selectedPresetId, settings)
 }
@@ -31,6 +32,7 @@ sealed interface ConfigurationViewEvent {
     data object UpdatePreset : ConfigurationViewEvent
     data class SaveAsPreset(val name: String) : ConfigurationViewEvent
     data object ResetPreset : ConfigurationViewEvent
+    data class SetNotifyAt80(val enabled: Boolean) : ConfigurationViewEvent
 }
 
 class ConfigurationViewModel(
@@ -43,12 +45,15 @@ class ConfigurationViewModel(
     init {
         viewState = ConfigurationViewState()
         viewModelScope.launch {
-            combine(presetRepository.observeConfiguration(), service.status) { configuration, status -> configuration to status }
-                .collect { (configuration, status) ->
+            combine(
+                presetRepository.observeConfiguration(), service.status, repository.observeNotifyAt80()
+            ) { configuration, status, notifyAt80 -> Triple(configuration, status, notifyAt80) }
+                .collect { (configuration, status, notifyAt80) ->
                     if (status.isLoading) return@collect
                     viewState = ConfigurationViewState(
                         isLoading = false, settings = configuration.settings,
-                        presets = configuration.presets, selectedPresetId = configuration.selectedId
+                        presets = configuration.presets, selectedPresetId = configuration.selectedId,
+                        notifyAt80 = notifyAt80
                     )
                 }
         }
@@ -65,6 +70,7 @@ class ConfigurationViewModel(
     private suspend fun processEvent(event: ConfigurationViewEvent) {
         val latestSettings = repository.observeSettings().first()
         when (event) {
+            is ConfigurationViewEvent.SetNotifyAt80 -> repository.setNotifyAt80(event.enabled)
             ConfigurationViewEvent.StartCharging -> {
                 service.start()
                 emitAction(ConfigurationViewAction.OpenRunning)

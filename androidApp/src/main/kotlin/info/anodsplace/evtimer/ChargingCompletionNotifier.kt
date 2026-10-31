@@ -17,7 +17,7 @@ import androidx.core.app.NotificationManagerCompat
 class ChargingCompletionNotifier(private val context: Context) {
     private val manager = context.getSystemService(NotificationManager::class.java)
 
-    private fun build(): Notification {
+    private fun build(at80: Boolean): Notification {
         manager.createNotificationChannel(
             NotificationChannel(
                 CHANNEL_ID, context.getString(R.string.charging_complete_channel),
@@ -43,15 +43,15 @@ class ChargingCompletionNotifier(private val context: Context) {
         )
         return NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_charging)
-            .setContentTitle(context.getString(R.string.charging_complete_title))
-            .setContentText(context.getString(R.string.charging_complete_message))
+            .setContentTitle(context.getString(if (at80) R.string.charging_80_title else R.string.charging_complete_title))
+            .setContentText(context.getString(if (at80) R.string.charging_80_message else R.string.charging_complete_message))
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
             .setContentIntent(openApp)
             .setAutoCancel(true)
             .build()
     }
 
-    fun post() {
+    fun post(at80: Boolean = false) {
         if (context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED ||
             !NotificationManagerCompat.from(context).areNotificationsEnabled()
         ) {
@@ -59,16 +59,18 @@ class ChargingCompletionNotifier(private val context: Context) {
             return
         }
         try {
-            manager.notify(NOTIFICATION_ID, build())
+            manager.notify(if (at80) MILESTONE_NOTIFICATION_ID else NOTIFICATION_ID, build(at80))
         } catch (error: SecurityException) {
             Log.w("ChargingComplete", "Completion notification permission changed", error)
         }
     }
 
-    fun cancel() = manager.cancel(NOTIFICATION_ID)
+    fun cancel(at80: Boolean = false) = manager.cancel(if (at80) MILESTONE_NOTIFICATION_ID else NOTIFICATION_ID)
 
     companion object {
         const val CHANNEL_ID = "charging_complete"
         const val NOTIFICATION_ID = 2102
+        const val MILESTONE_NOTIFICATION_ID = 2103
+        const val EXTRA_AT_80 = "at_80"
     }
 }

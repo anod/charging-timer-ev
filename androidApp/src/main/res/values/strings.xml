@@ -30,4 +30,6 @@
     <string name="charging_complete_channel_description">Alerts with sound and vibration when the charging target is reached</string>
     <string name="charging_complete_title">Charging target reached</string>
     <string name="charging_complete_message">Your estimated charging target has been reached.</string>
+    <string name="charging_80_title">Charging reached 80%</string>
+    <string name="charging_80_message">Your estimated battery level has reached 80%.</string>
 </resources>

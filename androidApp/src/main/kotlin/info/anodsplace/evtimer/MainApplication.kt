@@ -4,6 +4,7 @@ import android.app.Application
 import android.app.Activity
 import android.os.Bundle
 import info.anodsplace.evtimer.data.ChargingService
+import info.anodsplace.evtimer.data.ChargingRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -24,7 +25,7 @@ class MainApplication : Application(), KoinComponent {
         }
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
         val chargingService = get<ChargingService>()
-        ChargingCompletionController(this, chargingService, scope)
+        ChargingCompletionController(this, chargingService, get<ChargingRepository>(), scope)
         chargingSessionController = ChargingSessionController(this, chargingService, scope)
         registerActivityLifecycleCallbacks(object : ActivityLifecycleCallbacks {
             override fun onActivityResumed(activity: Activity) {

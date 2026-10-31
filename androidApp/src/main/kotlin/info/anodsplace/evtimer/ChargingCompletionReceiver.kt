@@ -6,6 +6,6 @@ import android.content.Intent
 
 class ChargingCompletionReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        ChargingCompletionNotifier(context).post()
+        ChargingCompletionNotifier(context).post(intent.getBooleanExtra(ChargingCompletionNotifier.EXTRA_AT_80, false))
     }
 }

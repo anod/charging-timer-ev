@@ -94,6 +94,9 @@ private class DesktopTestService : ChargingService {
 }
 
 private class DesktopTestRepository : ChargingRepository, PresetRepository {
+    private val notifyAt80 = MutableStateFlow(true)
+    override fun observeNotifyAt80() = notifyAt80
+    override suspend fun setNotifyAt80(enabled: Boolean) { notifyAt80.value = enabled }
     private val settings = MutableStateFlow(ChargingSettings())
     private val session = MutableStateFlow(ChargingSession())
     override fun observeSettings() = settings
