@@ -135,6 +135,26 @@ for that session, including after reopening the app. It does not stop the saved 
 use the notification's Stop action or stop it in the app. Background foreground-service
 restoration is retried when the app becomes visible if Android denies a background start.
 
+At the target ETA, a separate `charging_complete` high-importance notification repeats
+notification sound and vibration until handled. It respects silent/vibrate mode, channel
+settings and Do Not Disturb; it does not bypass DND. Both **Stop charging** and **Dismiss**
+cancel the alert's sound/vibration; Dismiss leaves the saved timer running, while Stop
+ends only the app's timer (the app cannot control the vehicle). The same choices appear
+in an Android in-app dialog when the activity is resumed. All alert text uses Android
+string resources, like the existing Live Update settings dialog.
+
+The shared `ChargingCompletionPlanner` plans from the snapshot-derived ETA. Android
+uses a wakeup `setExactAndAllowWhileIdle` alarm when exact-alarm access is available,
+otherwise `setAndAllowWhileIdle` (which may be delayed by minutes). There is no
+`USE_EXACT_ALARM` permission. Every session ETA change, including a speed change,
+replaces the alarm; stopping cancels it. Dismissing the Live Update does not cancel
+completion scheduling. Device-local completion delivery/acknowledgment preferences
+are explicitly excluded from cloud backup and device transfer, and receivers validate
+the loaded running session and ETA before alerting. Restored interrupted history cannot
+produce a stale alert. App updates and exact-alarm grants re-evaluate scheduling.
+Boot rescheduling is not implemented here: #32 can call
+`ChargingCompletionController.sync(force = true)` after session loading.
+
 ### Android releases
 
 See [Internal testing releases](docs/releasing.md) for signing setup, required

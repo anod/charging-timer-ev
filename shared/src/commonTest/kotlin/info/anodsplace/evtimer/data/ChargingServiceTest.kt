@@ -291,6 +291,7 @@ class ChargingServiceTest {
         service.refresh()
         val before = service.status.value
         val etaBefore = before.estimatedEndTime
+        val alarmBefore = requireNotNull(ChargingCompletionPlanner.plan(before))
         service.changePower(50f)
         runCurrent()
         val after = service.status.value
@@ -306,6 +307,13 @@ class ChargingServiceTest {
             ChargingCalculator.minutesToReach(after.snapshot!!, start, 80f) * 60_000.0
         ).toLong())
         assertEquals(repo.session.value.snapshot, after.snapshot)
+        val alarmAfter = requireNotNull(ChargingCompletionPlanner.plan(after))
+        assertEquals(alarmBefore.sessionId, alarmAfter.sessionId)
+        assertTrue(alarmAfter.targetTime < alarmBefore.targetTime)
+        assertEquals(after.estimatedEndTime, alarmAfter.triggerTime(clock.milliseconds))
+        service.stop()
+        runCurrent()
+        assertEquals(null, ChargingCompletionPlanner.plan(service.status.value))
     }
 
     @Test

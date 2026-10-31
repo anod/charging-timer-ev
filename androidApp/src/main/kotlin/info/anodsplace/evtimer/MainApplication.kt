@@ -15,6 +15,8 @@ import org.koin.core.component.get
 class MainApplication : Application(), KoinComponent {
     lateinit var chargingSessionController: ChargingSessionController
         private set
+    lateinit var chargingCompletionController: ChargingCompletionController
+        private set
 
     override fun onCreate() {
         super.onCreate()
@@ -22,12 +24,14 @@ class MainApplication : Application(), KoinComponent {
             androidContext(this@MainApplication)
             androidLogger()
         }
-        chargingSessionController = ChargingSessionController(
-            this, get<ChargingService>(), CoroutineScope(SupervisorJob() + Dispatchers.Main)
-        )
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+        val chargingService = get<ChargingService>()
+        chargingCompletionController = ChargingCompletionController(this, chargingService, scope)
+        chargingSessionController = ChargingSessionController(this, chargingService, scope)
         registerActivityLifecycleCallbacks(object : ActivityLifecycleCallbacks {
             override fun onActivityResumed(activity: Activity) {
                 chargingSessionController.onActivityResumed()
+                chargingCompletionController.sync(force = true)
             }
             override fun onActivityCreated(activity: Activity, state: Bundle?) = Unit
             override fun onActivityStarted(activity: Activity) = Unit

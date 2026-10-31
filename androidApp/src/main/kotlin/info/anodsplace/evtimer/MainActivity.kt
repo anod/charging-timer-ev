@@ -25,6 +25,7 @@ class MainActivity : ComponentActivity() {
     private val chargingService: ChargingService by inject()
     private var promptedSessionId: Long? = null
     private var promotionDialog: AlertDialog? = null
+    private var completionDialog: AlertDialog? = null
     private val requestNotifications = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted) {
             (application as MainApplication).chargingSessionController.onActivityResumed()
@@ -39,6 +40,27 @@ class MainActivity : ComponentActivity() {
         setContent { App() }
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.RESUMED) {
+                launch {
+                    val controller = (application as MainApplication).chargingCompletionController
+                    controller.pendingSession.collect { sessionId ->
+                        completionDialog?.dismiss()
+                        completionDialog = null
+                        if (sessionId != null) {
+                            promotionDialog?.dismiss()
+                            completionDialog = AlertDialog.Builder(this@MainActivity)
+                                .setTitle(R.string.charging_complete_title)
+                                .setMessage(R.string.charging_complete_message)
+                                .setPositiveButton(R.string.charging_complete_stop) { _, _ ->
+                                    controller.dismiss(sessionId, stopCharging = true)
+                                }
+                                .setNegativeButton(R.string.charging_complete_dismiss) { _, _ ->
+                                    controller.dismiss(sessionId)
+                                }
+                                .setOnCancelListener { controller.dismiss(sessionId) }
+                                .show()
+                        }
+                    }
+                }
                 chargingService.status.collect { status ->
                     if (status.isLoading || !status.isRunning || promptedSessionId == status.startTime) return@collect
                     promptedSessionId = status.startTime
@@ -67,6 +89,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onDestroy() {
         promotionDialog?.dismiss()
+        completionDialog?.dismiss()
         super.onDestroy()
     }
 }

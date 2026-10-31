@@ -1,12 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <data-extraction-rules>
     <cloud-backup>
+        <!-- Delivery state is device-local: never restore a stale completion alert. -->
+        <exclude domain="sharedpref" path="charging_completion.xml" />
         <include domain="database" path="charging.db" />
         <include domain="database" path="charging.db-journal" />
         <include domain="database" path="charging.db-wal" />
         <include domain="file" path=".charging_settings.preferences_pb" />
     </cloud-backup>
     <device-transfer>
+        <exclude domain="sharedpref" path="charging_completion.xml" />
         <include domain="database" path="charging.db" />
         <include domain="database" path="charging.db-journal" />
         <include domain="database" path="charging.db-wal" />

@@ -26,4 +26,10 @@
         <item quantity="one">%1$dm</item>
         <item quantity="other">%1$dm</item>
     </plurals>
+    <string name="charging_complete_channel">Charging complete</string>
+    <string name="charging_complete_channel_description">Alerts with sound and vibration when the charging target is reached</string>
+    <string name="charging_complete_title">Charging target reached</string>
+    <string name="charging_complete_message">Your estimated charging target has been reached.</string>
+    <string name="charging_complete_stop">Stop charging</string>
+    <string name="charging_complete_dismiss">Dismiss</string>
 </resources>
