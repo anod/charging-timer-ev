@@ -19,6 +19,12 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.clickable
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material3.Icon
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -126,15 +132,19 @@ fun RunningTimerScreen(
             Card(
                 modifier = Modifier.fillMaxWidth()
             ) {
+                // The 48dp speed row replaces 12dp of padding and 12dp of spacing so the rows below keep their positions.
                 Column(
-                    modifier = Modifier.padding(24.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                    modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 12.dp, bottom = 24.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    StatRow(
+                    EditableStatRow(
                         label = "Charging Speed",
-                        value = "${calculation.chargingSpeed} kW"
+                        value = "${calculation.chargingSpeed} kW",
+                        actionLabel = "Change charging speed",
+                        onClick = { showChangeSpeed = true }
                     )
 
+                    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     val currentKwh = remember(settings.batteryCapacity, calculation.estimatedPercent) {
                         ChargingCalculator.calculateKwh(settings.batteryCapacity, calculation.estimatedPercent)
                     }
@@ -177,17 +187,11 @@ fun RunningTimerScreen(
                         label = "Elapsed Time",
                         value = formatElapsedTime(viewState.elapsedMinutes)
                     )
+                    }
                 }
             }
 
             Spacer(modifier = Modifier.weight(1f))
-
-            OutlinedButton(
-                onClick = { showChangeSpeed = true },
-                modifier = Modifier.fillMaxWidth().height(56.dp)
-            ) {
-                Text("Change speed", fontSize = 18.sp)
-            }
 
             OutlinedButton(
                 onClick = { onEvent(RunningViewEvent.StopCharging) },
@@ -359,6 +363,44 @@ fun StatRow(
             style = MaterialTheme.typography.bodyLarge,
             fontWeight = FontWeight.Medium
         )
+    }
+}
+
+@Composable
+fun EditableStatRow(
+    label: String,
+    value: String,
+    actionLabel: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .heightIn(min = 48.dp)
+            .clickable(onClickLabel = actionLabel, role = Role.Button, onClick = onClick),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                imageVector = Icons.Default.Edit,
+                contentDescription = actionLabel,
+                modifier = Modifier.size(18.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = value,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Medium
+            )
+        }
     }
 }
 
