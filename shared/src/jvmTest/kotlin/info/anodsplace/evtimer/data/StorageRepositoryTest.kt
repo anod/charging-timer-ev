@@ -99,6 +99,21 @@ class StorageRepositoryTest {
     }
 
     @Test
+    fun presetRepositoryTrimsNamesAndRejectsCaseInsensitiveDuplicates() = runTest {
+        fixture { f ->
+            f.repo.saveAsPreset("  Home \uD83C\uDFE0  ")
+            assertEquals("Home \uD83C\uDFE0", f.repo.observeConfiguration().first().selected.name)
+            assertFailsWith<IllegalArgumentException> { f.repo.saveAsPreset("hOME \uD83C\uDFE0") }
+            assertFailsWith<IllegalArgumentException> {
+                f.repo.savePreset(ChargingPreset("another", "dEfAuLt", ChargingSettings.DEFAULT))
+            }
+            assertFailsWith<IllegalArgumentException> {
+                f.repo.savePreset(ChargingPreset("another", "home \uD83C\uDFE0", ChargingSettings.DEFAULT))
+            }
+        }
+    }
+
+    @Test
     fun editedSessionMetadataSurvivesRestartDeletionHistoryAndRestore() = runTest {
         fixture { f ->
             f.repo.saveAsPreset("Home")

@@ -41,6 +41,8 @@ import info.anodsplace.evtimer.data.ChargingSettings
 import info.anodsplace.evtimer.data.ChargingPreset
 import info.anodsplace.evtimer.data.ConfigurationViewEvent
 import info.anodsplace.evtimer.data.ConfigurationViewState
+import info.anodsplace.evtimer.data.PresetNameError
+import info.anodsplace.evtimer.data.normalizeAndValidatePresetName
 import kotlin.math.roundToInt
 
 @Composable
@@ -54,6 +56,9 @@ fun ConfigurationScreen(
     val presets = viewState.presetConfiguration
     var showNameDialog by rememberSaveable { mutableStateOf(false) }
     var presetName by rememberSaveable { mutableStateOf("") }
+    val presetNameValidation = remember(presetName, presets.presets) {
+        normalizeAndValidatePresetName(presetName, presets.presets.map { it.name })
+    }
     var showPresetMenu by remember(presets.selectedId, presets.isEdited) {
         mutableStateOf(initiallyShowPresetMenu && presets.isEdited)
     }
@@ -63,18 +68,42 @@ fun ConfigurationScreen(
             onDismissRequest = { showNameDialog = false },
             title = { Text("Save as new preset") },
             text = {
-                OutlinedTextField(
-                    value = presetName,
-                    onValueChange = { presetName = it },
-                    label = { Text("Preset name") },
-                    singleLine = true
-                )
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = presetName,
+                        onValueChange = { presetName = it },
+                        label = { Text("Preset name") },
+                        singleLine = true,
+                        isError = presetNameValidation.error != null
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        listOf("\uD83D\uDC68\u200D\uD83D\uDC69\u200D\uD83D\uDC67", "\uD83C\uDDEE\uD83C\uDDF1", "\uD83D\uDC4D\uD83C\uDFFD", "\u26A1").forEach { emoji ->
+                            FilterChip(
+                                selected = false,
+                                onClick = { presetName += emoji },
+                                label = { Text(emoji) }
+                            )
+                        }
+                    }
+                    val error = when (presetNameValidation.error) {
+                        PresetNameError.EMPTY, null -> null
+                        PresetNameError.TOO_LONG -> "Preset name must be at most 32 Unicode code points"
+                        PresetNameError.ALREADY_EXISTS -> "A preset with this name already exists"
+                    }
+                    if (error != null) {
+                        Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                    }
+                }
             },
             confirmButton = {
                 TextButton(
-                    enabled = presetName.isNotBlank(),
+                    enabled = presetNameValidation.isValid,
                     onClick = {
-                        onEvent(ConfigurationViewEvent.SaveAsPreset(presetName))
+                        onEvent(ConfigurationViewEvent.SaveAsPreset(presetNameValidation.name))
                         showNameDialog = false
                         presetName = ""
                     }

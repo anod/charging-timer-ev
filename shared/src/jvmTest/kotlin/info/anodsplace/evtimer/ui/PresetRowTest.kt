@@ -4,6 +4,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -79,5 +80,39 @@ class PresetRowTest {
             onNodeWithText("Save").performClick()
             assertEquals(ConfigurationViewEvent.SaveAsPreset("   \u26A1 Highway"), events.last())
         }
+    }
+
+    @Test
+    fun emojiQuickPicksCanBeSavedAndDuplicateNamesAreRejected() = runDesktopComposeUiTest {
+        val settings = ChargingSettings.DEFAULT
+        val state = mutableStateOf(ConfigurationViewState(
+            isLoading = false, settings = settings,
+            presets = listOf(
+                ChargingPreset("custom", "Default", settings),
+                ChargingPreset("home", "Home", settings)
+            )
+        ))
+        val events = mutableListOf<ConfigurationViewEvent>()
+        setContent { MaterialTheme { ConfigurationScreen(state.value, onEvent = { events += it }) } }
+
+        onNodeWithContentDescription("Save as new preset").performClick()
+        val family = "\uD83D\uDC68\u200D\uD83D\uDC69\u200D\uD83D\uDC67"
+        onNodeWithText(family).performClick()
+        onNodeWithText("Save").performClick()
+        assertEquals(ConfigurationViewEvent.SaveAsPreset(family), events.last())
+
+        runOnIdle {
+            state.value = state.value.copy(
+                presets = state.value.presets + ChargingPreset("family", family, settings),
+                selectedPresetId = "family"
+            )
+        }
+        onNodeWithText(family).assertExists()
+
+        onNodeWithContentDescription("Save as new preset").performClick()
+        onNodeWithText("Preset name").performTextInput("hOmE")
+        onNodeWithText("A preset with this name already exists").assertExists()
+        onNodeWithText("Save").assertIsNotEnabled()
+        onNodeWithText("Preset name").assertTextEquals("hOmE")
     }
 }

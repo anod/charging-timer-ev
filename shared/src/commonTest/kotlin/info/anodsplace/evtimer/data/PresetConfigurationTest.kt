@@ -43,6 +43,28 @@ class PresetConfigurationTest {
         assertFailsWith<IllegalArgumentException> { edited.reduce(PresetEvent.SaveNew("new", "   ")) }
     }
 
+    @Test
+    fun presetNamesTrimAndRejectDuplicatesRegardlessOfCase() {
+        assertEquals("Weekend", normalizeAndValidatePresetName("  Weekend  ", emptyList()).name)
+        assertEquals(PresetNameError.ALREADY_EXISTS,
+            normalizeAndValidatePresetName("hOME", listOf("Home")).error)
+        assertEquals(PresetNameError.ALREADY_EXISTS,
+            normalizeAndValidatePresetName("default", emptyList()).error)
+        assertFailsWith<IllegalArgumentException> { edited.reduce(PresetEvent.SaveNew("new", "default")) }
+    }
+
+    @Test
+    fun emojiNamesCountUnicodeCodePointsWithoutSplittingSequences() {
+        val family = "\uD83D\uDC68\u200D\uD83D\uDC69\u200D\uD83D\uDC67"
+        val flag = "\uD83C\uDDEE\uD83C\uDDF1"
+        val skinTone = "\uD83D\uDC4D\uD83C\uDFFD"
+        assertEquals(family, normalizeAndValidatePresetName(family, emptyList()).name)
+        assertEquals(flag, normalizeAndValidatePresetName(flag, emptyList()).name)
+        assertEquals(skinTone, normalizeAndValidatePresetName(skinTone, emptyList()).name)
+        assertEquals(PresetNameError.TOO_LONG,
+            normalizeAndValidatePresetName("a".repeat(28) + family, emptyList()).error)
+    }
+
     @Test fun resetRestoresPresetButNotSessionStart() {
         val reset = edited.reduce(PresetEvent.Reset)
         assertEquals(selected.settings, reset.settings)
