@@ -13,11 +13,6 @@ import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
-import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.DisposableEffect
-import androidx.lifecycle.ViewModelStore
-import androidx.lifecycle.ViewModelStoreOwner
-import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import info.anodsplace.evtimer.data.ChargingRepository
 import info.anodsplace.evtimer.data.ChargingService
 import info.anodsplace.evtimer.data.ChargingSession
@@ -41,55 +36,10 @@ import kotlin.test.assertEquals
 @OptIn(ExperimentalTestApi::class, androidx.compose.ui.InternalComposeUiApi::class)
 class DesktopNavigationTest {
     @Test
-    fun settingsGearMovesPreferenceOutOfConfigurationAndPreservesItOnBack() = runDesktopComposeUiTest {
-        val repository = DesktopTestRepository()
-        val owner = object : ViewModelStoreOwner {
-            override val viewModelStore = ViewModelStore()
-        }
-        setContent {
-            KoinApplication(application = {
-                modules(uiModule, module {
-                    single<ChargingRepository> { repository }
-                    single<PresetRepository> { repository }
-                    single<ChargingService> { DesktopTestService(isRunning = false) }
-                    single<ClockTimeFormatter> { ClockTimeFormatter { "" } }
-                })
-            }) {
-                CompositionLocalProvider(LocalViewModelStoreOwner provides owner) {
-                    DisposableEffect(owner) {
-                        onDispose { owner.viewModelStore.clear() }
-                    }
-                    ChargingTimerApp()
-                }
-            }
-        }
-        onNodeWithText("Notify at 80%").assertDoesNotExist()
-        onNodeWithContentDescription("Settings").performClick()
-        onNodeWithText("Notify at 80%").assertIsOn().performClick()
-        onNodeWithText("Notify at 80%").assertIsOff()
-        onNodeWithText("About").assertExists()
-        onNodeWithText("Source code").assertExists()
-        onNodeWithText("Privacy policy").assertExists()
-        onNodeWithText("Open-source licenses").assertExists()
-        onNodeWithContentDescription("Back").performClick()
-        onNodeWithText("Start Timer").assertExists()
-        onNodeWithText("Notify at 80%").assertDoesNotExist()
-        onNodeWithContentDescription("Settings").performClick()
-        onNodeWithText("Notify at 80%").assertIsOff()
-        onNodeWithText("Open-source licenses").performClick()
-        onNodeWithContentDescription("Back").performClick()
-        onNodeWithText("About").assertExists()
-        onNodeWithText("Notify at 80%").assertIsOff()
-    }
-
-    @Test
     @Suppress("DEPRECATION")
-    fun escapePopsRunningWithoutClickingOrFocusingAnyControl() = runDesktopComposeUiTest {
+    fun escapeAndSettingsNavigationPreserveRunningTimer() = runDesktopComposeUiTest {
         val service = DesktopTestService()
         val repository = DesktopTestRepository()
-        val owner = object : ViewModelStoreOwner {
-            override val viewModelStore = ViewModelStore()
-        }
         lateinit var navigation: NavigationViewModel
         lateinit var focusManager: FocusManager
         setContent {
@@ -101,14 +51,9 @@ class DesktopNavigationTest {
                     single<ClockTimeFormatter> { ClockTimeFormatter { "" } }
                 })
             }) {
-                CompositionLocalProvider(LocalViewModelStoreOwner provides owner) {
-                    DisposableEffect(owner) {
-                        onDispose { owner.viewModelStore.clear() }
-                    }
-                    navigation = koinViewModel()
-                    focusManager = LocalFocusManager.current
-                    ChargingTimerApp(navigation = navigation)
-                }
+                navigation = koinViewModel()
+                focusManager = LocalFocusManager.current
+                ChargingTimerApp(navigation = navigation)
             }
         }
         runOnIdle {
@@ -131,6 +76,25 @@ class DesktopNavigationTest {
         escape()
         onNodeWithText("Start Timer").assertExists()
         assertTrue(service.status.value.isRunning)
+        onNodeWithText("Notify at 80%").assertDoesNotExist()
+        onNodeWithContentDescription("Settings").performClick()
+        onNodeWithText("Notify at 80%").assertIsOn().performClick()
+        onNodeWithText("Notify at 80%").assertIsOff()
+        onNodeWithText("About").assertExists()
+        onNodeWithText("Source code").assertExists()
+        onNodeWithText("Privacy policy").assertExists()
+        onNodeWithText("Open-source licenses").assertExists()
+        onNodeWithContentDescription("Back").performClick()
+        onNodeWithText("Start Timer").assertExists()
+        onNodeWithText("Notify at 80%").assertDoesNotExist()
+        onNodeWithContentDescription("Settings").performClick()
+        onNodeWithText("Notify at 80%").assertIsOff()
+        onNodeWithText("Open-source licenses").performClick()
+        onNodeWithContentDescription("Back").performClick()
+        onNodeWithText("About").assertExists()
+        onNodeWithText("Notify at 80%").assertIsOff()
+        onNodeWithContentDescription("Back").performClick()
+        assertTrue(service.status.value.isRunning)
         onNodeWithContentDescription("Start input field").performClick()
         onNodeWithText("Start Timer").performClick()
         onNodeWithText("Charging in Progress").assertExists()
@@ -150,8 +114,8 @@ class DesktopNavigationTest {
     }
 }
 
-private class DesktopTestService(isRunning: Boolean = true) : ChargingService {
-    override val status = MutableStateFlow(ChargingStatus(isLoading = false, isRunning = isRunning))
+private class DesktopTestService : ChargingService {
+    override val status = MutableStateFlow(ChargingStatus(isLoading = false, isRunning = true))
     override suspend fun start() = Unit
     override suspend fun stop() { status.value = ChargingStatus(isLoading = false) }
     override suspend fun changePower(powerKw: Float) = Unit
