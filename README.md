@@ -6,10 +6,25 @@ setting on Android and iOS, and the locale's short time format on desktop). The 
 charging notification uses the same clock formatter.
 
 Starting a timer persists a session snapshot (capacity, start/target percentages,
-optional preset identity, efficiency and timestamped power segments) in Preferences
-DataStore. Later settings edits affect the next session, not one already running.
-Updates migrate an existing running timer to a single-segment snapshot at its saved
-power and start time before publishing loaded status.
+optional preset identity, efficiency and timestamped power segments) in SQLDelight
+2.4.1 SQLite storage. Presets and ordered power options, sessions and their power
+segments are structured tables; completed sessions retain estimated end percentage,
+optional actual percentage and review status. DataStore keeps selected preset, start
+percentage and simple preferences. Later settings edits affect the next session, not
+one already running. A transactional, idempotent migration imports legacy settings
+as the Custom preset and preserves every segment of an existing running snapshot
+before publishing loaded status. Its database marker commits before legacy-key
+cleanup, so an interrupted migration never imports twice.
+Android's app-update receiver waits for that loaded status and restarts the charging
+foreground service only when the migrated session is still running.
+
+Android uses AndroidSqliteDriver, iOS NativeSqliteDriver, and desktop JdbcSqliteDriver
+with `charging.db` in the platform app-data directory. SQLDelight migration verification
+is enabled against a committed v1 schema database; JVM repository tests use an
+in-memory SQLite database. Invalid stored
+settings use defaults with a warning; malformed active snapshots are logged and
+cleared before loaded state. SQLDelight works with the AGP 9.5 multiplatform Android
+library plugin and Kotlin 2.4.21; no Room fallback is needed.
 
 `ChargingCalculator.percentAt(snapshot, now)`, `minutesToReach(snapshot, now, percent)`
 and `predict(snapshot, now, plusMinutes)` are pure, millisecond-based calculations.

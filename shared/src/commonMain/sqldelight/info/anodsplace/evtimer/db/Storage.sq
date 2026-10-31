@@ -1,0 +1,120 @@
+import kotlin.Boolean;
+
+CREATE TABLE preset (
+    id TEXT NOT NULL PRIMARY KEY,
+    name TEXT NOT NULL,
+    battery_capacity REAL NOT NULL CHECK (battery_capacity > 0),
+    charging_power REAL NOT NULL CHECK (charging_power > 0),
+    target_percent REAL NOT NULL CHECK (target_percent BETWEEN 0 AND 100)
+);
+
+CREATE TABLE power_option (
+    preset_id TEXT NOT NULL REFERENCES preset(id) ON DELETE CASCADE,
+    position INTEGER NOT NULL,
+    power_kw REAL NOT NULL CHECK (power_kw > 0),
+    PRIMARY KEY (preset_id, position)
+);
+
+CREATE TABLE charge_session (
+    id INTEGER NOT NULL PRIMARY KEY,
+    battery_capacity REAL NOT NULL CHECK (battery_capacity > 0),
+    start_percent REAL NOT NULL CHECK (start_percent BETWEEN 0 AND 100),
+    target_percent REAL NOT NULL CHECK (target_percent BETWEEN 0 AND 100),
+    efficiency REAL NOT NULL CHECK (efficiency > 0 AND efficiency <= 1),
+    preset_id TEXT,
+    preset_name TEXT,
+    ended_at INTEGER,
+    end_percent REAL CHECK (end_percent BETWEEN 0 AND 100),
+    actual_percent REAL CHECK (actual_percent BETWEEN 0 AND 100),
+    reviewed INTEGER AS Boolean NOT NULL DEFAULT 0,
+    is_running INTEGER AS Boolean NOT NULL DEFAULT 0
+);
+
+CREATE UNIQUE INDEX one_running_session ON charge_session(is_running) WHERE is_running = 1;
+
+CREATE TABLE power_segment (
+    session_id INTEGER NOT NULL REFERENCES charge_session(id) ON DELETE CASCADE,
+    started_at INTEGER NOT NULL,
+    power_kw REAL NOT NULL CHECK (power_kw > 0),
+    PRIMARY KEY (session_id, started_at)
+);
+
+CREATE TABLE storage_migration (
+    id INTEGER NOT NULL PRIMARY KEY,
+    current_session_id INTEGER REFERENCES charge_session(id)
+);
+
+allPresets:
+SELECT * FROM preset ORDER BY name, id;
+
+presetById:
+SELECT * FROM preset WHERE id = ?;
+
+putPreset:
+INSERT INTO preset VALUES (?, ?, ?, ?, ?)
+ON CONFLICT(id) DO UPDATE SET name = excluded.name, battery_capacity = excluded.battery_capacity,
+charging_power = excluded.charging_power, target_percent = excluded.target_percent;
+
+deletePreset:
+DELETE FROM preset WHERE id = ?;
+
+options:
+SELECT * FROM power_option WHERE preset_id = ? ORDER BY position;
+
+allOptions:
+SELECT * FROM power_option ORDER BY preset_id, position;
+
+clearOptions:
+DELETE FROM power_option WHERE preset_id = ?;
+
+putOption:
+INSERT INTO power_option VALUES (?, ?, ?);
+
+activeSession:
+SELECT * FROM charge_session WHERE is_running = 1;
+
+latestSession:
+SELECT charge_session.* FROM charge_session
+JOIN storage_migration ON charge_session.id = storage_migration.current_session_id
+WHERE storage_migration.id = 1;
+
+setCurrentSession:
+UPDATE storage_migration SET current_session_id = ? WHERE id = 1;
+
+history:
+SELECT * FROM charge_session WHERE ended_at IS NOT NULL ORDER BY ended_at DESC, id DESC;
+
+segments:
+SELECT * FROM power_segment WHERE session_id = ? ORDER BY started_at;
+
+allSegments:
+SELECT * FROM power_segment ORDER BY session_id, started_at;
+
+putSession:
+INSERT INTO charge_session(id, battery_capacity, start_percent, target_percent, efficiency,
+preset_id, preset_name, is_running) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT(id) DO UPDATE SET battery_capacity = excluded.battery_capacity,
+start_percent = excluded.start_percent, target_percent = excluded.target_percent,
+efficiency = excluded.efficiency, preset_id = excluded.preset_id, preset_name = excluded.preset_name,
+is_running = excluded.is_running;
+
+clearSegments:
+DELETE FROM power_segment WHERE session_id = ?;
+
+putSegment:
+INSERT INTO power_segment VALUES (?, ?, ?);
+
+finishSession:
+UPDATE charge_session SET is_running = 0, ended_at = ?, end_percent = ? WHERE is_running = 1;
+
+clearRunning:
+UPDATE charge_session SET is_running = 0 WHERE is_running = 1;
+
+reviewSession:
+UPDATE charge_session SET actual_percent = ?, reviewed = ? WHERE id = ? AND ended_at IS NOT NULL;
+
+migrationDone:
+SELECT count(*) FROM storage_migration WHERE id = 1;
+
+markMigrated:
+INSERT OR IGNORE INTO storage_migration(id) VALUES (1);
