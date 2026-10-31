@@ -265,64 +265,6 @@ fun RunningTimerScreen(
                         )
                     }
 
-                    @Composable
-                    private fun TimePredictionBar(
-                        progress: TimeProgress,
-                        startTimeText: String,
-                        estimatedEndTimeText: String,
-                        modifier: Modifier = Modifier
-                    ) {
-                        val tickColor = MaterialTheme.colorScheme.onSurface
-                        Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text(stringResource(Res.string.time_progress), style = MaterialTheme.typography.titleSmall)
-                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text(startTimeText, style = MaterialTheme.typography.labelMedium)
-                                Text(estimatedEndTimeText, style = MaterialTheme.typography.labelMedium)
-                            }
-                            Box(Modifier.fillMaxWidth().height(12.dp)) {
-                                LinearProgressIndicator(
-                                    progress = { progress.fraction },
-                                    modifier = Modifier.fillMaxWidth().align(Alignment.Center),
-                                    gapSize = 0.dp,
-                                    drawStopIndicator = {}
-                                )
-                                Canvas(Modifier.fillMaxSize()) {
-                                    progress.predictions.forEach { prediction ->
-                                        val x = size.width * prediction.position
-                                        drawLine(tickColor, Offset(x, 0f), Offset(x, size.height), strokeWidth = 2.dp.toPx())
-                                    }
-                                }
-                            }
-                            if (progress.predictions.isEmpty()) {
-                                Text(
-                                    stringResource(Res.string.target_reached_by, estimatedEndTimeText),
-                                    style = MaterialTheme.typography.bodySmall
-                                )
-                            } else {
-                                // Separate label lanes keep nearby ticks readable, including at the ETA.
-                                progress.predictions.forEach { prediction ->
-                                    BoxWithConstraints(Modifier.fillMaxWidth()) {
-                                        val labelWidth = maxWidth / 2
-                                        Text(
-                                            stringResource(
-                                                Res.string.time_prediction,
-                                                formatLocaleNumber(prediction.hoursAhead.toFloat(), 0, 0),
-                                                formatLocaleNumber(prediction.percent.roundToInt().toFloat(), 0, 0)
-                                            ),
-                                            modifier = Modifier
-                                                .offset(
-                                                    x = (maxWidth * prediction.position - labelWidth / 2).coerceIn(0.dp, maxWidth - labelWidth)
-                                                )
-                                                .width(labelWidth),
-                                            style = MaterialTheme.typography.bodySmall,
-                                            textAlign = TextAlign.Center
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-
                     StatRow(
                         label = stringResource(Res.string.elapsed_time),
                         value = formatElapsedTime(viewState.elapsedMinutes)
@@ -343,6 +285,64 @@ fun RunningTimerScreen(
                 )
             ) {
                 Text(stringResource(Res.string.stop_timer), fontSize = 18.sp)
+            }
+        }
+    }
+}
+
+@Composable
+private fun TimePredictionBar(
+    progress: TimeProgress,
+    startTimeText: String,
+    estimatedEndTimeText: String,
+    modifier: Modifier = Modifier
+) {
+    val tickColor = MaterialTheme.colorScheme.onSurface
+    Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(stringResource(Res.string.time_progress), style = MaterialTheme.typography.titleSmall)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(startTimeText, style = MaterialTheme.typography.labelMedium)
+            Text(estimatedEndTimeText, style = MaterialTheme.typography.labelMedium)
+        }
+        Box(Modifier.fillMaxWidth().height(12.dp)) {
+            LinearProgressIndicator(
+                progress = { progress.fraction },
+                modifier = Modifier.fillMaxWidth().align(Alignment.Center),
+                gapSize = 0.dp,
+                drawStopIndicator = {}
+            )
+            Canvas(Modifier.fillMaxSize()) {
+                progress.predictions.forEach { prediction ->
+                    val x = size.width * prediction.position
+                    drawLine(tickColor, Offset(x, 0f), Offset(x, size.height), strokeWidth = 2.dp.toPx())
+                }
+            }
+        }
+        if (progress.predictions.isEmpty()) {
+            Text(
+                stringResource(Res.string.target_reached_by, estimatedEndTimeText),
+                style = MaterialTheme.typography.bodySmall
+            )
+        } else {
+            // Separate label lanes keep nearby ticks readable, including at the ETA.
+            progress.predictions.forEach { prediction ->
+                BoxWithConstraints(Modifier.fillMaxWidth()) {
+                    val labelWidth = maxWidth / 2
+                    Text(
+                        stringResource(
+                            Res.string.time_prediction,
+                            formatLocaleNumber(prediction.hoursAhead.toFloat(), 0, 0),
+                            formatLocaleNumber(prediction.percent.roundToInt().toFloat(), 0, 0)
+                        ),
+                        modifier = Modifier
+                            .offset(
+                                x = (maxWidth * prediction.position - labelWidth / 2).coerceIn(0.dp, maxWidth - labelWidth)
+                            )
+                            .width(labelWidth),
+                        style = MaterialTheme.typography.bodySmall,
+                        textAlign = TextAlign.Center
+                    )
+                }
             }
         }
     }

@@ -242,6 +242,7 @@ class ChargingServiceTest {
         clock.milliseconds = epoch + testScheduler.currentTime
         runCurrent()
         assertEquals(20.333334f, service.status.value.currentPercent, 0.00001f)
+        assertEquals(clock.milliseconds, service.status.value.evaluatedAt)
     }
 
     @Test
@@ -293,6 +294,9 @@ class ChargingServiceTest {
         service.changePower(50f)
         runCurrent()
         val after = service.status.value
+        assertEquals(clock.milliseconds, after.evaluatedAt)
+        assertEquals(listOf(50f, 70f), timeProgress(before.snapshot!!, before.evaluatedAt, before.estimatedEndTime).predictions.map { it.percent })
+        assertTrue(timeProgress(after.snapshot!!, after.evaluatedAt, after.estimatedEndTime).predictions.isEmpty())
         assertEquals(before.currentPercent, after.currentPercent, 0.001f)
         assertEquals(50f, after.calculation.chargingSpeed)
         assertEquals(listOf(12f, 50f), after.snapshot!!.segments.map { it.powerKw })
