@@ -27,6 +27,9 @@ entry-scoped Koin screen ViewModels. Android Back and desktop Escape pop the cur
 screen without stopping an active timer; Start Timer returns to that timer.
 Restored active sessions open Running. Config and Running remain state/callback
 composables so their previews do not require Koin.
+The navigation container takes initial keyboard focus, allowing desktop Escape to
+work before any control is clicked. Its regression test injects Compose key input
+directly (without sending OS-level keys): `.\gradlew.bat :shared:jvmTest --tests '*DesktopNavigationTest*'`.
 
 EndSummary, History, Settings and PresetEditor destinations are declared for the
 subsequent features, but are not exposed until their screens exist. Stop still returns
