@@ -14,10 +14,14 @@ import org.koin.core.module.dsl.singleOf
 import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.KoinAppDeclaration
 import org.koin.dsl.module
+import kotlin.time.Clock
+import kotlin.time.ExperimentalTime
 
 expect val platformModule: org.koin.core.module.Module
 
+@OptIn(ExperimentalTime::class)
 val commonModule = module {
+    single<Clock> { Clock.System }
     single { CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate) }
     singleOf(::ChargingRepositoryImpl) {
         bind<ChargingRepository>()

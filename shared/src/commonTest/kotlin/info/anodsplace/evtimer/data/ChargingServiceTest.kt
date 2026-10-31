@@ -1,133 +1,195 @@
 package info.anodsplace.evtimer.data
 
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
-import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
+import kotlin.time.Instant
 
-private class FakeChargingRepository : ChargingRepository {
-    private val settingsFlow = MutableStateFlow(ChargingSettings())
-    private val sessionFlow = MutableStateFlow(ChargingSession())
-
-    override suspend fun saveSettings(settings: ChargingSettings) {
-        settingsFlow.value = settings
-    }
-
-    override fun observeSettings() = settingsFlow
-
-    override suspend fun saveSession(session: ChargingSession) {
-        sessionFlow.value = session
-    }
-
-    override fun observeSession() = sessionFlow
-
-    // Helpers for assertions
-    val currentSession: ChargingSession get() = sessionFlow.value
-    val currentSettings: ChargingSettings get() = settingsFlow.value
+@OptIn(ExperimentalTime::class)
+private class FakeClock(var milliseconds: Long = 1_800_000_000_000L) : Clock {
+    override fun now(): Instant = Instant.fromEpochMilliseconds(milliseconds)
 }
 
-@OptIn(ExperimentalCoroutinesApi::class)
+private class FakeChargingRepository : ChargingRepository {
+    val settings = MutableStateFlow(ChargingSettings(60f, 12f, 20f, 80f))
+    val session = MutableStateFlow(ChargingSession())
+    var writes = 0
+    override suspend fun saveSettings(settings: ChargingSettings) {
+        this.settings.value = settings
+    }
+    override fun observeSettings() = flow {
+        emitAll(settings)
+    }
+    override suspend fun saveSession(session: ChargingSession) {
+        writes++
+        this.session.value = session
+    }
+    override fun observeSession() = flow {
+        emitAll(session)
+    }
+}
+
+@OptIn(ExperimentalCoroutinesApi::class, ExperimentalTime::class)
 class ChargingServiceTest {
-
     @Test
-    fun startStopLifecycle() = runTest {
+    fun startStopLifecycleSnapshotsCurrentSettings() = runTest {
         val repo = FakeChargingRepository()
-        // The service collects forever, so run it in backgroundScope and drive it with runCurrent().
-        val service = ChargingServiceImpl(repo, backgroundScope)
-
-        // Initially not running
-        assertFalse(service.status.value.isRunning)
-
+        val clock = FakeClock()
+        val service = ChargingServiceImpl(repo, backgroundScope, clock)
+        assertTrue(service.status.value.isLoading)
+        service.refresh()
+        assertTrue(service.status.value.isLoading)
+        runCurrent()
+        assertFalse(service.status.value.isLoading)
         service.start()
-        testScheduler.runCurrent()
+        runCurrent()
         assertTrue(service.status.value.isRunning)
-        assertTrue(service.status.value.startTime > 0L)
-        assertTrue(repo.currentSession.isRunning)
-
+        assertEquals(clock.milliseconds, service.status.value.startTime)
+        assertEquals(ChargingSessionSnapshot.from(repo.settings.value, clock.milliseconds), repo.session.value.snapshot)
+        service.start()
+        assertEquals(1, repo.writes)
         service.stop()
-        testScheduler.runCurrent()
+        runCurrent()
         assertFalse(service.status.value.isRunning)
-        assertFalse(repo.currentSession.isRunning)
+        assertFalse(repo.session.value.isRunning)
+        service.stop()
+        assertEquals(2, repo.writes)
     }
 
-    @OptIn(ExperimentalTime::class)
     @Test
-    fun percentAndEndTimeCalculationWithPastStartTime() = runTest {
+    fun restoredSessionUsesSnapshotNotNewDefaults() = runTest {
         val repo = FakeChargingRepository()
-        // Configure settings to make math easy: 60 kWh, 20% -> 80%, delta 60% of 60 = 36 kWh at 12 kW => 3h = 180 min
-        val settings = ChargingSettings(
-            batteryCapacity = 60f,
-            chargingPower = 12f,
-            startPercent = 20f,
-            maxPercent = 80f,
-            availablePowers = listOf(12f)
-        )
-        repo.saveSettings(settings)
-
-        val service = ChargingServiceImpl(repo, backgroundScope)
-        testScheduler.runCurrent()
-
-        // Simulate started 30 minutes ago
-        val now = Clock.System.now().toEpochMilliseconds()
-        val elapsedMinutes = 30
-        val startTime = now - elapsedMinutes * 60_000L
-        repo.saveSession(ChargingSession(isRunning = true, startTime = startTime))
-        testScheduler.runCurrent()
-
+        val clock = FakeClock()
+        val start = clock.milliseconds - 30 * 60_000L - 30_000L
+        repo.saveSession(ChargingSession(true, ChargingSessionSnapshot.from(repo.settings.value, start)))
+        repo.saveSettings(ChargingSettings(100f, 50f, 10f, 100f))
+        val service = ChargingServiceImpl(repo, backgroundScope, clock)
+        runCurrent()
         val status = service.status.value
-        assertEquals(settings.maxPercent, status.targetPercent)
-        // Expected percent increase: (60% / 180min) * 30 = 10% => 30% total
-        val expectedPercent = 30f
-        assertApprox(expectedPercent, status.currentPercent, 0.6f) // allow some rounding tolerance
-
-        // Expected remaining time: 150 minutes (180 - 30)
-        val expectedRemaining = 150
-        assertEquals(expectedRemaining, status.calculation.timeRemainingMinutes, "Remaining minutes mismatch")
-
-        // Estimated end time should equal startTime + totalMinutes * 60_000
-        val expectedEndTime = startTime + 180 * 60_000L
-        assertEquals(expectedEndTime, status.estimatedEndTime, "Estimated end time mismatch")
+        assertEquals(80f, status.targetPercent)
+        assertEquals(30.166666f, status.currentPercent, 0.00001f)
+        assertEquals(150, status.calculation.timeRemainingMinutes)
+        assertEquals(start + 180 * 60_000L, status.estimatedEndTime)
+        assertEquals(12f, status.calculation.chargingSpeed)
+        assertEquals(30, status.elapsedMinutes)
+        repo.saveSettings(ChargingSettings(75f, 7f, 50f, 90f))
+        runCurrent()
+        assertEquals(status, service.status.value)
     }
 
-    @OptIn(ExperimentalTime::class)
     @Test
-    fun completedSessionKeepsConfiguredTarget() = runTest {
+    fun percentAndEtaWithMultipleSegmentsAndEfficiency() = runTest {
+        val clock = FakeClock()
+        val start = clock.milliseconds - 120 * 60_000L
+        val snapshot = ChargingSessionSnapshot(
+            60f, 20f, 100f,
+            listOf(PowerSegment(start, 12f), PowerSegment(start + 60 * 60_000L, 24f)),
+            efficiency = 0.5f
+        )
         val repo = FakeChargingRepository()
-        repo.saveSettings(
-            ChargingSettings(
-                batteryCapacity = 60f,
-                chargingPower = 12f,
-                startPercent = 20f,
-                maxPercent = 80f
-            )
-        )
-        val service = ChargingServiceImpl(repo, backgroundScope)
-        testScheduler.runCurrent()
+        repo.saveSession(ChargingSession(true, snapshot))
+        val service = ChargingServiceImpl(repo, backgroundScope, clock)
+        runCurrent()
+        assertEquals(50f, service.status.value.currentPercent)
+        assertEquals(150, service.status.value.calculation.timeRemainingMinutes)
+        assertEquals(start + 270 * 60_000L, service.status.value.estimatedEndTime)
+        // 80% needs 90 more minutes; the configured 100% target needs 150.
+        assertEquals(90.0, ChargingCalculator.minutesToReach(snapshot, clock.milliseconds, 80f), 0.000001)
+    }
 
-        repo.saveSession(
-            ChargingSession(
-                isRunning = true,
-                startTime = Clock.System.now().toEpochMilliseconds() - 181 * 60_000L
-            )
-        )
-        testScheduler.runCurrent()
-
+    @Test
+    fun completedSessionKeepsTargetAndOriginalEta() = runTest {
+        val repo = FakeChargingRepository()
+        val clock = FakeClock()
+        val start = clock.milliseconds - 181 * 60_000L
+        repo.saveSession(ChargingSession(true, ChargingSessionSnapshot.from(repo.settings.value, start)))
+        val service = ChargingServiceImpl(repo, backgroundScope, clock)
+        runCurrent()
         val status = service.status.value
         assertTrue(status.isRunning)
         assertEquals(0, status.calculation.timeRemainingMinutes)
         assertEquals(80f, status.currentPercent)
         assertEquals(80f, status.targetPercent)
+        assertEquals(start + 180 * 60_000L, status.estimatedEndTime)
     }
 
-    private fun assertApprox(expected: Float, actual: Float, tolerance: Float) {
-        if (abs(expected - actual) > tolerance) {
-            throw AssertionError("Expected ~${expected} (±$tolerance) but was $actual")
+    @Test
+    fun tickerUpdatesAtNextWholePercentEarlierThanOneMinute() = runTest {
+        val repo = FakeChargingRepository()
+        repo.saveSettings(ChargingSettings(60f, 360f, 20f, 80f))
+        val clock = FakeClock()
+        val epoch = clock.milliseconds
+        val service = ChargingServiceImpl(repo, backgroundScope, clock)
+        runCurrent()
+        service.start()
+        runCurrent()
+        advanceTimeBy(5_999L)
+        clock.milliseconds = epoch + testScheduler.currentTime
+        runCurrent()
+        assertEquals(20f, service.status.value.currentPercent)
+        advanceTimeBy(1L)
+        clock.milliseconds = epoch + testScheduler.currentTime
+        runCurrent()
+        assertEquals(21f, service.status.value.currentPercent)
+    }
+
+    @Test
+    fun tickerNeverWaitsLongerThanOneMinute() = runTest {
+        val repo = FakeChargingRepository()
+        val clock = FakeClock()
+        val epoch = clock.milliseconds
+        val service = ChargingServiceImpl(repo, backgroundScope, clock)
+        runCurrent()
+        service.start()
+        runCurrent()
+        advanceTimeBy(60_000L)
+        clock.milliseconds = epoch + testScheduler.currentTime
+        runCurrent()
+        assertEquals(20.333334f, service.status.value.currentPercent, 0.00001f)
+    }
+
+    @Test
+    fun lifecycleWaitsUntilRepositoryHasLoaded() = runTest {
+        val loaded = CompletableDeferred<Unit>()
+        val settings = ChargingSettings(60f, 12f, 20f, 80f)
+        val clock = FakeClock()
+        val snapshot = ChargingSessionSnapshot.from(settings, clock.milliseconds - 60_000L)
+        val repo = object : ChargingRepository {
+            val session = MutableStateFlow(ChargingSession(true, snapshot))
+            var writes = 0
+            override fun observeSettings() = flow { loaded.await(); emit(settings) }
+            override fun observeSession() = flow { loaded.await(); emitAll(session) }
+            override suspend fun saveSettings(settings: ChargingSettings) = Unit
+            override suspend fun saveSession(session: ChargingSession) {
+                writes++
+                this.session.value = session
+            }
         }
+        val service = ChargingServiceImpl(repo, backgroundScope, clock)
+        val start = backgroundScope.launch { service.start() }
+        runCurrent()
+        assertTrue(service.status.value.isLoading)
+        assertEquals(0, repo.writes)
+        loaded.complete(Unit)
+        runCurrent()
+        assertTrue(start.isCompleted)
+        assertFalse(service.status.value.isLoading)
+        assertEquals(snapshot.startTime, service.status.value.startTime)
+        assertEquals(0, repo.writes)
+        service.stop()
+        runCurrent()
+        assertEquals(1, repo.writes)
     }
 }

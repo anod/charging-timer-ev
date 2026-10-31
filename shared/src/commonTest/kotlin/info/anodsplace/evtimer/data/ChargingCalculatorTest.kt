@@ -2,8 +2,71 @@ package info.anodsplace.evtimer.data
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 
 class ChargingCalculatorTest {
+    private val snapshot = ChargingSessionSnapshot(
+        60f, 20f, 80f, listOf(PowerSegment(1_800_000_000_000L, 12f))
+    )
+
+    @Test
+    fun progressUsesMillisecondsRatherThanWholeMinutes() {
+        val start = snapshot.startTime
+        assertEquals(20f, ChargingCalculator.percentAt(snapshot, start - 1L))
+        assertEquals(20.166666f, ChargingCalculator.percentAt(snapshot, start + 30_000L), 0.00001f)
+        assertEquals(20.333334f, ChargingCalculator.percentAt(snapshot, start + 60_001L), 0.00001f)
+        assertEquals(179.9999833333, ChargingCalculator.minutesToReach(snapshot, start + 1L, 80f), 0.0000001)
+        assertEquals(30f, ChargingCalculator.predict(snapshot, start, 30.0))
+    }
+
+    @Test
+    fun timeToReachSupportsEightyPercentBeforeAtAndBeyondTarget() {
+        val start = snapshot.startTime
+        assertEquals(180.0, ChargingCalculator.minutesToReach(snapshot, start, 80f))
+        assertEquals(0.0, ChargingCalculator.minutesToReach(snapshot, start + 180 * 60_000L, 80f))
+        assertEquals(0.0, ChargingCalculator.minutesToReach(snapshot, start + 181 * 60_000L, 80f))
+        val lowerTarget = snapshot.copy(targetPercent = 60f)
+        assertEquals(180.0, ChargingCalculator.minutesToReach(lowerTarget, start, 80f))
+        val aboveEighty = snapshot.copy(startPercent = 85f, targetPercent = 100f)
+        assertEquals(0.0, ChargingCalculator.minutesToReach(aboveEighty, start, 80f))
+        assertEquals(240.0, ChargingCalculator.minutesToReach(snapshot, start, 100f))
+        assertEquals(80f, ChargingCalculator.predict(snapshot, start, 300.0))
+    }
+
+    @Test
+    fun segmentsIntegrateEnergyWithoutRewritingThePast() {
+        val start = snapshot.startTime
+        val segmented = snapshot.copy(
+            targetPercent = 100f,
+            segments = listOf(PowerSegment(start, 12f), PowerSegment(start + 60 * 60_000L, 24f))
+        )
+        assertEquals(30f, ChargingCalculator.percentAt(segmented, start + 30 * 60_000L))
+        assertEquals(40f, ChargingCalculator.percentAt(segmented, start + 60 * 60_000L))
+        assertEquals(80f, ChargingCalculator.percentAt(segmented, start + 120 * 60_000L))
+        assertEquals(120.0, ChargingCalculator.minutesToReach(segmented, start, 80f))
+        assertEquals(30.0, ChargingCalculator.minutesToReach(segmented, start + 90 * 60_000L, 80f))
+        assertEquals(80f, ChargingCalculator.predict(segmented, start + 30 * 60_000L, 90.0))
+    }
+
+    @Test
+    fun invalidInputIsRejectedExplicitly() {
+        assertFailsWith<IllegalArgumentException> { PowerSegment(0L, 0f) }
+        assertFailsWith<IllegalArgumentException> { snapshot.copy(batteryCapacity = Float.NaN) }
+        assertFailsWith<IllegalArgumentException> { snapshot.copy(efficiency = 0f) }
+        assertFailsWith<IllegalArgumentException> { snapshot.copy(segments = emptyList()) }
+        assertFailsWith<IllegalArgumentException> {
+            snapshot.copy(segments = listOf(PowerSegment(10L, 7f), PowerSegment(5L, 12f)))
+        }
+        assertFailsWith<IllegalArgumentException> { ChargingCalculator.minutesToReach(snapshot, 0L, 101f) }
+        assertFailsWith<IllegalArgumentException> { ChargingCalculator.predict(snapshot, 0L, -1.0) }
+    }
+
+    @Test
+    fun configurationCanRepresentTargetBelowStartWithoutCrashing() {
+        val belowStart = snapshot.copy(targetPercent = 10f)
+        assertEquals(0.0, ChargingCalculator.minutesToReach(belowStart, belowStart.startTime, 10f))
+        assertEquals(20f, ChargingCalculator.percentAt(belowStart, belowStart.startTime))
+    }
 
     @Test
     fun calculateKwh_typicalValues() {

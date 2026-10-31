@@ -47,6 +47,7 @@ fun ChargingNotificationUpdates(activity: MainActivity) {
     }
     LaunchedEffect(Unit) {
         chargingService.status.collectLatest { status ->
+            if (status.isLoading) return@collectLatest
             if (lastRunning.value != status.isRunning) {
                 if (status.isRunning) {
                     val needsPermission = AppPermissions.shouldShowMessage(activity, AppPermission.PostNotification)

@@ -5,6 +5,20 @@ in the local time zone. Clock times use platform time preferences (the device's 
 setting on Android and iOS, and the locale's short time format on desktop). The Android
 charging notification uses the same clock formatter.
 
+Starting a timer persists a session snapshot (capacity, start/target percentages,
+optional preset identity, efficiency and timestamped power segments) in Preferences
+DataStore. Later settings edits affect the next session, not one already running.
+Updates migrate an existing running timer to a single-segment snapshot at its saved
+power and start time before publishing loaded status.
+
+`ChargingCalculator.percentAt(snapshot, now)`, `minutesToReach(snapshot, now, percent)`
+and `predict(snapshot, now, plusMinutes)` are pure, millisecond-based calculations.
+Progress and predictions stop at the snapshot target; time-to-reach accepts any
+percentage from 0 to 100 and assumes continued charging at the last segment's power.
+Efficiency is an energy multiplier (1.0 preserves the existing estimates). Remaining
+minutes are rounded up only for display, while ETA retains millisecond precision.
+The injected clock drives updates at the next whole percent, at most 60 seconds apart.
+
 * [/shared](./shared/src) is for code that will be shared across your Compose Multiplatform applications.
   It contains several subfolders:
   - [commonMain](./shared/src/commonMain/kotlin) is for code that’s common for all targets.

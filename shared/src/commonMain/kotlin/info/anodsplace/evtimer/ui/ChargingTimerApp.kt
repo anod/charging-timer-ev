@@ -1,6 +1,8 @@
 package info.anodsplace.evtimer.ui
 
 import androidx.compose.material3.Surface
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -15,7 +17,9 @@ fun ChargingTimerApp(
     val viewState by viewModel.viewStates.collectAsState()
     AppTheme {
         Surface {
-            if (viewState.isRunning) {
+            if (viewState.isLoading) {
+                Box(modifier.fillMaxSize())
+            } else if (viewState.isRunning) {
                 RunningTimerScreen(
                     viewState = viewState,
                     onEvent = viewModel::handleEvent,

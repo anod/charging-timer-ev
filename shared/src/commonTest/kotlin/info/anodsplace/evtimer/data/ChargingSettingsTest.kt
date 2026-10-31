@@ -23,7 +23,7 @@ class ChargingSettingsTest {
             ),
             updated
         )
-        assertEquals(7f, settings.chargingPower)
+        assertEquals(11f, settings.chargingPower)
         assertEquals(listOf(3.6f, 7f, 11f), settings.availablePowers)
     }
 

@@ -12,9 +12,70 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ChargingViewModelTest {
+    @Test
+    fun ignoresDefaultsAndEventsWhileSessionIsLoading() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val repository = ViewModelTestRepository(ChargingSettings(75f, 7f, 30f, 90f))
+        val service = ViewModelTestService().apply { status.value = ChargingStatus() }
+        val viewModel = ChargingViewModel(repository, service, ClockTimeFormatter { "" })
+        try {
+            runCurrent()
+            assertTrue(viewModel.viewState.isLoading)
+            viewModel.handleEvent(ChargingViewEvent.UpdateChargingPower(12f))
+            runCurrent()
+            assertEquals(emptyList(), repository.savedSettings)
+            service.status.value = ChargingStatus(isLoading = false)
+            runCurrent()
+            assertFalse(viewModel.viewState.isLoading)
+            assertEquals(75f, viewModel.viewState.settings.batteryCapacity)
+        } finally {
+            viewModel.viewModelScope.cancel()
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
+    fun runningScreenSettingsComeFromSnapshotUntilStopped() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val repository = ViewModelTestRepository()
+        val snapshot = ChargingSessionSnapshot.from(ChargingSettings(60f, 12f, 20f, 80f), 123L)
+        val service = ViewModelTestService().apply {
+            status.value = ChargingStatus(
+                isLoading = false, isRunning = true, snapshot = snapshot,
+                calculation = ChargingCalculation(chargingSpeed = 12f), elapsedMinutes = 30
+            )
+        }
+        val viewModel = ChargingViewModel(repository, service, ClockTimeFormatter { "" })
+        try {
+            runCurrent()
+            repository.saveSettings(ChargingSettings(100f, 50f, 40f, 90f))
+            runCurrent()
+            assertEquals(60f, viewModel.viewState.settings.batteryCapacity)
+            assertEquals(12f, viewModel.viewState.settings.chargingPower)
+            assertEquals(20f, viewModel.viewState.settings.startPercent)
+            assertEquals(80f, viewModel.viewState.settings.maxPercent)
+            assertEquals(30, viewModel.viewState.elapsedMinutes)
+            viewModel.handleEvent(ChargingViewEvent.UpdateChargingPower(22f))
+            runCurrent()
+            assertEquals(100f, repository.savedSettings.last().batteryCapacity)
+            assertEquals(40f, repository.savedSettings.last().startPercent)
+            assertEquals(90f, repository.savedSettings.last().maxPercent)
+            service.status.value = ChargingStatus(isLoading = false)
+            runCurrent()
+            assertEquals(100f, viewModel.viewState.settings.batteryCapacity)
+            assertEquals(22f, viewModel.viewState.settings.chargingPower)
+            assertEquals(90f, viewModel.viewState.settings.maxPercent)
+        } finally {
+            viewModel.viewModelScope.cancel()
+            Dispatchers.resetMain()
+        }
+    }
+
     @Test
     fun formatsEtaUpdatesAndClearsItWhenStopped() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
@@ -31,7 +92,7 @@ class ChargingViewModelTest {
             assertEquals("", viewModel.viewState.estimatedEndTimeText)
             assertEquals(emptyList(), formattedTimes)
 
-            service.status.value = ChargingStatus(isRunning = true, estimatedEndTime = 60_000L)
+            service.status.value = ChargingStatus(isLoading = false, isRunning = true, estimatedEndTime = 60_000L)
             runCurrent()
             assertEquals("15:40", viewModel.viewState.estimatedEndTimeText)
             assertEquals(60_000L, viewModel.viewState.estimatedEndTime)
@@ -43,7 +104,7 @@ class ChargingViewModelTest {
             assertEquals("4:05 PM", viewModel.viewState.estimatedEndTimeText)
             assertEquals(listOf(60_000L, 120_000L), formattedTimes)
 
-            service.status.value = ChargingStatus()
+            service.status.value = ChargingStatus(isLoading = false)
             runCurrent()
             assertEquals("", viewModel.viewState.estimatedEndTimeText)
             assertEquals(listOf(60_000L, 120_000L), formattedTimes)
@@ -105,7 +166,7 @@ private class ViewModelTestRepository(initialSettings: ChargingSettings = Chargi
 }
 
 private class ViewModelTestService : ChargingService {
-    override val status = MutableStateFlow(ChargingStatus())
+    override val status = MutableStateFlow(ChargingStatus(isLoading = false))
     override suspend fun start() = Unit
     override suspend fun stop() = Unit
     override fun refresh() = Unit

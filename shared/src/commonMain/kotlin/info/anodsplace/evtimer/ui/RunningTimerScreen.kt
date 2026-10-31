@@ -31,11 +31,8 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
@@ -53,12 +50,9 @@ import info.anodsplace.evtimer.data.ChargingSettings
 import info.anodsplace.evtimer.data.ChargingViewEvent
 import info.anodsplace.evtimer.data.ChargingViewState
 import info.anodsplace.evtimer.material.MaterialShapes
-import kotlinx.coroutines.delay
 import kotlin.math.min
 import kotlin.math.roundToInt
 import kotlin.random.Random
-import kotlin.time.Clock
-import kotlin.time.ExperimentalTime
 import info.anodsplace.evtimer.material.internal.toPath as polygonToPath
 
 fun formatElapsedTime(minutes: Int): String {
@@ -68,7 +62,6 @@ fun formatElapsedTime(minutes: Int): String {
     return if (hours > 0) "${hours}h ${mins}m" else "${mins}m"
 }
 
-@OptIn(ExperimentalTime::class)
 @Composable
 fun RunningTimerScreen(
     viewState: ChargingViewState,
@@ -77,25 +70,6 @@ fun RunningTimerScreen(
 ) {
     val calculation = viewState.calculation
     val settings = viewState.settings
-
-    // State that updates every second to drive elapsed time recomposition
-    var tick by remember { mutableStateOf(Clock.System.now().toEpochMilliseconds()) }
-
-    // Elapsed time (minutes) since charging started
-    val elapsedMinutes = remember(viewState.startTime, tick) {
-        if (viewState.startTime > 0L) {
-            ((tick - viewState.startTime).coerceAtLeast(0L) / 60000L).toInt()
-        } else 0
-    }
-
-    // Update calculation + tick periodically
-    LaunchedEffect(Unit) {
-        while (true) {
-            delay(1000)
-            tick = Clock.System.now().toEpochMilliseconds()
-            onEvent(ChargingViewEvent.UpdateCalculation)
-        }
-    }
 
     Box(modifier = modifier.fillMaxSize()) {
         // Static background shapes
@@ -167,7 +141,7 @@ fun RunningTimerScreen(
 
                     StatRow(
                         label = "Elapsed Time",
-                        value = formatElapsedTime(elapsedMinutes)
+                        value = formatElapsedTime(viewState.elapsedMinutes)
                     )
                 }
             }

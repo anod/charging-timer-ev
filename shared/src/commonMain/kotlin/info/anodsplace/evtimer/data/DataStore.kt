@@ -7,6 +7,7 @@ import okio.Path.Companion.toPath
 
 fun dataStoreFactory(producePath: () -> String): DataStore<Preferences> =
     PreferenceDataStoreFactory.createWithPath(
+        migrations = listOf(ChargingSessionMigration()),
         produceFile = { producePath().toPath() }
     )
 

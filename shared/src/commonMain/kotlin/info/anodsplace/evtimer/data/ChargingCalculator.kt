@@ -1,83 +1,72 @@
 package info.anodsplace.evtimer.data
 
 import kotlin.math.roundToInt
-import kotlin.time.Clock
-import kotlin.time.ExperimentalTime
 
 object ChargingCalculator {
+    fun calculateKwh(batteryCapacity: Float, percentage: Float): Int =
+        (batteryCapacity * percentage / 100f).roundToInt()
 
-    /**
-     * Calculates the kWh value for a given battery capacity and percentage.
-     */
-    fun calculateKwh(batteryCapacity: Float, percentage: Float): Int {
-        return (batteryCapacity * percentage / 100f).roundToInt()
-    }
-    
     fun calculateChargingTime(
         batteryCapacity: Float,
         startPercent: Float,
         maxPercent: Float,
         chargingPower: Float
-    ): Int {
-        val percentToCharge = maxPercent - startPercent
-        val energyNeeded = (batteryCapacity * percentToCharge) / 100f
-        val hours = energyNeeded / chargingPower
-        return (hours * 60).roundToInt() // Convert to minutes
-    }
-    
-    @OptIn(ExperimentalTime::class)
-    fun calculateCurrentPercent(
-        startTime: Long,
-        startPercent: Float,
-        maxPercent: Float,
-        totalMinutes: Int
-    ): Float {
-        val now = Clock.System.now().toEpochMilliseconds()
-        val elapsed = ((now - startTime) / 1000 / 60).toInt() // minutes
-        
-        if (elapsed <= 0) return startPercent
-        if (elapsed >= totalMinutes) return maxPercent
-        
-        val percentPerMinute = (maxPercent - startPercent) / totalMinutes
-        return startPercent + (percentPerMinute * elapsed)
-    }
-    
-    fun estimateEndTime(startTime: Long, totalMinutes: Int): Long {
-        return startTime + (totalMinutes * 60 * 1000)
-    }
-    
-    @OptIn(ExperimentalTime::class)
-    fun getChargingCalculation(
-        settings: ChargingSettings,
-        isRunning: Boolean,
-        startTime: Long,
-    ): ChargingCalculation {
-        val totalMinutes = calculateChargingTime(
-            settings.batteryCapacity,
-            settings.startPercent,
-            settings.maxPercent,
-            settings.chargingPower
-        )
+    ): Int = minutesToReach(
+        ChargingSessionSnapshot.from(
+            ChargingSettings(batteryCapacity, chargingPower, startPercent, maxPercent),
+            0L
+        ),
+        0L,
+        maxPercent
+    ).roundToInt()
 
-        val currentPercent = if (isRunning) {
-            calculateCurrentPercent(
-                startTime,
-                settings.startPercent,
-                settings.maxPercent,
-                totalMinutes
-            )
-        } else {
-            settings.startPercent
+    /** Progress is capped at the session target; all integration uses epoch milliseconds. */
+    fun percentAt(snapshot: ChargingSessionSnapshot, now: Long): Float =
+        (snapshot.startPercent + energyAt(snapshot, now) * 100.0 / snapshot.batteryCapacity)
+            .coerceAtMost(maxOf(snapshot.startPercent, snapshot.targetPercent).toDouble()).toFloat()
+
+    /**
+     * Fractional minutes until any battery percentage, assuming charging continues even
+     * beyond the session target. Already reached percentages return zero.
+     */
+    fun minutesToReach(snapshot: ChargingSessionSnapshot, now: Long, percent: Float): Double {
+        require(percent.isFinite() && percent in 0f..100f)
+        val energyNeeded = snapshot.batteryCapacity.toDouble() *
+            (percent - snapshot.startPercent).toDouble() / 100.0
+        if (energyNeeded <= energyAt(snapshot, now)) return 0.0
+
+        var remaining = energyNeeded
+        snapshot.segments.forEachIndexed { index, segment ->
+            val rate = segment.powerKw.toDouble() * snapshot.efficiency / 3_600_000.0
+            val end = snapshot.segments.getOrNull(index + 1)?.startedAt
+            val duration = end?.let { (it - segment.startedAt).toDouble() }
+            if (duration == null || remaining <= duration * rate) {
+                // Subtract relative times rather than adding a fractional duration to a
+                // large epoch, retaining precision at minute/percent boundaries.
+                return ((segment.startedAt - now).toDouble() + remaining / rate)
+                    .coerceAtLeast(0.0) / 60_000.0
+            }
+            remaining -= duration * rate
         }
-        
-        val now = Clock.System.now().toEpochMilliseconds()
-        val elapsed = ((now - startTime) / 1000 / 60).toInt()
-        val remaining = (totalMinutes - elapsed).coerceAtLeast(0)
-        
-        return ChargingCalculation(
-            timeRemainingMinutes = remaining,
-            estimatedPercent = currentPercent,
-            chargingSpeed = settings.chargingPower
-        )
+        error("Snapshot must contain a power segment")
+    }
+
+    fun predict(snapshot: ChargingSessionSnapshot, now: Long, plusMinutes: Double): Float {
+        require(plusMinutes.isFinite() && plusMinutes >= 0.0)
+        val milliseconds = plusMinutes * 60_000.0
+        require(milliseconds <= Long.MAX_VALUE.toDouble())
+        val offset = milliseconds.toLong()
+        require(now <= Long.MAX_VALUE - offset)
+        return percentAt(snapshot, now + offset)
+    }
+
+    private fun energyAt(snapshot: ChargingSessionSnapshot, now: Long): Double {
+        var energy = 0.0
+        snapshot.segments.forEachIndexed { index, segment ->
+            val end = minOf(now, snapshot.segments.getOrNull(index + 1)?.startedAt ?: now)
+            val elapsed = (end - segment.startedAt).coerceAtLeast(0L)
+            energy += elapsed.toDouble() * segment.powerKw * snapshot.efficiency / 3_600_000.0
+        }
+        return energy
     }
 }
