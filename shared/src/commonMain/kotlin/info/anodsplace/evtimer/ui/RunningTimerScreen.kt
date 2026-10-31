@@ -796,45 +796,45 @@ private fun RunningTimerScreenReachedPreview() {
         Scaffold {
             RunningTimerScreen(viewState = state, onEvent = {})
         }
+    }
+}
 
-        @Preview(name = "Time predictions - early session")
-        @Composable
-        private fun TimePredictionsEarlyPreview() = TimePredictionsPreview(15)
+@Preview(name = "Time predictions - early session")
+@Composable
+private fun TimePredictionsEarlyPreview() = TimePredictionsPreview(15)
 
-        @Preview(name = "Time predictions - 1 to 2 hours left")
-        @Composable
-        private fun TimePredictionsOneHourPreview() = TimePredictionsPreview(90)
+@Preview(name = "Time predictions - 1 to 2 hours left")
+@Composable
+private fun TimePredictionsOneHourPreview() = TimePredictionsPreview(90)
 
-        @Preview(name = "Time predictions - under 1 hour left")
-        @Composable
-        private fun TimePredictionsUnderOneHourPreview() = TimePredictionsPreview(150)
+@Preview(name = "Time predictions - under 1 hour left")
+@Composable
+private fun TimePredictionsUnderOneHourPreview() = TimePredictionsPreview(150)
 
-        @Composable
-        private fun TimePredictionsPreview(elapsed: Int) {
-            val start = 1_800_000_000_000L
-            val snapshot = ChargingSessionSnapshot(60f, 20f, 80f, listOf(PowerSegment(start, 12f)))
-            val now = start + elapsed * 60_000L
-            val end = start + 180 * 60_000L
-            MaterialTheme {
-                RunningTimerScreen(
-                    viewState = RunningViewState(
-                        isLoading = false,
-                        startTime = start,
-                        estimatedEndTime = end,
-                        startTimeText = "12:40",
-                        estimatedEndTimeText = "15:40",
-                        timeProgress = timeProgress(snapshot, now, end),
-                        settings = ChargingSettings(60f, 12f, 20f, 80f),
-                        calculation = ChargingCalculation(
-                            timeRemainingMinutes = 180 - elapsed,
-                            estimatedPercent = ChargingCalculator.percentAt(snapshot, now),
-                            chargingSpeed = 12f
-                        ),
-                        elapsedMinutes = elapsed
-                    ),
-                    onEvent = {}
-                )
-            }
-        }
+@Composable
+private fun TimePredictionsPreview(elapsed: Int) {
+    val start = 1_800_000_000_000L
+    val snapshot = ChargingSessionSnapshot(60f, 20f, 80f, listOf(PowerSegment(start, 12f)))
+    val now = start + elapsed * 60_000L
+    val end = start + 180 * 60_000L
+    MaterialTheme {
+        RunningTimerScreen(
+            viewState = RunningViewState(
+                isLoading = false,
+                startTime = start,
+                estimatedEndTime = end,
+                startTimeText = "12:40",
+                estimatedEndTimeText = "15:40",
+                timeProgress = timeProgress(snapshot, now, end),
+                settings = ChargingSettings(60f, 12f, 20f, 80f),
+                calculation = ChargingCalculation(
+                    timeRemainingMinutes = 180 - elapsed,
+                    estimatedPercent = ChargingCalculator.percentAt(snapshot, now),
+                    chargingSpeed = 12f
+                ),
+                elapsedMinutes = elapsed
+            ),
+            onEvent = {}
+        )
     }
 }
