@@ -26,8 +26,9 @@ data class PresetConfiguration(
         })
         is PresetEvent.SaveNew -> {
             require(event.id.isNotBlank() && presets.none { it.id == event.id })
-            require(event.name.isNotBlank())
-            copy(presets = presets + ChargingPreset(event.id, event.name.trim(), settings), selectedId = event.id)
+            val name = normalizeAndValidatePresetName(event.name, presets.map { it.name })
+            require(name.isValid) { "Invalid preset name: ${name.error}" }
+            copy(presets = presets + ChargingPreset(event.id, name.name, settings), selectedId = event.id)
         }
         PresetEvent.Reset -> copy(settings = selected.settings.copy(startPercent = settings.startPercent))
         is PresetEvent.Delete -> {

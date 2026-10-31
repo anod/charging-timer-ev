@@ -130,9 +130,22 @@ class ChargingRepositoryImpl(
     private fun putPreset(preset: ChargingPreset) {
         require(preset.id.isNotBlank() && preset.name.isNotBlank())
         require(preset.id != CUSTOM_ID || preset.name == "Default") { "The Default preset cannot be renamed" }
+        val name = if (preset.id == CUSTOM_ID) {
+            preset.name
+        } else if (queries.presetById(preset.id).executeAsOneOrNull()?.name == preset.name) {
+            // Settings updates preserve names accepted before the current name policy.
+            preset.name
+        } else {
+            val validation = normalizeAndValidatePresetName(
+                preset.name,
+                queries.allPresets().executeAsList().filterNot { it.id == preset.id }.map { it.name }
+            )
+            require(validation.isValid) { "Invalid preset name: ${validation.error}" }
+            validation.name
+        }
         validate(preset.settings)
         val settings = preset.settings
-        queries.putPreset(preset.id, preset.name, settings.batteryCapacity.toDouble(),
+        queries.putPreset(preset.id, name, settings.batteryCapacity.toDouble(),
             settings.chargingPower.toDouble(), settings.maxPercent.toDouble())
         queries.clearOptions(preset.id)
         settings.availablePowers.forEachIndexed { index, power -> queries.putOption(preset.id, index.toLong(), power.toDouble()) }

@@ -41,7 +41,15 @@ import info.anodsplace.evtimer.data.ChargingSettings
 import info.anodsplace.evtimer.data.ChargingPreset
 import info.anodsplace.evtimer.data.ConfigurationViewEvent
 import info.anodsplace.evtimer.data.ConfigurationViewState
+import info.anodsplace.evtimer.data.PresetNameError
+import info.anodsplace.evtimer.data.normalizeAndValidatePresetName
 import kotlin.math.roundToInt
+
+private val presetEmojiSuggestions = listOf(
+    listOf("\uD83C\uDFE0", "\uD83C\uDFE2"), // Home, work
+    listOf("\uD83D\uDE97", "\uD83D\uDE99", "\uD83D\uDE95"), // Cars
+    listOf("\uD83D\uDD34", "\uD83D\uDFE2", "\uD83D\uDD35", "\uD83D\uDFE1") // Colors
+)
 
 @Composable
 fun ConfigurationScreen(
@@ -54,27 +62,56 @@ fun ConfigurationScreen(
     val presets = viewState.presetConfiguration
     var showNameDialog by rememberSaveable { mutableStateOf(false) }
     var presetName by rememberSaveable { mutableStateOf("") }
+    val presetNameValidation = remember(presetName, presets.presets) {
+        normalizeAndValidatePresetName(presetName, presets.presets.map { it.name })
+    }
     var showPresetMenu by remember(presets.selectedId, presets.isEdited) {
         mutableStateOf(initiallyShowPresetMenu && presets.isEdited)
     }
 
     if (showNameDialog) {
+        val error = when (presetNameValidation.error) {
+            PresetNameError.EMPTY, null -> null
+            PresetNameError.TOO_LONG -> "Preset name must be at most 32 Unicode code points"
+            PresetNameError.ALREADY_EXISTS -> "A preset with this name already exists"
+        }
         AlertDialog(
             onDismissRequest = { showNameDialog = false },
             title = { Text("Save as new preset") },
             text = {
-                OutlinedTextField(
-                    value = presetName,
-                    onValueChange = { presetName = it },
-                    label = { Text("Preset name") },
-                    singleLine = true
-                )
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = presetName,
+                        onValueChange = { presetName = it },
+                        label = { Text("Preset name") },
+                        singleLine = true,
+                        isError = error != null
+                    )
+                    presetEmojiSuggestions.forEach { suggestions ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            suggestions.forEach { emoji ->
+                                FilterChip(
+                                    selected = false,
+                                    onClick = { presetName += emoji },
+                                    label = { Text(emoji) }
+                                )
+                            }
+                        }
+                    }
+                    if (error != null) {
+                        Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                    }
+                }
             },
             confirmButton = {
                 TextButton(
-                    enabled = presetName.isNotBlank(),
+                    enabled = presetNameValidation.isValid,
                     onClick = {
-                        onEvent(ConfigurationViewEvent.SaveAsPreset(presetName))
+                        onEvent(ConfigurationViewEvent.SaveAsPreset(presetNameValidation.name))
                         showNameDialog = false
                         presetName = ""
                     }

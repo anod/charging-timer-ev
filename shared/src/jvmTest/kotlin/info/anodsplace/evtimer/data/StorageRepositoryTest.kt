@@ -99,6 +99,97 @@ class StorageRepositoryTest {
     }
 
     @Test
+    fun presetRepositoryTrimsNamesAndRejectsCaseInsensitiveDuplicates() = runTest {
+        fixture { f ->
+            f.repo.saveAsPreset("  Home \uD83C\uDFE0  ")
+            assertEquals("Home \uD83C\uDFE0", f.repo.observeConfiguration().first().selected.name)
+            assertFailsWith<IllegalArgumentException> { f.repo.saveAsPreset("hOME \uD83C\uDFE0") }
+            assertFailsWith<IllegalArgumentException> {
+                f.repo.savePreset(ChargingPreset("another", "dEfAuLt", ChargingSettings.DEFAULT))
+            }
+            assertFailsWith<IllegalArgumentException> {
+                f.repo.savePreset(ChargingPreset("another", "home \uD83C\uDFE0", ChargingSettings.DEFAULT))
+            }
+        }
+    }
+
+    @Test
+    fun legacyNamesSurviveRestartAndRestoreAndAllowSettingsOnlyUpdates() = runTest {
+        for (restoring in listOf(false, true)) {
+            fixture { f ->
+                f.repo.observeSettings().first()
+                val legacyNames = listOf("a".repeat(33), "Default", "Home", "hOME", "  Legacy  ")
+                val legacyPresets = legacyNames.mapIndexed { index, name ->
+                    ChargingPreset("legacy-$index", name, ChargingSettings.DEFAULT)
+                }
+                // Seed rows as the previous release did, bypassing the new write policy.
+                for (preset in legacyPresets) {
+                    f.database.storageQueries.putPreset(preset.id, preset.name, 83.0, 11.0, 100.0)
+                    preset.settings.availablePowers.forEachIndexed { index, power ->
+                        f.database.storageQueries.putOption(preset.id, index.toLong(), power.toDouble())
+                    }
+                }
+                val snapshot = ChargingSessionSnapshot.from(ChargingSettings.DEFAULT, 123L)
+                    .copy(presetId = legacyPresets.first().id, presetName = legacyNames.first())
+                f.repo.saveSession(ChargingSession(restoring, snapshot))
+                val restoreState = object : StorageRestoreState {
+                    override val requiresInterruption = restoring
+                    override fun markReady() = Unit
+                }
+                var restarted = ChargingRepositoryImpl(f.store, f.database, f.clock, restoreState)
+                assertEquals(legacyNames, restarted.observePresets().first()
+                    .filter { it.id.startsWith("legacy-") }.sortedBy { it.id }.map { it.name })
+                for (preset in legacyPresets) {
+                    restarted.selectPreset(preset.id)
+                    val edited = restarted.observeSettings().first().withAddedPower(50f).copy(maxPercent = 80f)
+                    restarted.saveSettings(edited)
+                    restarted = f.repository()
+                    assertEquals(preset.name, restarted.observeConfiguration().first().selected.name)
+                    assertTrue(restarted.observeConfiguration().first().isEdited)
+                    restarted.updateSelectedPreset()
+                    restarted = f.repository()
+                    val updated = restarted.observeConfiguration().first()
+                    assertEquals(preset.name, updated.selected.name)
+                    assertEquals(50f, updated.selected.settings.chargingPower)
+                    assertEquals(80f, updated.selected.settings.maxPercent)
+                    assertFalse(updated.isEdited)
+                    restarted.savePreset(updated.selected.copy(settings = updated.selected.settings.copy(maxPercent = 90f)))
+                    assertEquals(preset.name, restarted.observeConfiguration().first().selected.name)
+                    assertEquals(90f, restarted.observeConfiguration().first().selected.settings.maxPercent)
+                }
+                assertEquals(legacyNames, f.repository().observePresets().first()
+                    .filter { it.id.startsWith("legacy-") }.sortedBy { it.id }.map { it.name })
+                if (restoring) {
+                    assertEquals(snapshot, restarted.observeHistory().first().single().snapshot)
+                } else {
+                    assertEquals(snapshot, restarted.observeSession().first().snapshot)
+                }
+                restarted.savePreset(ChargingPreset("rename-target", "Valid", ChargingSettings.DEFAULT))
+                val invalidNames = listOf("a".repeat(33), "dEfAuLt", "HOME")
+                for (name in invalidNames) {
+                    assertFailsWith<IllegalArgumentException> { restarted.saveAsPreset(name) }
+                    assertFailsWith<IllegalArgumentException> {
+                        restarted.savePreset(ChargingPreset("new", name, ChargingSettings.DEFAULT))
+                    }
+                    assertFailsWith<IllegalArgumentException> {
+                        restarted.savePreset(ChargingPreset("rename-target", name, ChargingSettings.DEFAULT))
+                    }
+                    assertEquals("Valid", restarted.observePresets().first().first { it.id == "rename-target" }.name)
+                }
+                val legacy = restarted.observePresets().first().first { it.id == legacyPresets.first().id }
+                assertFailsWith<IllegalArgumentException> { restarted.savePreset(legacy.copy(name = "Default")) }
+                restarted.savePreset(legacy.copy(name = "  Renamed  "))
+                assertEquals("Renamed", f.repository().observePresets().first().first { it.id == legacy.id }.name)
+                if (restoring) {
+                    assertEquals(snapshot, f.repository().observeHistory().first().single().snapshot)
+                } else {
+                    assertEquals(snapshot, f.repository().observeSession().first().snapshot)
+                }
+            }
+        }
+    }
+
+    @Test
     fun editedSessionMetadataSurvivesRestartDeletionHistoryAndRestore() = runTest {
         fixture { f ->
             f.repo.saveAsPreset("Home")
