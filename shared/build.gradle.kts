@@ -12,7 +12,8 @@ plugins {
 }
 
 val generatedLicenseResources = layout.buildDirectory.dir("generated/licenseResources")
-val licenseReports = listOf(project, project(":androidApp"), project(":desktopApp")).map {
+// Prefer packaged apps' resolved versions over less-constrained shared configurations.
+val licenseReports = listOf(project(":androidApp"), project(":desktopApp"), project).map {
     it.layout.buildDirectory.file("generated/aboutLibraries/aboutlibraries.json")
 }
 val mergeLibraryDefinitions = tasks.register("mergeLibraryDefinitions") {
@@ -26,6 +27,7 @@ val mergeLibraryDefinitions = tasks.register("mergeLibraryDefinitions") {
         val libraries = reports.flatMap { requireNotNull(it["libraries"] as? List<*>) }
             .distinctBy { requireNotNull(it as? Map<*, *>)["uniqueId"] }
         val licenses = reports.flatMap { requireNotNull(it["licenses"] as? Map<*, *>).entries }
+            .distinctBy { it.key }
             .associate { it.key to it.value }
         check(libraries.isNotEmpty() && licenses.isNotEmpty()) { "Generated OSS license metadata is empty" }
         output.parentFile.mkdirs()
@@ -149,5 +151,6 @@ dependencies {
 }
 
 tasks.withType<Test>().configureEach {
+    systemProperty("expectedAndroidActivityVersion", libs.versions.androidx.activity.get())
     testLogging.exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
 }

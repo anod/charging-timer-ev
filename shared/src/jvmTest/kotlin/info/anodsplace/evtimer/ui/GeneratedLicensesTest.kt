@@ -5,6 +5,7 @@ import info.anodsplace.evtimer.generated.resources.Res
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertTrue
+import kotlin.test.assertEquals
 
 class GeneratedLicensesTest {
     @Test
@@ -19,5 +20,9 @@ class GeneratedLicensesTest {
             )
         }
         assertTrue(libraries.licenses.any { !it.licenseContent.isNullOrBlank() })
+        assertEquals(
+            requireNotNull(System.getProperty("expectedAndroidActivityVersion")),
+            libraries.libraries.single { it.uniqueId.startsWith("androidx.activity:activity-compose") }.artifactVersion
+        )
     }
 }
