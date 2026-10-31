@@ -6,10 +6,25 @@ setting on Android and iOS, and the locale's short time format on desktop). The 
 charging notification uses the same clock formatter.
 
 Starting a timer persists a session snapshot (capacity, start/target percentages,
-optional preset identity, efficiency and timestamped power segments) in Preferences
-DataStore. Later settings edits affect the next session, not one already running.
-Updates migrate an existing running timer to a single-segment snapshot at its saved
-power and start time before publishing loaded status.
+optional preset identity, efficiency and timestamped power segments) in SQLDelight
+2.4.1 SQLite storage. Presets and ordered power options, sessions and their power
+segments are structured tables; completed sessions retain estimated end percentage,
+optional actual percentage and review status. DataStore keeps selected preset, start
+percentage and simple preferences. Later settings edits affect the next session, not
+one already running. A transactional, idempotent migration imports legacy settings
+as the Custom preset and preserves every segment of an existing running snapshot
+before publishing loaded status. Its database marker commits before legacy-key
+cleanup, so an interrupted migration never imports twice.
+Android's app-update receiver waits for that loaded status and restarts the charging
+foreground service only when the migrated session is still running.
+
+Android uses AndroidSqliteDriver, iOS NativeSqliteDriver, and desktop JdbcSqliteDriver
+with `charging.db` in the platform app-data directory. SQLDelight migration verification
+is enabled against a committed v1 schema database; JVM repository tests use an
+in-memory SQLite database. Invalid stored
+settings use defaults with a warning; malformed active snapshots are logged and
+cleared before loaded state. SQLDelight works with the AGP 9.5 multiplatform Android
+library plugin and Kotlin 2.4.21; no Room fallback is needed.
 
 `ChargingCalculator.percentAt(snapshot, now)`, `minutesToReach(snapshot, now, percent)`
 and `predict(snapshot, now, plusMinutes)` are pure, millisecond-based calculations.
@@ -89,6 +104,49 @@ restoration is retried when the app becomes visible if Android denies a backgrou
 See [Internal testing releases](docs/releasing.md) for signing setup, required
 GitHub Secrets, the manual Play upload workflow, and the Play Console checklist.
 The [privacy policy](docs/privacy.md) is published from `docs` using GitHub Pages.
+
+### Backup & restore
+
+Android Auto Backup and Google's device-to-device migration can include presets,
+power options, charging history and simple preferences, subject to the user's
+backup settings and transport availability. Both modes explicitly allow only
+`databases/charging.db`, its rollback journal (`charging.db-journal`), defensive
+WAL recovery file (`charging.db-wal`) and
+`files/.charging_settings.preferences_pb` (including the leading dot). Other files,
+notification-dismissal preferences, installation/restore markers, caches and
+no-backup files are excluded. Cloud backup has a 25 MB per-app quota; Android's
+device-transfer limit is 2 GB. This is not an app-managed export or a guarantee
+that Google will retain or restore a particular backup.
+
+The Android database requests **DELETE**, not WAL, journaling. Committed rows live in
+the main database; including the rollback journal also permits recovery if the
+system stops the writer during an uncommitted transaction. Android stops the app
+while performing Auto Backup; no custom checkpoint or live-file copying is needed.
+If the framework refuses DELETE, a warning is logged instead of blocking startup;
+the allow-list also includes WAL to retain committed rows in that fallback.
+SQLite rebuilds the disposable shared-memory (`-shm`) file.
+Older schemas migrate on open, including the committed v1 backup baseline.
+
+Restored running timers **never resume automatically**. A no-backup installation
+marker detects a database arriving on another installation; the backup agent also
+records restore completion, including preferences-only restores or restores over
+an existing installation. Before loaded status, the timer becomes an interrupted
+history entry with its original snapshot, no fabricated end percentage, and a
+restore-detection timestamp. Start a new timer explicitly to continue charging.
+Missing or stale selected-preset preferences fall back to Custom and valid defaults.
+Unreadable/corrupt preferences are logged and replaced with defaults without
+discarding a valid restored database.
+Normal updates retain the local marker and continue the local running session.
+An unmarked database from an older development build is conservatively treated
+as restored once; current released legacy DataStore-only timers still migrate.
+
+JVM tests cover schema migration, committed-file and hot-journal recovery,
+inconsistent database/preferences and stopped restore state. Pixel restore
+simulation uses app-local file swaps, not backup-transport switching or uninstall.
+Actual Google cloud/D2D transport execution and iOS backup behavior require
+separate validation; the developer cannot access the user's Google backup.
+JVM and iOS currently use `LocalStorageRestoreState`, which never interrupts;
+iCloud backup/transfer behavior is unvalidated.
 
 ### Build and Run Desktop (JVM) Application
 

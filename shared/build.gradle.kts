@@ -1,6 +1,7 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
+    alias(libs.plugins.sqldelight)
     alias(libs.plugins.kotlin.multiplatform)
     alias(libs.plugins.kotlin.multiplatform.android.library)
     alias(libs.plugins.composeMultiplatform)
@@ -37,7 +38,14 @@ kotlin {
     jvm()
 
     sourceSets {
+        androidMain { kotlin.srcDir("src/jvmAndroidMain/kotlin") }
+        jvmMain { kotlin.srcDir("src/jvmAndroidMain/kotlin") }
+        androidMain.dependencies { implementation(libs.sqldelight.android.driver) }
+        iosMain.dependencies { implementation(libs.sqldelight.native.driver) }
+        jvmMain.dependencies { implementation(libs.sqldelight.sqlite.driver) }
         commonMain.dependencies {
+            implementation(libs.sqldelight.runtime)
+            implementation(libs.sqldelight.coroutines)
             implementation(project(":lib:viewmodel"))
 
             implementation(libs.compose.runtime)
@@ -67,6 +75,17 @@ kotlin {
         jvmTest.dependencies {
             implementation(libs.compose.uiTest)
             implementation(compose.desktop.currentOs)
+        }
+    }
+}
+
+sqldelight {
+    databases {
+        create("ChargingDatabase") {
+            packageName.set("info.anodsplace.evtimer.db")
+            verifyMigrations.set(true)
+            schemaOutputDirectory.set(file("src/commonMain/sqldelight/databases"))
+            dialect(libs.sqldelight.dialect)
         }
     }
 }
