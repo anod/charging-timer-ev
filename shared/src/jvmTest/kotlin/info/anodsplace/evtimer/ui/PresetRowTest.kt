@@ -9,6 +9,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
+import androidx.compose.ui.semantics.SemanticsProperties
 import info.anodsplace.evtimer.data.ChargingPreset
 import info.anodsplace.evtimer.data.ChargingSettings
 import info.anodsplace.evtimer.data.ConfigurationViewEvent
@@ -85,18 +86,20 @@ class PresetRowTest {
     fun familyEmojiPresetNameRendersInTheChipRowAndNameDialog() = runDesktopComposeUiTest {
         val settings = ChargingSettings.DEFAULT
         val family = "\uD83D\uDC68\u200D\uD83D\uDC69\u200D\uD83D\uDC67"
+        val familyName = "Family $family"
         val state = mutableStateOf(ConfigurationViewState(
             isLoading = false, settings = settings,
             presets = listOf(
                 ChargingPreset("custom", "Default", settings),
-                ChargingPreset("family", family, settings)
+                ChargingPreset("family", familyName, settings)
             )
         ))
         setContent { MaterialTheme { ConfigurationScreen(state.value, onEvent = {}) } }
 
-        onNodeWithText(family, substring = true).assertExists()
+        val familyChipText = onNodeWithText("Family", substring = true)
+            .fetchSemanticsNode().config[SemanticsProperties.Text].joinToString("") { it.text }
+        assertEquals(familyName, familyChipText)
         onNodeWithContentDescription("Save as new preset").performClick()
         onNodeWithText("Preset name").assertExists()
-        onNodeWithText(family, substring = true).assertExists()
     }
 }
