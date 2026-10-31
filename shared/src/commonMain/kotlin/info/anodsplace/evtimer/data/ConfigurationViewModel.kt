@@ -10,7 +10,7 @@ import kotlinx.coroutines.channels.Channel
 data class ConfigurationViewState(
     val isLoading: Boolean = true,
     val settings: ChargingSettings = ChargingSettings(),
-    val presets: List<ChargingPreset> = listOf(ChargingPreset(ChargingRepositoryImpl.CUSTOM_ID, "Custom", ChargingSettings.DEFAULT)),
+    val presets: List<ChargingPreset> = listOf(ChargingPreset(ChargingRepositoryImpl.CUSTOM_ID, "Default", ChargingSettings.DEFAULT)),
     val selectedPresetId: String = ChargingRepositoryImpl.CUSTOM_ID
 ) {
     val presetConfiguration get() = PresetConfiguration(presets, selectedPresetId, settings)

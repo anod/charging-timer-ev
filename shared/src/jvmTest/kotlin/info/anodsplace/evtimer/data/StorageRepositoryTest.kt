@@ -24,6 +24,21 @@ import kotlin.time.Instant
 
 class StorageRepositoryTest {
     @Test
+    fun earlierUnreleasedV3DefaultNameIsNormalizedWithoutChangingSnapshotsOrValues() = runTest {
+        fixture { f ->
+            f.repo.observeSettings().first()
+            f.database.storageQueries.putPreset("custom", "Custom", 60.0, 7.0, 80.0)
+            val original = ChargingSessionSnapshot.from(ChargingSettings.DEFAULT, 123L)
+                .copy(presetId = "custom", presetName = "Custom")
+            f.repo.saveSession(ChargingSession(false, original))
+            val restarted = f.repository()
+            assertEquals("Default", restarted.observeConfiguration().first().selected.name)
+            assertEquals(60f, restarted.observeSettings().first().batteryCapacity)
+            assertEquals(original, restarted.observeSession().first().snapshot)
+        }
+    }
+
+    @Test
     fun namedWorkingEditsSurviveRestartAndExplicitActionsNeverOverwriteOriginal() = runTest {
         fixture { f ->
             val home = ChargingPreset("home", "\uD83C\uDFE0 Home", ChargingSettings.DEFAULT.copy(
@@ -79,7 +94,7 @@ class StorageRepositoryTest {
                 f.repo.savePreset(ChargingPreset("custom", "Renamed", ChargingSettings.DEFAULT))
             }
             assertFailsWith<IllegalArgumentException> { f.repo.saveAsPreset("  ") }
-            assertEquals("Custom", f.repo.observePresets().first().first().name)
+            assertEquals("Default", f.repo.observePresets().first().first().name)
         }
     }
 
@@ -172,7 +187,7 @@ class StorageRepositoryTest {
             val session = async { f.repo.observeSession().first() }
             assertEquals(ChargingSettings.DEFAULT, settings.await())
             assertEquals(ChargingSession(), session.await())
-            assertEquals(listOf("Custom"), f.repo.observePresets().first().map { it.name })
+            assertEquals(listOf("Default"), f.repo.observePresets().first().map { it.name })
             assertEquals(1L, f.database.storageQueries.migrationDone().executeAsOne())
             assertEquals(4, f.database.storageQueries.allOptions().executeAsList().size)
         }
@@ -266,7 +281,7 @@ class StorageRepositoryTest {
     fun invalidStoredSettingsAndCorruptActiveSnapshotDoNotCrashStartup() = runTest {
         fixture { f ->
             f.repo.observeSettings().first()
-            f.database.storageQueries.putPreset("custom", "Custom", 1e100, 11.0, 100.0)
+            f.database.storageQueries.putPreset("custom", "Default", 1e100, 11.0, 100.0)
             f.database.storageQueries.putSession(123L, 1e100, 20.0, 80.0, 1.0, null, null, true, false)
             f.database.storageQueries.putSegment(123L, 123L, 11.0)
             val restarted = f.repository()
@@ -401,7 +416,7 @@ class StorageRepositoryTest {
         fixture { f ->
             // Before the first DataStore read, simulate a torn preferences file.
             f.file.writeBytes(byteArrayOf(0x0a, 0x7f))
-            f.database.storageQueries.putPreset("custom", "Custom", 75.0, 7.0, 80.0)
+            f.database.storageQueries.putPreset("custom", "Default", 75.0, 7.0, 80.0)
             f.database.storageQueries.putSession(123L, 75.0, 25.0, 80.0, 1.0, null, null, true, false)
             f.database.storageQueries.putSegment(123L, 123L, 7.0)
             f.database.storageQueries.markMigrated()

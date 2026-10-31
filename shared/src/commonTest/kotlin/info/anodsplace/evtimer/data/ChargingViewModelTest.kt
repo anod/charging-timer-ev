@@ -282,7 +282,7 @@ private class ViewModelTestRepository(initialSettings: ChargingSettings = Chargi
 
     override fun observeSettings() = settings
     override fun observeConfiguration() = settings.map {
-        PresetConfiguration(listOf(ChargingPreset("custom", "Custom", it)), "custom", it)
+        PresetConfiguration(listOf(ChargingPreset("custom", "Default", it)), "custom", it)
     }
     override fun observePresets() = observeConfiguration().map { it.presets }
     override suspend fun updateSelectedPreset() = Unit

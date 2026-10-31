@@ -63,7 +63,7 @@ class ChargingRepositoryImpl(
             val prefs = dataStore.data.first()
             database.transaction {
                 if (queries.migrationDone().executeAsOne() == 0L) {
-                    putPreset(ChargingPreset(CUSTOM_ID, "Custom", SessionPreferences.readSettings(prefs)))
+                    putPreset(ChargingPreset(CUSTOM_ID, "Default", SessionPreferences.readSettings(prefs)))
                     queries.markMigrated()
                     val snapshot = try {
                         SessionPreferences.readSnapshot(prefs) ?: if (prefs[SessionPreferences.isRunning] == true) {
@@ -79,9 +79,10 @@ class ChargingRepositoryImpl(
                     if (snapshot != null) putSession(ChargingSession(prefs[SessionPreferences.isRunning] == true, snapshot))
                 }
                 if (queries.presetById(CUSTOM_ID).executeAsOneOrNull() == null) {
-                    println("Charging storage: missing Custom preset; restoring defaults")
-                    putPreset(ChargingPreset(CUSTOM_ID, "Custom", ChargingSettings.DEFAULT))
+                    println("Charging storage: missing Default preset; restoring defaults")
+                    putPreset(ChargingPreset(CUSTOM_ID, "Default", ChargingSettings.DEFAULT))
                 }
+                queries.normalizeDefaultName()
                 recoverActiveSession()
                 if (restoreState.requiresInterruption) {
                     println("Charging storage: restored timer interrupted; explicit start required")
@@ -93,7 +94,7 @@ class ChargingRepositoryImpl(
             dataStore.edit {
                 val selected = it[SessionPreferences.selectedPreset]
                 if (selected == null || queries.presetById(selected).executeAsOneOrNull() == null) {
-                    println("Charging storage: missing preset selection; selecting Custom")
+                    println("Charging storage: missing preset selection; selecting Default")
                     it[SessionPreferences.selectedPreset] = CUSTOM_ID
                 }
                 val draftId = it[SessionPreferences.draftPreset]
@@ -101,7 +102,7 @@ class ChargingRepositoryImpl(
                 if ((draftId != null || draftValues != null) &&
                     (draftId == CUSTOM_ID || draftId != it[SessionPreferences.selectedPreset] ||
                         draftValues == null || decodePresetDraft(draftValues) == null)) {
-                    println("Charging storage: invalid preset draft; selecting Custom")
+                    println("Charging storage: invalid preset draft; selecting Default")
                     it[SessionPreferences.selectedPreset] = CUSTOM_ID
                     it.remove(SessionPreferences.draftPreset)
                     it.remove(SessionPreferences.draftValues)
@@ -128,7 +129,7 @@ class ChargingRepositoryImpl(
 
     private fun putPreset(preset: ChargingPreset) {
         require(preset.id.isNotBlank() && preset.name.isNotBlank())
-        require(preset.id != CUSTOM_ID || preset.name == "Custom") { "The Custom preset cannot be renamed" }
+        require(preset.id != CUSTOM_ID || preset.name == "Default") { "The Default preset cannot be renamed" }
         validate(preset.settings)
         val settings = preset.settings
         queries.putPreset(preset.id, preset.name, settings.batteryCapacity.toDouble(),

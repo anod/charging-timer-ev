@@ -7,7 +7,7 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 class PresetConfigurationTest {
-    private val custom = ChargingPreset("custom", "Custom", ChargingSettings.DEFAULT)
+    private val custom = ChargingPreset("custom", "Default", ChargingSettings.DEFAULT)
     private val home = ChargingPreset("home", "Home", ChargingSettings.DEFAULT.copy(
         batteryCapacity = 60f, chargingPower = 7f, maxPercent = 80f
     ))

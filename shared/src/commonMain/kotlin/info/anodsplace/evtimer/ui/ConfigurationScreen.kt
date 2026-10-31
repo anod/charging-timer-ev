@@ -2,6 +2,7 @@ package info.anodsplace.evtimer.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.horizontalScroll
@@ -15,7 +16,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Surface
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -37,7 +39,6 @@ import androidx.compose.ui.unit.sp
 import info.anodsplace.evtimer.data.ChargingCalculator
 import info.anodsplace.evtimer.data.ChargingSettings
 import info.anodsplace.evtimer.data.ChargingPreset
-import info.anodsplace.evtimer.data.ChargingRepositoryImpl
 import info.anodsplace.evtimer.data.ConfigurationViewEvent
 import info.anodsplace.evtimer.data.ConfigurationViewState
 import kotlin.math.roundToInt
@@ -46,12 +47,16 @@ import kotlin.math.roundToInt
 fun ConfigurationScreen(
     viewState: ConfigurationViewState,
     onEvent: (ConfigurationViewEvent) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    initiallyShowPresetMenu: Boolean = false
 ) {
     val settings = viewState.settings
     val presets = viewState.presetConfiguration
     var showNameDialog by rememberSaveable { mutableStateOf(false) }
     var presetName by rememberSaveable { mutableStateOf("") }
+    var showPresetMenu by remember(presets.selectedId, presets.isEdited) {
+        mutableStateOf(initiallyShowPresetMenu && presets.isEdited)
+    }
 
     if (showNameDialog) {
         AlertDialog(
@@ -129,35 +134,45 @@ fun ConfigurationScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 viewState.presets.forEach { preset ->
-                    FilterChip(
-                        selected = preset.id == viewState.selectedPresetId,
-                        onClick = { onEvent(ConfigurationViewEvent.SelectPreset(preset.id)) },
-                        enabled = !viewState.isLoading,
-                        label = {
-                            Text(preset.name + if (preset.id == presets.selectedId && presets.isEdited) " \u2022" else "")
-                        }
-                    )
-                }
-            }
-            if (presets.isEdited) {
-                Surface(
-                    color = MaterialTheme.colorScheme.secondaryContainer,
-                    shape = MaterialTheme.shapes.medium
-                ) {
-                    Column(Modifier.fillMaxWidth().padding(12.dp)) {
-                        Text("Changed from ${presets.selected.name}")
-                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            TextButton(onClick = { onEvent(ConfigurationViewEvent.UpdatePreset) }) { Text("Update preset") }
-                            TextButton(onClick = { showNameDialog = true }) { Text("Save as new preset") }
-                            TextButton(onClick = { onEvent(ConfigurationViewEvent.ResetPreset) }) { Text("Reset") }
+                    val selected = preset.id == presets.selectedId
+                    Box {
+                        FilterChip(
+                            selected = selected,
+                            onClick = {
+                                if (selected && presets.isEdited) showPresetMenu = true
+                                else if (!selected) onEvent(ConfigurationViewEvent.SelectPreset(preset.id))
+                            },
+                            enabled = !viewState.isLoading,
+                            label = { Text(preset.name + if (selected && presets.isEdited) " *" else "") }
+                        )
+                        DropdownMenu(
+                            expanded = selected && presets.isEdited && showPresetMenu,
+                            onDismissRequest = { showPresetMenu = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Update preset") },
+                                onClick = {
+                                    showPresetMenu = false
+                                    onEvent(ConfigurationViewEvent.UpdatePreset)
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Reset") },
+                                onClick = {
+                                    showPresetMenu = false
+                                    onEvent(ConfigurationViewEvent.ResetPreset)
+                                }
+                            )
                         }
                     }
                 }
-            } else if (presets.selectedId == ChargingRepositoryImpl.CUSTOM_ID) {
-                TextButton(
+                FilterChip(
+                    selected = false,
                     enabled = !viewState.isLoading,
-                    onClick = { showNameDialog = true }
-                ) { Text("Save as preset") }
+                    onClick = { showNameDialog = true },
+                    label = { Text("+") },
+                    modifier = Modifier.semantics { contentDescription = "Save as new preset" }
+                )
             }
 
             FlowRow(
@@ -273,7 +288,7 @@ fun ConfigurationNamedPresetPreview() {
             ConfigurationViewState(
                 isLoading = false, settings = settings,
                 presets = listOf(
-                    ChargingPreset("custom", "Custom", ChargingSettings.DEFAULT),
+                    ChargingPreset("custom", "Default", ChargingSettings.DEFAULT),
                     ChargingPreset("home", "\uD83C\uDFE0 Home", settings)
                 ),
                 selectedPresetId = "home"
@@ -284,18 +299,25 @@ fun ConfigurationNamedPresetPreview() {
 
 @Preview
 @Composable
-fun ConfigurationEditedPresetPreview() {
+fun ConfigurationEditedPresetPreview() = ConfigurationEditedPresetPreviewContent()
+
+@Preview
+@Composable
+fun ConfigurationEditedPresetMenuPreview() = ConfigurationEditedPresetPreviewContent(showMenu = true)
+
+@Composable
+private fun ConfigurationEditedPresetPreviewContent(showMenu: Boolean = false) {
     val settings = ChargingSettings.DEFAULT.copy(batteryCapacity = 75f, maxPercent = 80f)
     MaterialTheme {
         ConfigurationScreen(
             ConfigurationViewState(
                 isLoading = false, settings = settings.copy(chargingPower = 22f),
                 presets = listOf(
-                    ChargingPreset("custom", "Custom", ChargingSettings.DEFAULT),
+                    ChargingPreset("custom", "Default", ChargingSettings.DEFAULT),
                     ChargingPreset("home", "\uD83C\uDFE0 Home", settings)
                 ),
                 selectedPresetId = "home"
-            ), onEvent = {}
+            ), onEvent = {}, initiallyShowPresetMenu = showMenu
         )
     }
 }

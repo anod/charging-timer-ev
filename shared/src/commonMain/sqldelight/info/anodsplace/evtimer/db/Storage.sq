@@ -52,6 +52,9 @@ SELECT * FROM preset ORDER BY name, id;
 presetById:
 SELECT * FROM preset WHERE id = ?;
 
+normalizeDefaultName:
+UPDATE preset SET name = 'Default' WHERE id = 'custom' AND name != 'Default';
+
 putPreset:
 INSERT INTO preset VALUES (?, ?, ?, ?, ?)
 ON CONFLICT(id) DO UPDATE SET name = excluded.name, battery_capacity = excluded.battery_capacity,
