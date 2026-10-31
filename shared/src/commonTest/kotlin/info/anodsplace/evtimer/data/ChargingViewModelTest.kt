@@ -289,6 +289,39 @@ class ChargingViewModelTest {
     )
 
     @Test
+    fun changePowerCallsServiceAndAddPowerOnlySavesSortedUniqueOptions() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val settings = ChargingSettings(chargingPower = 7f, availablePowers = listOf(3.6f, 7f, 11f))
+        val repository = ViewModelTestRepository(settings)
+        val service = ViewModelTestService()
+        val viewModel = RunningViewModel(repository, service, ClockTimeFormatter { "" })
+        try {
+            runCurrent()
+            viewModel.handleEvent(RunningViewEvent.ChangePower(22f))
+            runCurrent()
+            assertEquals(listOf(22f), service.powerChanges)
+            assertEquals(emptyList(), repository.savedSettings)
+
+            viewModel.handleEvent(RunningViewEvent.AddPower(5f))
+            runCurrent()
+            viewModel.handleEvent(RunningViewEvent.AddPower(5f))
+            viewModel.handleEvent(RunningViewEvent.AddPower(11f))
+            viewModel.handleEvent(RunningViewEvent.AddPower(0f))
+            viewModel.handleEvent(RunningViewEvent.AddPower(-3f))
+            viewModel.handleEvent(RunningViewEvent.AddPower(Float.NaN))
+            runCurrent()
+            val expected = settings.copy(availablePowers = listOf(3.6f, 5f, 7f, 11f))
+            assertEquals(listOf(expected), repository.savedSettings.takeLast(1))
+            assertEquals(expected, repository.observeSettings().value)
+            assertEquals(7f, repository.observeSettings().value.chargingPower)
+            assertEquals(listOf(22f), service.powerChanges)
+        } finally {
+            viewModel.viewModelScope.cancel()
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
     fun addingExistingPowerSavesAndSelectsItInOneWrite() = verifyAddedPower(
         power = 11f,
         expectedPowers = listOf(3.6f, 7f, 11f)
@@ -350,5 +383,7 @@ private class ViewModelTestService : ChargingService {
     override val status = MutableStateFlow(ChargingStatus(isLoading = false))
     override suspend fun start() { starts++ }
     override suspend fun stop() { stops++ }
+    val powerChanges = mutableListOf<Float>()
+    override suspend fun changePower(powerKw: Float) { powerChanges += powerKw }
     override fun refresh() { refreshes++ }
 }

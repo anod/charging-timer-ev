@@ -523,4 +523,27 @@ class StorageRepositoryTest {
             assertTrue(repository.observeHistory().first().single().interrupted)
         }
     }
+
+    @Test
+    fun speedChangeSurvivesRestartAndKeepsPresetValuesUntouched() = runTest {
+        fixture { f ->
+            val before = f.repo.observeConfiguration().first()
+            val scope = CoroutineScope(Dispatchers.Default + Job())
+            try {
+                val service = ChargingServiceImpl(f.repo, scope, f.clock)
+                service.start()
+                service.changePower(50f)
+            } finally {
+                scope.coroutineContext[Job]!!.cancelAndJoin()
+            }
+            val restarted = f.repository()
+            val session = restarted.observeSession().first()
+            assertTrue(session.isRunning)
+            assertEquals(2, session.snapshot!!.segments.size)
+            assertEquals(50f, session.snapshot!!.segments.last().powerKw)
+            val after = restarted.observeConfiguration().first()
+            assertEquals(before.settings, after.settings)
+            assertEquals(before.isEdited, after.isEdited)
+        }
+    }
 }

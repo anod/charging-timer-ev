@@ -3,6 +3,7 @@ package info.anodsplace.evtimer.data
 import androidx.lifecycle.viewModelScope
 import info.anodsplace.viewmodel.BaseFlowViewModel
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 data class RunningViewState(
@@ -22,10 +23,12 @@ sealed interface RunningViewAction
 sealed interface RunningViewEvent {
     data object StopCharging : RunningViewEvent
     data object UpdateCalculation : RunningViewEvent
+    data class ChangePower(val powerKw: Float) : RunningViewEvent
+    data class AddPower(val powerKw: Float) : RunningViewEvent
 }
 
 class RunningViewModel(
-    repository: ChargingRepository,
+    private val repository: ChargingRepository,
     private val service: ChargingService,
     private val clockTimeFormatter: ClockTimeFormatter
 ) : BaseFlowViewModel<RunningViewState, RunningViewEvent, RunningViewAction>() {
@@ -66,6 +69,15 @@ class RunningViewModel(
         when (event) {
             RunningViewEvent.StopCharging -> viewModelScope.launch { service.stop() }
             RunningViewEvent.UpdateCalculation -> service.refresh()
+            is RunningViewEvent.ChangePower -> viewModelScope.launch { service.changePower(event.powerKw) }
+            is RunningViewEvent.AddPower -> viewModelScope.launch { addPower(event.powerKw) }
         }
+    }
+
+    // Saves the option without selecting it, so only the running session changes speed.
+    private suspend fun addPower(powerKw: Float) {
+        if (!powerKw.isFinite() || powerKw <= 0f) return
+        val saved = repository.observeSettings().first()
+        repository.saveSettings(saved.copy(availablePowers = (saved.availablePowers + powerKw).distinct().sorted()))
     }
 }
