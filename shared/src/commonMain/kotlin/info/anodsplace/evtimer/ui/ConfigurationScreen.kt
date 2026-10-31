@@ -25,14 +25,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import info.anodsplace.evtimer.data.ChargingCalculator
 import info.anodsplace.evtimer.data.ChargingSettings
-import info.anodsplace.evtimer.data.ChargingViewEvent
-import info.anodsplace.evtimer.data.ChargingViewState
+import info.anodsplace.evtimer.data.ConfigurationViewEvent
+import info.anodsplace.evtimer.data.ConfigurationViewState
 import kotlin.math.roundToInt
 
 @Composable
 fun ConfigurationScreen(
-    viewState: ChargingViewState,
-    onEvent: (ChargingViewEvent) -> Unit,
+    viewState: ConfigurationViewState,
+    onEvent: (ConfigurationViewEvent) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val settings = viewState.settings
@@ -55,7 +55,7 @@ fun ConfigurationScreen(
                     )
                 }
                 Button(
-                    onClick = { onEvent(ChargingViewEvent.StartCharging) },
+                    onClick = { onEvent(ConfigurationViewEvent.StartCharging) },
                     enabled = !invalidRange,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -96,7 +96,7 @@ fun ConfigurationScreen(
                         label = "Battery Capacity",
                         value = viewState.settings.batteryCapacity,
                         valueRange = 10..120,
-                        onValueChange = { onEvent(ChargingViewEvent.UpdateBatteryCapacity(it)) },
+                        onValueChange = { onEvent(ConfigurationViewEvent.UpdateBatteryCapacity(it)) },
                         suffix = "kWh",
                         unitDescription = "kilowatt hours",
                         step = 1
@@ -121,7 +121,7 @@ fun ConfigurationScreen(
                         label = "Max",
                         value = viewState.settings.maxPercent,
                         valueRange = 0..100,
-                        onValueChange = { onEvent(ChargingViewEvent.UpdateMaxPercent(it)) },
+                        onValueChange = { onEvent(ConfigurationViewEvent.UpdateMaxPercent(it)) },
                         additionalInfo = "$maxKwh kWh"
                     )
                 }
@@ -144,7 +144,7 @@ fun ConfigurationScreen(
                         label = "Start",
                         value = viewState.settings.startPercent,
                         valueRange = 0..100,
-                        onValueChange = { onEvent(ChargingViewEvent.UpdateStartPercent(it)) },
+                        onValueChange = { onEvent(ConfigurationViewEvent.UpdateStartPercent(it)) },
                         additionalInfo = "$startKwh kWh"
                     )
                 }
@@ -171,7 +171,7 @@ fun ConfigurationScreen(
 @Preview
 @Composable
 fun ConfigurationScreenPreview() {
-    val dummyState = ChargingViewState(
+    val dummyState = ConfigurationViewState(
         settings = ChargingSettings(
             batteryCapacity = 75f,
             chargingPower = 11f,
@@ -186,7 +186,7 @@ fun ConfigurationScreenPreview() {
 @Preview
 @Composable
 fun ConfigurationScreenErrorEqualPreview() {
-    val dummyState = ChargingViewState(
+    val dummyState = ConfigurationViewState(
         settings = ChargingSettings(
             batteryCapacity = 60f,
             chargingPower = 7.2f,

@@ -5,20 +5,14 @@ import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
-import info.anodsplace.evtimer.data.ChargingViewModel
 import info.anodsplace.evtimer.ui.ChargingTimerApp
-import org.koin.compose.KoinContext
-import org.koin.compose.KoinMultiplatformApplication
+import info.anodsplace.evtimer.ui.NavigationViewModel
 import org.koin.compose.viewmodel.koinViewModel
-import org.koin.core.annotation.KoinExperimentalAPI
-import org.koin.dsl.koinConfiguration
 
 @Composable
-@Preview
-fun App() {
+fun App(navigation: NavigationViewModel = koinViewModel()) {
     ChargingTimerApp(
-        viewModel = koinViewModel<ChargingViewModel>(),
+        navigation = navigation,
         modifier = Modifier.windowInsetsPadding(WindowInsets.systemBars)
     )
 }

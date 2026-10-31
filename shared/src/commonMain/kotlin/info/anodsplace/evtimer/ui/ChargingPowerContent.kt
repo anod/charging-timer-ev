@@ -17,19 +17,19 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import info.anodsplace.evtimer.data.ChargingViewEvent
+import info.anodsplace.evtimer.data.ConfigurationViewEvent
 
 @Composable
 fun ChargingPowerContent(
     settings: info.anodsplace.evtimer.data.ChargingSettings,
-    onEvent: (ChargingViewEvent) -> Unit,
+    onEvent: (ConfigurationViewEvent) -> Unit,
 ) {
     var showCustomPowerDialog by remember { mutableStateOf(false) }
 
     ChargingPowerChips(
         powers = settings.availablePowers,
         selectedPower = settings.chargingPower,
-        onPowerSelected = { onEvent(ChargingViewEvent.UpdateChargingPower(it)) },
+        onPowerSelected = { onEvent(ConfigurationViewEvent.UpdateChargingPower(it)) },
         onAddCustomPower = { showCustomPowerDialog = true }
     )
 
@@ -37,7 +37,7 @@ fun ChargingPowerContent(
         CustomPowerDialog(
             onDismiss = { showCustomPowerDialog = false },
             onConfirm = { power ->
-                onEvent(ChargingViewEvent.AddCustomPower(power))
+                onEvent(ConfigurationViewEvent.AddCustomPower(power))
                 showCustomPowerDialog = false
             }
         )

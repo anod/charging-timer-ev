@@ -4,7 +4,9 @@ import info.anodsplace.evtimer.data.ChargingRepository
 import info.anodsplace.evtimer.data.ChargingRepositoryImpl
 import info.anodsplace.evtimer.data.ChargingService
 import info.anodsplace.evtimer.data.ChargingServiceImpl
-import info.anodsplace.evtimer.data.ChargingViewModel
+import info.anodsplace.evtimer.data.ConfigurationViewModel
+import info.anodsplace.evtimer.data.RunningViewModel
+import info.anodsplace.evtimer.ui.NavigationViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -32,7 +34,9 @@ val commonModule = module {
 }
 
 val uiModule = module {
-    viewModelOf(::ChargingViewModel)
+    viewModelOf(::ConfigurationViewModel)
+    viewModelOf(::RunningViewModel)
+    viewModelOf(::NavigationViewModel)
 }
 
 fun appModules() = listOf(commonModule, platformModule, uiModule)

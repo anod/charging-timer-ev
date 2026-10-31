@@ -13,6 +13,7 @@ dependencies {
     implementation(project(":shared"))
     implementation(compose.desktop.currentOs)
     implementation(libs.kotlinx.coroutinesSwing)
+    implementation(libs.koin.compose.viewmodel)
 }
 
 compose.desktop {
