@@ -11,6 +11,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.assertIsOff
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -35,6 +36,7 @@ import org.koin.compose.viewmodel.koinViewModel
 import kotlin.test.Test
 import kotlin.test.assertTrue
 import kotlin.test.assertFalse
+import kotlin.test.assertEquals
 
 @OptIn(ExperimentalTestApi::class, androidx.compose.ui.InternalComposeUiApi::class)
 class DesktopNavigationTest {
@@ -85,6 +87,9 @@ class DesktopNavigationTest {
     fun escapePopsRunningWithoutClickingOrFocusingAnyControl() = runDesktopComposeUiTest {
         val service = DesktopTestService()
         val repository = DesktopTestRepository()
+        val owner = object : ViewModelStoreOwner {
+            override val viewModelStore = ViewModelStore()
+        }
         lateinit var navigation: NavigationViewModel
         lateinit var focusManager: FocusManager
         setContent {
@@ -96,10 +101,21 @@ class DesktopNavigationTest {
                     single<ClockTimeFormatter> { ClockTimeFormatter { "" } }
                 })
             }) {
-                navigation = koinViewModel()
-                focusManager = LocalFocusManager.current
-                ChargingTimerApp(navigation = navigation)
+                CompositionLocalProvider(LocalViewModelStoreOwner provides owner) {
+                    DisposableEffect(owner) {
+                        onDispose { owner.viewModelStore.clear() }
+                    }
+                    navigation = koinViewModel()
+                    focusManager = LocalFocusManager.current
+                    ChargingTimerApp(navigation = navigation)
+                }
             }
+        }
+        runOnIdle {
+            assertEquals(listOf(Destination.Config, Destination.Running), navigation.backStack.value)
+        }
+        waitUntil(timeoutMillis = 5_000) {
+            onAllNodes(hasText("Charging in Progress")).fetchSemanticsNodes().isNotEmpty()
         }
         onNodeWithText("Charging in Progress").assertExists()
         // The test scene has no Window callback. Invoke the same handler with pure Compose
