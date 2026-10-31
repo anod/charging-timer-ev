@@ -31,6 +31,13 @@ Names accept emoji and
 must not be blank; advanced name rules and preset management are separate features.
 Selecting another preset discards the previous working edits.
 
+The shared Add Custom Power dialog offers AC quick-picks (2.3, 3.6, 7, 11 and
+22 kW) and DC quick-picks (50, 100 and 150 kW). A pick only replaces the editable
+field; manual entry and Cancel remain available, and only Add confirms a speed.
+Suggestions do not populate saved, restored or new-install power lists. Config's
+existing add path sorts/deduplicates the options and selects the explicitly added
+speed. The dialog body scrolls when space is limited, including with the keyboard open.
+
 Android uses AndroidSqliteDriver, iOS NativeSqliteDriver, and desktop JdbcSqliteDriver
 with `charging.db` in the platform app-data directory. SQLDelight migration verification
 is enabled against a committed v1 schema database; JVM repository tests use an
