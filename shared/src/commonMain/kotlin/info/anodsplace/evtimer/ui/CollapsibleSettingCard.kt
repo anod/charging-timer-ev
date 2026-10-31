@@ -26,7 +26,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import info.anodsplace.evtimer.data.ChargingViewState
+import info.anodsplace.evtimer.data.ConfigurationViewState
 import androidx.compose.animation.animateContentSize
 
 /**
@@ -46,7 +46,7 @@ import androidx.compose.animation.animateContentSize
  * Parameters:
  * @param title Section title displayed in expanded header and used in accessibility descriptions.
  * @param summary Lambda producing human-readable summary from the current viewState (invoked in both states).
- * @param viewState Current ChargingViewState for deriving summary values.
+ * @param viewState Current ConfigurationViewState for deriving summary values.
  * @param modifier External modifier for padding/placement.
  * @param initiallyExpanded Whether the card starts expanded.
  * @param expandedContent Composable content shown inside the expanded SettingCard below the title row.
@@ -55,8 +55,8 @@ import androidx.compose.animation.animateContentSize
 @Composable
 fun CollapsibleSettingCard(
     title: String,
-    summary: (ChargingViewState) -> String,
-    viewState: ChargingViewState,
+    summary: (ConfigurationViewState) -> String,
+    viewState: ConfigurationViewState,
     modifier: Modifier = Modifier,
     initiallyExpanded: Boolean = false,
     expandedContent: @Composable () -> Unit

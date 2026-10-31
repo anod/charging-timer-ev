@@ -47,8 +47,8 @@ import androidx.compose.ui.unit.sp
 import info.anodsplace.evtimer.data.ChargingCalculation
 import info.anodsplace.evtimer.data.ChargingCalculator
 import info.anodsplace.evtimer.data.ChargingSettings
-import info.anodsplace.evtimer.data.ChargingViewEvent
-import info.anodsplace.evtimer.data.ChargingViewState
+import info.anodsplace.evtimer.data.RunningViewEvent
+import info.anodsplace.evtimer.data.RunningViewState
 import info.anodsplace.evtimer.material.MaterialShapes
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -64,8 +64,8 @@ fun formatElapsedTime(minutes: Int): String {
 
 @Composable
 fun RunningTimerScreen(
-    viewState: ChargingViewState,
-    onEvent: (ChargingViewEvent) -> Unit,
+    viewState: RunningViewState,
+    onEvent: (RunningViewEvent) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val calculation = viewState.calculation
@@ -149,7 +149,7 @@ fun RunningTimerScreen(
             Spacer(modifier = Modifier.weight(1f))
 
             OutlinedButton(
-                onClick = { onEvent(ChargingViewEvent.StopCharging) },
+                onClick = { onEvent(RunningViewEvent.StopCharging) },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp),
@@ -440,9 +440,7 @@ private fun lerp(a: Float, b: Float, f: Float): Float = a + (b - a) * f
 @Preview(name = "RunningTimerScreen")
 @Composable
 private fun RunningTimerScreenPreview() {
-    val state = ChargingViewState(
-        isRunning = true,
-        currentPercent = 45f,
+    val state = RunningViewState(
         estimatedEndTimeText = "15:40",
         settings = ChargingSettings(
             batteryCapacity = 75f,
@@ -467,9 +465,7 @@ private fun RunningTimerScreenPreview() {
 @Preview(name = "RunningTimerScreen Alt")
 @Composable
 private fun RunningTimerScreenAltPreview() {
-    val state = ChargingViewState(
-        isRunning = true,
-        currentPercent = 60f,
+    val state = RunningViewState(
         estimatedEndTimeText = "4:05 PM",
         settings = ChargingSettings(
             batteryCapacity = 60f,

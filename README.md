@@ -22,6 +22,17 @@ or half-percent boundary (covering rounded screen and truncated notification per
 at most 60 seconds apart. Invalid persisted settings use validated defaults with a warning;
 an invalid snapshot is logged and cleared before loaded status is published.
 
+Navigation uses multiplatform Navigation 3 with a ViewModel-owned back stack and
+entry-scoped Koin screen ViewModels. Android Back and desktop Escape pop the current
+screen without stopping an active timer; Start Timer returns to that timer.
+Restored active sessions open Running. Config and Running remain state/callback
+composables so their previews do not require Koin.
+
+EndSummary, History, Settings and PresetEditor destinations are declared for the
+subsequent features, but are not exposed until their screens exist. Stop still returns
+to Config; issue #23 will change the stopped destination in `NavigationViewModel` to
+EndSummary. No placeholder screens or new navigation chrome are shown.
+
 * [/shared](./shared/src) is for code that will be shared across your Compose Multiplatform applications.
   It contains several subfolders:
   - [commonMain](./shared/src/commonMain/kotlin) is for code that’s common for all targets.

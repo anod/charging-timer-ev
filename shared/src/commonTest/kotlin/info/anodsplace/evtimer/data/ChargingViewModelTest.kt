@@ -5,6 +5,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runCurrent
@@ -21,11 +22,11 @@ class ChargingViewModelTest {
     fun rejectsNonFiniteCustomPowerWithoutPersistingIt() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val repo = ViewModelTestRepository()
-        val viewModel = ChargingViewModel(repo, ViewModelTestService(), ClockTimeFormatter { "" })
+        val viewModel = ConfigurationViewModel(repo, ViewModelTestService())
         try {
             runCurrent()
             listOf(Float.POSITIVE_INFINITY, Float.NaN, 0f, -7f).forEach {
-                viewModel.handleEvent(ChargingViewEvent.AddCustomPower(it))
+                viewModel.handleEvent(ConfigurationViewEvent.AddCustomPower(it))
             }
             runCurrent()
             assertEquals(emptyList(), repo.savedSettings)
@@ -40,11 +41,11 @@ class ChargingViewModelTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val repository = ViewModelTestRepository(ChargingSettings(75f, 7f, 30f, 90f))
         val service = ViewModelTestService().apply { status.value = ChargingStatus() }
-        val viewModel = ChargingViewModel(repository, service, ClockTimeFormatter { "" })
+        val viewModel = ConfigurationViewModel(repository, service)
         try {
             runCurrent()
             assertTrue(viewModel.viewState.isLoading)
-            viewModel.handleEvent(ChargingViewEvent.UpdateChargingPower(12f))
+            viewModel.handleEvent(ConfigurationViewEvent.UpdateChargingPower(12f))
             runCurrent()
             assertEquals(emptyList(), repository.savedSettings)
             service.status.value = ChargingStatus(isLoading = false)
@@ -68,7 +69,8 @@ class ChargingViewModelTest {
                 calculation = ChargingCalculation(chargingSpeed = 12f), elapsedMinutes = 30
             )
         }
-        val viewModel = ChargingViewModel(repository, service, ClockTimeFormatter { "" })
+        val viewModel = RunningViewModel(repository, service, ClockTimeFormatter { "" })
+        val config = ConfigurationViewModel(repository, service)
         try {
             runCurrent()
             repository.saveSettings(ChargingSettings(100f, 50f, 40f, 90f))
@@ -78,7 +80,7 @@ class ChargingViewModelTest {
             assertEquals(20f, viewModel.viewState.settings.startPercent)
             assertEquals(80f, viewModel.viewState.settings.maxPercent)
             assertEquals(30, viewModel.viewState.elapsedMinutes)
-            viewModel.handleEvent(ChargingViewEvent.UpdateChargingPower(22f))
+            config.handleEvent(ConfigurationViewEvent.UpdateChargingPower(22f))
             runCurrent()
             assertEquals(100f, repository.savedSettings.last().batteryCapacity)
             assertEquals(40f, repository.savedSettings.last().startPercent)
@@ -88,6 +90,61 @@ class ChargingViewModelTest {
             assertEquals(100f, viewModel.viewState.settings.batteryCapacity)
             assertEquals(22f, viewModel.viewState.settings.chargingPower)
             assertEquals(90f, viewModel.viewState.settings.maxPercent)
+        } finally {
+            config.viewModelScope.cancel()
+            viewModel.viewModelScope.cancel()
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
+    fun configurationEventsSaveSettingsAndStartOpensRunning() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val repository = ViewModelTestRepository()
+        val service = ViewModelTestService()
+        val viewModel = ConfigurationViewModel(repository, service)
+        val actions = mutableListOf<ConfigurationViewAction>()
+        val actionJob = backgroundScope.launch { viewModel.viewActions.collect { actions += it } }
+        try {
+            runCurrent()
+            viewModel.handleEvent(ConfigurationViewEvent.UpdateBatteryCapacity(75f))
+            runCurrent()
+            viewModel.handleEvent(ConfigurationViewEvent.UpdateChargingPower(11f))
+            runCurrent()
+            viewModel.handleEvent(ConfigurationViewEvent.UpdateStartPercent(30f))
+            runCurrent()
+            viewModel.handleEvent(ConfigurationViewEvent.UpdateMaxPercent(80f))
+            runCurrent()
+            assertEquals(
+                ChargingSettings().copy(batteryCapacity = 75f, chargingPower = 11f, startPercent = 30f, maxPercent = 80f),
+                viewModel.viewState.settings
+            )
+            assertEquals(4, repository.savedSettings.size)
+            viewModel.handleEvent(ConfigurationViewEvent.StartCharging)
+            runCurrent()
+            assertEquals(1, service.starts)
+            assertEquals(listOf<ConfigurationViewAction>(ConfigurationViewAction.OpenRunning), actions)
+        } finally {
+            actionJob.cancel()
+            viewModel.viewModelScope.cancel()
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
+    fun runningEventsOnlyRefreshAndStopTheService() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val repository = ViewModelTestRepository()
+        val service = ViewModelTestService()
+        val viewModel = RunningViewModel(repository, service, ClockTimeFormatter { "" })
+        try {
+            runCurrent()
+            viewModel.handleEvent(RunningViewEvent.UpdateCalculation)
+            viewModel.handleEvent(RunningViewEvent.StopCharging)
+            runCurrent()
+            assertEquals(1, service.refreshes)
+            assertEquals(1, service.stops)
+            assertEquals(emptyList(), repository.savedSettings)
         } finally {
             viewModel.viewModelScope.cancel()
             Dispatchers.resetMain()
@@ -101,7 +158,7 @@ class ChargingViewModelTest {
         val service = ViewModelTestService()
         val formattedTimes = mutableListOf<Long>()
         var formattedTime = "15:40"
-        val viewModel = ChargingViewModel(repository, service, ClockTimeFormatter {
+        val viewModel = RunningViewModel(repository, service, ClockTimeFormatter {
             formattedTimes += it
             formattedTime
         })
@@ -149,12 +206,12 @@ class ChargingViewModelTest {
         val repository = ViewModelTestRepository(settings)
         val service = ViewModelTestService()
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
-        val viewModel = ChargingViewModel(repository, service, ClockTimeFormatter { "" })
+        val viewModel = ConfigurationViewModel(repository, service)
 
         try {
             runCurrent()
 
-            viewModel.handleEvent(ChargingViewEvent.AddCustomPower(power))
+            viewModel.handleEvent(ConfigurationViewEvent.AddCustomPower(power))
             runCurrent()
 
             val expected = settings.copy(chargingPower = power, availablePowers = expectedPowers)
@@ -184,8 +241,11 @@ private class ViewModelTestRepository(initialSettings: ChargingSettings = Chargi
 }
 
 private class ViewModelTestService : ChargingService {
+    var starts = 0
+    var stops = 0
+    var refreshes = 0
     override val status = MutableStateFlow(ChargingStatus(isLoading = false))
-    override suspend fun start() = Unit
-    override suspend fun stop() = Unit
-    override fun refresh() = Unit
+    override suspend fun start() { starts++ }
+    override suspend fun stop() { stops++ }
+    override fun refresh() { refreshes++ }
 }

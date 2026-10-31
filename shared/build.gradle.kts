@@ -49,6 +49,9 @@ kotlin {
             implementation(libs.compose.animation)
             implementation(libs.androidx.lifecycle.viewmodelCompose)
             implementation(libs.androidx.lifecycle.runtimeCompose)
+            implementation(libs.androidx.lifecycle.navigation3)
+            implementation(libs.androidx.navigation3.runtime)
+            implementation(libs.androidx.navigation3.ui)
             // Koin types are part of the public initKoin() API used by the app modules
             api(libs.koin.core)
             implementation(libs.koin.compose)
