@@ -27,6 +27,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -386,18 +387,25 @@ fun EditableStatRow(
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                imageVector = EditIcon,
-                contentDescription = actionLabel,
-                modifier = Modifier.size(18.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(modifier = Modifier.width(8.dp))
             Text(
                 text = value,
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.Medium
             )
+            Spacer(modifier = Modifier.width(12.dp))
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .background(MaterialTheme.colorScheme.secondaryContainer, CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = EditIcon,
+                    contentDescription = actionLabel,
+                    modifier = Modifier.size(20.dp),
+                    tint = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+            }
         }
     }
 }
