@@ -47,6 +47,7 @@ import androidx.compose.ui.unit.sp
 import info.anodsplace.evtimer.data.ChargingCalculation
 import info.anodsplace.evtimer.data.ChargingCalculator
 import info.anodsplace.evtimer.data.ChargingSettings
+import info.anodsplace.evtimer.data.MilestoneEstimate
 import info.anodsplace.evtimer.data.RunningViewEvent
 import info.anodsplace.evtimer.data.RunningViewState
 import info.anodsplace.evtimer.material.MaterialShapes
@@ -138,6 +139,18 @@ fun RunningTimerScreen(
                             }
                         }
                     )
+
+                    viewState.milestoneEstimate?.let { estimate ->
+                        StatRow(
+                            label = "Time to 80%",
+                            value = buildString {
+                                append(if (estimate.reached) "Reached" else formatElapsedTime(estimate.minutesRemaining))
+                                if (viewState.milestoneEtaText.isNotEmpty()) {
+                                    append(" \u00b7 ").append(viewState.milestoneEtaText)
+                                }
+                            }
+                        )
+                    }
 
                     StatRow(
                         label = "Elapsed Time",
@@ -437,7 +450,7 @@ fun StaticMaterialShapesBackground(
 
 private fun lerp(a: Float, b: Float, f: Float): Float = a + (b - a) * f
 
-@Preview(name = "RunningTimerScreen")
+@Preview(name = "RunningTimerScreen - Time to 80% hidden")
 @Composable
 private fun RunningTimerScreenPreview() {
     val state = RunningViewState(
@@ -462,23 +475,48 @@ private fun RunningTimerScreenPreview() {
     }
 }
 
-@Preview(name = "RunningTimerScreen Alt")
+@Preview(name = "RunningTimerScreen - Time to 80% shown")
 @Composable
 private fun RunningTimerScreenAltPreview() {
     val state = RunningViewState(
         estimatedEndTimeText = "4:05 PM",
+        milestoneEstimate = MilestoneEstimate(35, 14 * 60L + 5),
+        milestoneEtaText = "2:05 PM",
         settings = ChargingSettings(
             batteryCapacity = 60f,
             chargingPower = 7.2f,
             availablePowers = listOf(3.6f, 7.2f, 11f),
             startPercent = 10f,
-            maxPercent = 90f
+            maxPercent = 100f
         ),
         calculation = ChargingCalculation(
             timeRemainingMinutes = 120,
             estimatedPercent = 60f,
             chargingSpeed = 7.0f
         )
+    )
+    MaterialTheme {
+        Scaffold {
+            RunningTimerScreen(viewState = state, onEvent = {})
+        }
+    }
+
+}
+
+@Preview(name = "RunningTimerScreen - Time to 80% reached")
+@Composable
+private fun RunningTimerScreenReachedPreview() {
+    val state = RunningViewState(
+        estimatedEndTimeText = "6:53 PM",
+        milestoneEstimate = MilestoneEstimate(0, 1_800_000_000_000L, reached = true),
+        milestoneEtaText = "5:48 PM",
+        settings = ChargingSettings(60f, 11f, 20f, 100f),
+        calculation = ChargingCalculation(
+            timeRemainingMinutes = 60,
+            estimatedPercent = 82f,
+            chargingSpeed = 11f
+        ),
+        elapsedMinutes = 202
     )
     MaterialTheme {
         Scaffold {

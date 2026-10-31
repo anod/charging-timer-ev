@@ -1,6 +1,15 @@
 package info.anodsplace.evtimer.data
 
 import kotlin.math.roundToInt
+import kotlin.math.ceil
+
+const val MILESTONE_PERCENT = 80f
+
+data class MilestoneEstimate(
+    val minutesRemaining: Int,
+    val estimatedTime: Long,
+    val reached: Boolean = false
+)
 
 object ChargingCalculator {
     fun calculateKwh(batteryCapacity: Float, percentage: Float): Int =
@@ -49,6 +58,23 @@ object ChargingCalculator {
             remaining -= duration * rate
         }
         error("Snapshot must contain a power segment")
+    }
+
+    fun estimateMilestone(snapshot: ChargingSessionSnapshot, now: Long): MilestoneEstimate? {
+        if (snapshot.targetPercent <= MILESTONE_PERCENT ||
+            snapshot.startPercent >= MILESTONE_PERCENT
+        ) return null
+
+        val crossingTime = snapshot.startTime + ceil(
+            minutesToReach(snapshot, snapshot.startTime, MILESTONE_PERCENT) * 60_000.0
+        ).toLong()
+        val minutesToMilestone = (crossingTime - now).coerceAtLeast(0L) / 60_000.0
+
+        return MilestoneEstimate(
+            minutesRemaining = minutesToMilestone.roundToInt(),
+            estimatedTime = crossingTime,
+            reached = now >= crossingTime
+        )
     }
 
     fun predict(snapshot: ChargingSessionSnapshot, now: Long, plusMinutes: Double): Float {

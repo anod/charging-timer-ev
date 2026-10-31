@@ -12,7 +12,9 @@ data class RunningViewState(
     val estimatedEndTimeText: String = "",
     val settings: ChargingSettings = ChargingSettings(),
     val calculation: ChargingCalculation = ChargingCalculation(),
-    val elapsedMinutes: Int = 0
+    val elapsedMinutes: Int = 0,
+    val milestoneEstimate: MilestoneEstimate? = null,
+    val milestoneEtaText: String = ""
 )
 
 sealed interface RunningViewAction
@@ -49,7 +51,11 @@ class RunningViewModel(
                     } else "",
                     settings = sessionSettings,
                     calculation = status.calculation,
-                    elapsedMinutes = status.elapsedMinutes
+                    elapsedMinutes = status.elapsedMinutes,
+                    milestoneEstimate = status.milestoneEstimate,
+                    milestoneEtaText = status.milestoneEstimate?.let {
+                        clockTimeFormatter.format(it.estimatedTime)
+                    }.orEmpty()
                 )
             }.collect { viewState = it }
         }
