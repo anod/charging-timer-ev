@@ -56,10 +56,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Matrix
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.sp
 import info.anodsplace.evtimer.data.ChargingCalculation
 import info.anodsplace.evtimer.data.ChargingCalculator
@@ -291,13 +293,14 @@ fun RunningTimerScreen(
 }
 
 @Composable
-private fun TimePredictionBar(
+internal fun TimePredictionBar(
     progress: TimeProgress,
     startTimeText: String,
     estimatedEndTimeText: String,
     modifier: Modifier = Modifier
 ) {
     val tickColor = MaterialTheme.colorScheme.onSurface
+    val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(stringResource(Res.string.time_progress), style = MaterialTheme.typography.titleSmall)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -313,7 +316,7 @@ private fun TimePredictionBar(
             )
             Canvas(Modifier.fillMaxSize()) {
                 progress.predictions.forEach { prediction ->
-                    val x = size.width * prediction.position
+                    val x = size.width * if (isRtl) 1f - prediction.position else prediction.position
                     drawLine(tickColor, Offset(x, 0f), Offset(x, size.height), strokeWidth = 2.dp.toPx())
                 }
             }
