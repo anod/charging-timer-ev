@@ -34,7 +34,8 @@ class CustomPowerDialogTest {
         onNodeWithText("AC").assertExists()
         onNodeWithText("DC").assertExists()
         for (suggestion in listOf("2.3", "3.6", "7", "11", "22", "50", "100", "150")) {
-            onNodeWithText("$suggestion kW").performScrollTo().performClick().assertIsSelected()
+            val formattedSuggestion = if ('.' in suggestion) suggestion else "$suggestion.0"
+            onNodeWithText("$formattedSuggestion kW").performScrollTo().performClick().assertIsSelected()
             assertEquals(suggestion,
                 onNodeWithText("Power (kW)").fetchSemanticsNode().config[SemanticsProperties.EditableText].text)
             onNodeWithText("Add").assertIsEnabled()
@@ -67,7 +68,7 @@ class CustomPowerDialogTest {
         onNodeWithText("Power (kW)").performTextReplacement("")
         assertFalse(hasError())
         onNodeWithText("Add").assertIsNotEnabled()
-        onNodeWithText("50 kW").performScrollTo().performClick()
+        onNodeWithText("50.0 kW").performScrollTo().performClick()
         onNodeWithText("Add").assertIsEnabled()
         onNodeWithText("Cancel").performClick()
         assertEquals(emptyList(), confirmed)
@@ -82,7 +83,7 @@ class CustomPowerDialogTest {
         onNodeWithText("50.0 kW").assertDoesNotExist()
         onNodeWithText("+").performClick()
         assertEquals(emptyList(), events)
-        onNodeWithText("50 kW").performScrollTo().performClick()
+        onNodeWithText("50.0 kW").performScrollTo().performClick()
         assertEquals(emptyList(), events)
         onNodeWithText("Cancel").performClick()
         onNodeWithText("Add Custom Power").assertDoesNotExist()
@@ -93,7 +94,7 @@ class CustomPowerDialogTest {
         onNodeWithText("+").performClick()
         assertEquals("",
             onNodeWithText("Power (kW)").fetchSemanticsNode().config[SemanticsProperties.EditableText].text)
-        onNodeWithText("150 kW").performScrollTo().performClick()
+        onNodeWithText("150.0 kW").performScrollTo().performClick()
         onNodeWithText("Add").performClick()
         assertEquals(listOf<ConfigurationViewEvent>(ConfigurationViewEvent.AddCustomPower(150f)), events)
         onNodeWithText("Add Custom Power").assertDoesNotExist()

@@ -1,10 +1,12 @@
 package info.anodsplace.evtimer
 
 import info.anodsplace.evtimer.data.ChargingCalculation
+import info.anodsplace.evtimer.data.ChargingNotificationTextFormat
 import info.anodsplace.evtimer.data.ChargingSessionSnapshot
 import info.anodsplace.evtimer.data.ChargingStatus
 import info.anodsplace.evtimer.data.ClockTimeFormatter
 import info.anodsplace.evtimer.data.PowerSegment
+import java.util.Locale
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -12,6 +14,18 @@ import kotlin.test.assertTrue
 
 class ChargingNotificationContentTest {
     private val formatter = ClockTimeFormatter { "14:30" }
+    private val textFormatter = ChargingNotificationTextFormatter(
+        percent = { "$it%" },
+        power = { String.format(Locale.US, "%.1f kW", it) },
+        text = ChargingNotificationTextFormat(
+            progress = { current, target, speed -> "$current% → $target% • $speed" },
+            targetReached = { target, speed -> "Target reached · $target% • $speed" },
+            durationHoursMinutes = { hours, minutes -> "${hours}h ${minutes}m left" },
+            durationMinutes = { minutes -> "${minutes}m left" },
+            eta = { "ETA $it" },
+            append = { first, second -> "$first • $second" }
+        )
+    )
     private val snapshot = ChargingSessionSnapshot(
         batteryCapacity = 100f, startPercent = 40f, targetPercent = 80f,
         segments = listOf(PowerSegment(1_000L, 10f), PowerSegment(3_601_000L, 20f))
@@ -25,7 +39,7 @@ class ChargingNotificationContentTest {
 
     @Test
     fun fallbackTextRetainsProgressSpeedRemainingAndPlatformEta() {
-        val content = ChargingNotificationContent.from(status, formatter)
+        val content = ChargingNotificationContent.from(status, formatter, textFormatter)
         assertEquals("45% → 80% • 10.0 kW • 1h 15m left • ETA 14:30", content.text)
         assertEquals(45, content.percent)
         assertEquals("45%", content.criticalText)
@@ -36,7 +50,8 @@ class ChargingNotificationContentTest {
     fun completionTextUsesTargetAndRemovesRemainingDuration() {
         val content = ChargingNotificationContent.from(
             status.copy(currentPercent = 80f, calculation = status.calculation.copy(timeRemainingMinutes = 0)),
-            formatter
+            formatter,
+            textFormatter
         )
         assertEquals("Target reached · 80% • 10.0 kW • ETA 14:30", content.text)
         assertEquals("80%", content.criticalText)
@@ -46,14 +61,15 @@ class ChargingNotificationContentTest {
     fun unknownEtaIsNotFormattedOrShown() {
         val content = ChargingNotificationContent.from(
             status.copy(estimatedEndTime = 0, calculation = status.calculation.copy(timeRemainingMinutes = 5)),
-            ClockTimeFormatter { error("No ETA should be formatted") }
+            ClockTimeFormatter { error("No ETA should be formatted") },
+            textFormatter
         )
         assertEquals("45% → 80% • 10.0 kW • 5m left", content.text)
     }
 
     @Test
     fun speedChangesMapToAbsoluteBatteryPercentAndSegmentsSumTo100() {
-        val content = ChargingNotificationContent.from(status, formatter)
+        val content = ChargingNotificationContent.from(status, formatter, textFormatter)
         assertEquals(listOf(50), content.speedChangePoints)
         assertEquals(listOf(50, 50), content.segmentLengths)
         assertEquals(100, content.segmentLengths.sum())
@@ -62,7 +78,7 @@ class ChargingNotificationContentTest {
     @Test
     fun singleSpeedHasOneFullScaleSegment() {
         val content = ChargingNotificationContent.from(
-            status.copy(snapshot = snapshot.copy(segments = snapshot.segments.take(1))), formatter
+            status.copy(snapshot = snapshot.copy(segments = snapshot.segments.take(1))), formatter, textFormatter
         )
         assertEquals(listOf(100), content.segmentLengths)
         assertTrue(content.speedChangePoints.isEmpty())
@@ -74,7 +90,7 @@ class ChargingNotificationContentTest {
             status.copy(snapshot = snapshot.copy(segments = listOf(
                 PowerSegment(1_000L, 10f), PowerSegment(2_000L, 11f),
                 PowerSegment(3_000L, 12f), PowerSegment(100_000_000L, 20f)
-            ))), formatter
+            ))), formatter, textFormatter
         )
         assertEquals(listOf(40, 80), content.speedChangePoints)
         assertEquals(listOf(40, 40, 20), content.segmentLengths)
@@ -83,8 +99,8 @@ class ChargingNotificationContentTest {
 
     @Test
     fun percentIsClampedForChipAndFallbackProgressBar() {
-        assertEquals("100%", ChargingNotificationContent.from(status.copy(currentPercent = 105f), formatter).criticalText)
-        assertEquals("0%", ChargingNotificationContent.from(status.copy(currentPercent = -1f), formatter).criticalText)
+        assertEquals("100%", ChargingNotificationContent.from(status.copy(currentPercent = 105f), formatter, textFormatter).criticalText)
+        assertEquals("0%", ChargingNotificationContent.from(status.copy(currentPercent = -1f), formatter, textFormatter).criticalText)
     }
 
     @Test
@@ -92,7 +108,7 @@ class ChargingNotificationContentTest {
         val content = ChargingNotificationContent.from(
             status.copy(snapshot = snapshot.copy(
                 startPercent = 0f, segments = listOf(PowerSegment(1_000L, 10f), PowerSegment(2_000L, 11f))
-            )), formatter
+            )), formatter, textFormatter
         )
         assertTrue(content.speedChangePoints.isEmpty())
         assertEquals(listOf(100), content.segmentLengths)
@@ -100,18 +116,18 @@ class ChargingNotificationContentTest {
 
     @Test
     fun subPercentTicksDoNotChangeContent() {
-        val original = ChargingNotificationContent.from(status, formatter)
-        assertEquals(original, ChargingNotificationContent.from(status.copy(currentPercent = 45.99f, elapsedMinutes = 1), formatter))
+        val original = ChargingNotificationContent.from(status, formatter, textFormatter)
+        assertEquals(original, ChargingNotificationContent.from(status.copy(currentPercent = 45.99f, elapsedMinutes = 1), formatter, textFormatter))
     }
 
     @Test
     fun remainingMinuteSpeedAndCompletionChangesUpdateEvenAtSamePercent() {
-        val original = ChargingNotificationContent.from(status, formatter)
+        val original = ChargingNotificationContent.from(status, formatter, textFormatter)
         listOf(
             status.copy(calculation = status.calculation.copy(timeRemainingMinutes = 74)),
             status.copy(calculation = status.calculation.copy(chargingSpeed = 11f)),
             status.copy(calculation = status.calculation.copy(timeRemainingMinutes = 0)),
             status.copy(currentPercent = 46f)
-        ).forEach { assertFalse(original == ChargingNotificationContent.from(it, formatter)) }
+        ).forEach { assertFalse(original == ChargingNotificationContent.from(it, formatter, textFormatter)) }
     }
 }

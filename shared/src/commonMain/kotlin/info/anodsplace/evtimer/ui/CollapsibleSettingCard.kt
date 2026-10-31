@@ -27,6 +27,12 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import info.anodsplace.evtimer.data.ConfigurationViewState
+import info.anodsplace.evtimer.generated.resources.Res
+import info.anodsplace.evtimer.generated.resources.collapse_setting_description
+import info.anodsplace.evtimer.generated.resources.collapsed_setting_label
+import info.anodsplace.evtimer.generated.resources.expand_setting_description
+import info.anodsplace.evtimer.generated.resources.expanded_setting_title
+import org.jetbrains.compose.resources.stringResource
 import androidx.compose.animation.animateContentSize
 
 /**
@@ -55,7 +61,7 @@ import androidx.compose.animation.animateContentSize
 @Composable
 fun CollapsibleSettingCard(
     title: String,
-    summary: (ConfigurationViewState) -> String,
+    summary: @Composable (ConfigurationViewState) -> String,
     viewState: ConfigurationViewState,
     modifier: Modifier = Modifier,
     initiallyExpanded: Boolean = false,
@@ -63,12 +69,17 @@ fun CollapsibleSettingCard(
 ) {
     var expanded by remember { mutableStateOf(initiallyExpanded) }
     val arrow = if (expanded) "▾" else "▸"
+    val summaryText = summary(viewState)
+    val collapseDescription = stringResource(Res.string.collapse_setting_description, title, summaryText)
+    val expandDescription = stringResource(Res.string.expand_setting_description, title, summaryText)
+    val expandedTitle = stringResource(Res.string.expanded_setting_title, arrow, title)
+    val collapsedLabel = stringResource(Res.string.collapsed_setting_label, arrow, summaryText)
     val haptics = LocalHapticFeedback.current
 
     AnimatedContent(
         targetState = expanded,
         transitionSpec = { fadeIn(tween(150)) togetherWith fadeOut(tween(150)) },
-        label = "$title-collapsible"
+        label = title
     ) { isExpanded ->
         if (isExpanded) {
             SettingCard(modifier = modifier.fillMaxWidth().animateContentSize()) {
@@ -81,11 +92,11 @@ fun CollapsibleSettingCard(
                             haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                             expanded = false
                         }
-                        .semantics { contentDescription = "Collapse $title. ${summary(viewState)}" }
+                        .semantics { contentDescription = collapseDescription }
                         .padding(bottom = 4.dp)
                 ) {
                     Text(
-                        text = "$arrow $title",
+                        text = expandedTitle,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.weight(1f)
@@ -99,9 +110,9 @@ fun CollapsibleSettingCard(
                     haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                     expanded = true
                 },
-                label = { Text("$arrow ${summary(viewState)}") },
+                label = { Text(collapsedLabel) },
                 modifier = modifier
-                    .semantics { contentDescription = "Expand $title. ${summary(viewState)}" }
+                    .semantics { contentDescription = expandDescription }
             )
         }
     }

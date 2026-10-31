@@ -20,6 +20,19 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import info.anodsplace.evtimer.data.formatLocaleNumber
+import info.anodsplace.evtimer.generated.resources.Res
+import info.anodsplace.evtimer.generated.resources.decrease_label
+import info.anodsplace.evtimer.generated.resources.equivalent_description
+import info.anodsplace.evtimer.generated.resources.increase_label
+import info.anodsplace.evtimer.generated.resources.input_field_label
+import info.anodsplace.evtimer.generated.resources.percent
+import info.anodsplace.evtimer.generated.resources.percent_symbol
+import info.anodsplace.evtimer.generated.resources.set
+import info.anodsplace.evtimer.generated.resources.slider_description
+import info.anodsplace.evtimer.generated.resources.value_between_error
+import info.anodsplace.evtimer.generated.resources.value_between_error_description
+import org.jetbrains.compose.resources.stringResource
 import kotlin.math.roundToInt
 
 /**
@@ -36,19 +49,37 @@ fun PercentageSettingContent(
     value: Float,
     valueRange: IntRange,
     onValueChange: (Float) -> Unit,
-    suffix: String = "%",
-    unitDescription: String = "percent",
+    suffix: String? = null,
+    unitDescription: String? = null,
     step: Int = 1,
     additionalInfo: String? = null,
 ) {
     val haptics = LocalHapticFeedback.current
-    var text by remember(value) { mutableStateOf(value.roundToInt().toString()) }
-    var isError by remember { mutableStateOf(false) }
-    var previousError by remember { mutableStateOf(false) }
-
     val min = valueRange.first
     val max = valueRange.last
     val clampedStep = if (step <= 0) 1 else step
+    val displaySuffix = suffix ?: stringResource(Res.string.percent_symbol)
+    val displayUnitDescription = unitDescription ?: stringResource(Res.string.percent)
+    val decreaseDescription = stringResource(Res.string.decrease_label, label)
+    val increaseDescription = stringResource(Res.string.increase_label, label)
+    val inputFieldDescription = stringResource(Res.string.input_field_label, label)
+    val valueErrorText = stringResource(Res.string.value_between_error, min, max, clampedStep)
+    val valueErrorDescription = stringResource(
+        Res.string.value_between_error_description,
+        label,
+        min,
+        max,
+        clampedStep
+    )
+    val sliderDescription = stringResource(
+        Res.string.slider_description,
+        label,
+        formatLocaleNumber(value.roundToInt().toFloat(), 0, 0),
+        displayUnitDescription
+    )
+    var text by remember(value) { mutableStateOf(value.roundToInt().toString()) }
+    var isError by remember { mutableStateOf(false) }
+    var previousError by remember { mutableStateOf(false) }
 
     fun coerceToStep(v: Float): Int {
         val rounded = (((v - min) / clampedStep).roundToInt() * clampedStep + min)
@@ -64,7 +95,7 @@ fun PercentageSettingContent(
             enabled = value > min,
             modifier = Modifier
                 .width(48.dp)
-                .semantics { contentDescription = "Decrease $label" }
+                .semantics { contentDescription = decreaseDescription }
         ) { Text("-") }
         OutlinedTextField(
             value = text,
@@ -82,32 +113,32 @@ fun PercentageSettingContent(
                     onValueChange(intVal.toFloat())
                 }
             },
-            label = { Text("Set") },
+            label = { Text(stringResource(Res.string.set)) },
             singleLine = true,
             isError = isError,
             supportingText = {
                 AnimatedVisibility(visible = isError) {
                     Text(
-                        text = "Must be between $min and $max in $clampedStep increments",
+                        text = valueErrorText,
                         color = MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.semantics {
-                            contentDescription = "$label error value must be between $min and $max in $clampedStep increments"
-                        }
+                        modifier = Modifier.semantics { contentDescription = valueErrorDescription }
                     )
                 }
             },
-            suffix = { Text(suffix, modifier = Modifier.semantics { contentDescription = suffix }) },
+            suffix = {
+                Text(displaySuffix, modifier = Modifier.semantics { contentDescription = displaySuffix })
+            },
             modifier = Modifier
                 .width(96.dp)
-                .semantics { contentDescription = "$label input field" }
+                .semantics { contentDescription = inputFieldDescription }
         )
         TextButton(
             onClick = { onValueChange((value + clampedStep).coerceAtMost(max.toFloat())) },
             enabled = value < max,
             modifier = Modifier
                 .width(48.dp)
-                .semantics { contentDescription = "Increase $label" }
+                .semantics { contentDescription = increaseDescription }
         ) { Text("+") }
     }
     val stepsCount = ((max - min) / clampedStep).coerceAtLeast(1)
@@ -122,15 +153,17 @@ fun PercentageSettingContent(
         },
         valueRange = min.toFloat()..max.toFloat(),
         steps = sliderSteps,
-        modifier = Modifier.semantics { contentDescription = "$label slider value ${value.roundToInt()} $unitDescription" }
+        modifier = Modifier.semantics { contentDescription = sliderDescription }
     )
     if (additionalInfo != null) {
+        val additionalInfoDescription = stringResource(Res.string.equivalent_description, label, additionalInfo)
         Text(
             text = additionalInfo,
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.semantics { contentDescription = "$label equivalent to $additionalInfo" }
+            modifier = Modifier.semantics {
+                contentDescription = additionalInfoDescription
+            }
         )
     }
 }
-

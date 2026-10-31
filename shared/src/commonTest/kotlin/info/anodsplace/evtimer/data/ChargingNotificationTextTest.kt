@@ -4,6 +4,15 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 
 class ChargingNotificationTextTest {
+    private val format = ChargingNotificationTextFormat(
+        progress = { current, target, speed -> "$current% → $target% • $speed" },
+        targetReached = { target, speed -> "Target reached · $target% • $speed" },
+        durationHoursMinutes = { hours, minutes -> "${hours}h ${minutes}m left" },
+        durationMinutes = { minutes -> "${minutes}m left" },
+        eta = { "ETA $it" },
+        append = { first, second -> "$first • $second" }
+    )
+
     @Test
     fun progressIncludesCurrentAndTargetPercent() {
         val status = ChargingStatus(
@@ -13,7 +22,7 @@ class ChargingNotificationTextTest {
 
         assertEquals(
             "45% → 80% • 11.0 kW • 1h 35m left • ETA 17:30",
-            buildChargingNotificationText(status, 45, "11.0 kW", "17:30")
+            buildChargingNotificationText(status, 45, "11.0 kW", "17:30", format)
         )
     }
 
@@ -26,7 +35,7 @@ class ChargingNotificationTextTest {
 
         assertEquals(
             "89% → 90% • 7.0 kW • 5m left",
-            buildChargingNotificationText(status, 89, "7.0 kW", null)
+            buildChargingNotificationText(status, 89, "7.0 kW", null, format)
         )
     }
 
@@ -39,7 +48,7 @@ class ChargingNotificationTextTest {
 
         assertEquals(
             "60% → 80% • 7.0 kW • 1h 0m left",
-            buildChargingNotificationText(status, 60, "7.0 kW", null)
+            buildChargingNotificationText(status, 60, "7.0 kW", null, format)
         )
     }
 
@@ -53,7 +62,7 @@ class ChargingNotificationTextTest {
 
             assertEquals(
                 "Target reached · $target% • 7.0 kW",
-                buildChargingNotificationText(status, target, "7.0 kW", null)
+                buildChargingNotificationText(status, target, "7.0 kW", null, format)
             )
         }
     }
@@ -67,7 +76,7 @@ class ChargingNotificationTextTest {
 
         assertEquals(
             "Target reached · 80% • 7.0 kW • ETA 5:30 PM",
-            buildChargingNotificationText(status, 79, "7.0 kW", "5:30 PM")
+            buildChargingNotificationText(status, 79, "7.0 kW", "5:30 PM", format)
         )
     }
 
@@ -80,7 +89,7 @@ class ChargingNotificationTextTest {
 
         assertEquals(
             "100% → 100% • 7.0 kW • 1m left",
-            buildChargingNotificationText(status, 100, "7.0 kW", null)
+            buildChargingNotificationText(status, 100, "7.0 kW", null, format)
         )
     }
 }

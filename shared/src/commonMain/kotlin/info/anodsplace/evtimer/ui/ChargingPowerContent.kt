@@ -19,9 +19,23 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import info.anodsplace.evtimer.data.ConfigurationViewEvent
+import info.anodsplace.evtimer.data.formatLocaleNumber
+import info.anodsplace.evtimer.generated.resources.Res
+import info.anodsplace.evtimer.generated.resources.ac
+import info.anodsplace.evtimer.generated.resources.add
+import info.anodsplace.evtimer.generated.resources.add_custom_power
+import info.anodsplace.evtimer.generated.resources.add_custom_power_description
+import info.anodsplace.evtimer.generated.resources.cancel
+import info.anodsplace.evtimer.generated.resources.dc
+import info.anodsplace.evtimer.generated.resources.power_kw_label
+import info.anodsplace.evtimer.generated.resources.power_value
+import info.anodsplace.evtimer.generated.resources.unit_kw
+import org.jetbrains.compose.resources.stringResource
 
 @Composable
 fun ChargingPowerContent(
@@ -57,6 +71,7 @@ fun ChargingPowerChips(
     onAddCustomPower: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val addPowerDescription = stringResource(Res.string.add_custom_power_description)
     FlowRow(
         modifier = modifier,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -66,13 +81,22 @@ fun ChargingPowerChips(
             FilterChip(
                 selected = power == selectedPower,
                 onClick = { onPowerSelected(power) },
-                label = { Text("$power kW") }
+                label = {
+                    Text(
+                        stringResource(
+                            Res.string.power_value,
+                            formatLocaleNumber(power, 1, 1),
+                            stringResource(Res.string.unit_kw)
+                        )
+                    )
+                }
             )
         }
         FilterChip(
             selected = false,
             label = { Text("+") },
-            onClick = onAddCustomPower
+            onClick = onAddCustomPower,
+            modifier = Modifier.semantics { contentDescription = addPowerDescription }
         )
     }
 }
@@ -89,7 +113,7 @@ fun CustomPowerDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Add Custom Power") },
+        title = { Text(stringResource(Res.string.add_custom_power)) },
         text = {
             Column(
                 modifier = Modifier.verticalScroll(rememberScrollState()),
@@ -99,14 +123,14 @@ fun CustomPowerDialog(
                     value = powerText,
                     onValueChange = { powerText = it },
                     modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Power (kW)") },
+                    label = { Text(stringResource(Res.string.power_kw_label)) },
                     singleLine = true,
                     isError = powerText.isNotEmpty() && !validPower,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
                 )
                 listOf(
-                    "AC" to listOf("2.3", "3.6", "7", "11", "22"),
-                    "DC" to listOf("50", "100", "150")
+                    stringResource(Res.string.ac) to listOf("2.3", "3.6", "7", "11", "22"),
+                    stringResource(Res.string.dc) to listOf("50", "100", "150")
                 ).forEach { (label, suggestions) ->
                     Text(label)
                     FlowRow(
@@ -117,7 +141,15 @@ fun CustomPowerDialog(
                             FilterChip(
                                 selected = power == suggestion.toFloat(),
                                 onClick = { powerText = suggestion },
-                                label = { Text("$suggestion kW") }
+                                label = {
+                                    Text(
+                                        stringResource(
+                                            Res.string.power_value,
+                                            formatLocaleNumber(suggestion.toFloat(), 1, 1),
+                                            stringResource(Res.string.unit_kw)
+                                        )
+                                    )
+                                }
                             )
                         }
                     }
@@ -130,10 +162,10 @@ fun CustomPowerDialog(
                 onClick = {
                     onConfirm(requireNotNull(power))
                 }
-            ) { Text("Add") }
+            ) { Text(stringResource(Res.string.add)) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
+            TextButton(onClick = onDismiss) { Text(stringResource(Res.string.cancel)) }
         }
     )
 }

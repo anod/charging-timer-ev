@@ -2,25 +2,35 @@ package info.anodsplace.evtimer.data
 
 import kotlin.math.roundToInt
 
+data class ChargingNotificationTextFormat(
+    val progress: (Int, Int, String) -> String,
+    val targetReached: (Int, String) -> String,
+    val durationHoursMinutes: (Int, Int) -> String,
+    val durationMinutes: (Int) -> String,
+    val eta: (String) -> String,
+    val append: (String, String) -> String
+)
+
 fun buildChargingNotificationText(
     status: ChargingStatus,
     percentInt: Int,
     speed: String,
-    eta: String?
+    eta: String?,
+    format: ChargingNotificationTextFormat
 ): String = buildString {
     val target = status.targetPercent.roundToInt()
     val remainingMin = status.calculation.timeRemainingMinutes
-    if (remainingMin > 0) {
-        append(percentInt).append("% → ").append(target).append('%')
+    var text = if (remainingMin > 0) {
+        format.progress(percentInt, target, speed)
     } else {
-        append("Target reached · ").append(target).append('%')
+        format.targetReached(target, speed)
     }
-    append(" • ").append(speed)
     if (remainingMin > 0) {
         val h = remainingMin / 60
         val m = remainingMin % 60
-        append(" • ")
-        if (h > 0) append("${h}h ${m}m left") else append("${m}m left")
+        val duration = if (h > 0) format.durationHoursMinutes(h, m) else format.durationMinutes(m)
+        text = format.append(text, duration)
     }
-    if (eta != null) append(" • ETA ").append(eta)
+    if (eta != null) text = format.append(text, format.eta(eta))
+    append(text)
 }
