@@ -37,6 +37,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -50,13 +51,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Matrix
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.sp
 import info.anodsplace.evtimer.data.ChargingCalculation
 import info.anodsplace.evtimer.data.ChargingCalculator
@@ -65,6 +70,10 @@ import info.anodsplace.evtimer.data.MILESTONE_PERCENT
 import info.anodsplace.evtimer.data.MilestoneEstimate
 import info.anodsplace.evtimer.data.RunningViewEvent
 import info.anodsplace.evtimer.data.RunningViewState
+import info.anodsplace.evtimer.data.ChargingSessionSnapshot
+import info.anodsplace.evtimer.data.PowerSegment
+import info.anodsplace.evtimer.data.TimeProgress
+import info.anodsplace.evtimer.data.timeProgress
 import info.anodsplace.evtimer.data.formatLocaleNumber
 import info.anodsplace.evtimer.data.formatPower
 import info.anodsplace.evtimer.material.MaterialShapes
@@ -91,6 +100,9 @@ import info.anodsplace.evtimer.generated.resources.stop_timer
 import info.anodsplace.evtimer.generated.resources.target_percent
 import info.anodsplace.evtimer.generated.resources.time_remaining
 import info.anodsplace.evtimer.generated.resources.time_to_percent
+import info.anodsplace.evtimer.generated.resources.time_progress
+import info.anodsplace.evtimer.generated.resources.time_prediction
+import info.anodsplace.evtimer.generated.resources.target_reached_by
 import info.anodsplace.evtimer.generated.resources.unit_kw
 import info.anodsplace.evtimer.generated.resources.unit_kwh
 import info.anodsplace.evtimer.generated.resources.value_with_separator
@@ -146,6 +158,7 @@ fun RunningTimerScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .verticalScroll(rememberScrollState())
                 .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(32.dp)
@@ -163,7 +176,13 @@ fun RunningTimerScreen(
                 batteryCapacity = settings.batteryCapacity
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            viewState.timeProgress?.let { progress ->
+                TimePredictionBar(
+                    progress = progress,
+                    startTimeText = viewState.startTimeText,
+                    estimatedEndTimeText = viewState.estimatedEndTimeText
+                )
+            }
 
             // Charging Stats
             Card(
@@ -266,6 +285,65 @@ fun RunningTimerScreen(
                 )
             ) {
                 Text(stringResource(Res.string.stop_timer), fontSize = 18.sp)
+            }
+        }
+    }
+}
+
+@Composable
+internal fun TimePredictionBar(
+    progress: TimeProgress,
+    startTimeText: String,
+    estimatedEndTimeText: String,
+    modifier: Modifier = Modifier
+) {
+    val tickColor = MaterialTheme.colorScheme.onSurface
+    val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
+    Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(stringResource(Res.string.time_progress), style = MaterialTheme.typography.titleSmall)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(startTimeText, style = MaterialTheme.typography.labelMedium)
+            Text(estimatedEndTimeText, style = MaterialTheme.typography.labelMedium)
+        }
+        Box(Modifier.fillMaxWidth().height(12.dp)) {
+            LinearProgressIndicator(
+                progress = { progress.fraction },
+                modifier = Modifier.fillMaxWidth().align(Alignment.Center),
+                gapSize = 0.dp,
+                drawStopIndicator = {}
+            )
+            Canvas(Modifier.fillMaxSize()) {
+                progress.predictions.forEach { prediction ->
+                    val x = size.width * if (isRtl) 1f - prediction.position else prediction.position
+                    drawLine(tickColor, Offset(x, 0f), Offset(x, size.height), strokeWidth = 2.dp.toPx())
+                }
+            }
+        }
+        if (progress.predictions.isEmpty()) {
+            Text(
+                stringResource(Res.string.target_reached_by, estimatedEndTimeText),
+                style = MaterialTheme.typography.bodySmall
+            )
+        } else {
+            // Separate label lanes keep nearby ticks readable, including at the ETA.
+            progress.predictions.forEach { prediction ->
+                BoxWithConstraints(Modifier.fillMaxWidth()) {
+                    val labelWidth = maxWidth / 2
+                    Text(
+                        stringResource(
+                            Res.string.time_prediction,
+                            formatLocaleNumber(prediction.hoursAhead.toFloat(), 0, 0),
+                            formatLocaleNumber(prediction.percent.roundToInt().toFloat(), 0, 0)
+                        ),
+                        modifier = Modifier
+                            .offset(
+                                x = (maxWidth * prediction.position - labelWidth / 2).coerceIn(0.dp, maxWidth - labelWidth)
+                            )
+                            .width(labelWidth),
+                        style = MaterialTheme.typography.bodySmall,
+                        textAlign = TextAlign.Center
+                    )
+                }
             }
         }
     }
@@ -719,5 +797,45 @@ private fun RunningTimerScreenReachedPreview() {
         Scaffold {
             RunningTimerScreen(viewState = state, onEvent = {})
         }
+    }
+}
+
+@Preview(name = "Time predictions - early session")
+@Composable
+private fun TimePredictionsEarlyPreview() = TimePredictionsPreview(15)
+
+@Preview(name = "Time predictions - 1 to 2 hours left")
+@Composable
+private fun TimePredictionsOneHourPreview() = TimePredictionsPreview(90)
+
+@Preview(name = "Time predictions - under 1 hour left")
+@Composable
+private fun TimePredictionsUnderOneHourPreview() = TimePredictionsPreview(150)
+
+@Composable
+private fun TimePredictionsPreview(elapsed: Int) {
+    val start = 1_800_000_000_000L
+    val snapshot = ChargingSessionSnapshot(60f, 20f, 80f, listOf(PowerSegment(start, 12f)))
+    val now = start + elapsed * 60_000L
+    val end = start + 180 * 60_000L
+    MaterialTheme {
+        RunningTimerScreen(
+            viewState = RunningViewState(
+                isLoading = false,
+                startTime = start,
+                estimatedEndTime = end,
+                startTimeText = "12:40",
+                estimatedEndTimeText = "15:40",
+                timeProgress = timeProgress(snapshot, now, end),
+                settings = ChargingSettings(60f, 12f, 20f, 80f),
+                calculation = ChargingCalculation(
+                    timeRemainingMinutes = 180 - elapsed,
+                    estimatedPercent = ChargingCalculator.percentAt(snapshot, now),
+                    chargingSpeed = 12f
+                ),
+                elapsedMinutes = elapsed
+            ),
+            onEvent = {}
+        )
     }
 }

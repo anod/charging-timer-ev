@@ -6,6 +6,26 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
+data class TimePrediction(val hoursAhead: Int, val position: Float, val percent: Float)
+
+data class TimeProgress(val fraction: Float, val predictions: List<TimePrediction>)
+
+fun timeProgress(snapshot: ChargingSessionSnapshot, now: Long, estimatedEndTime: Long): TimeProgress {
+    val total = estimatedEndTime - snapshot.startTime
+    if (total <= 0L) return TimeProgress(1f, emptyList())
+    return TimeProgress(
+        fraction = ((now - snapshot.startTime).toDouble() / total).toFloat().coerceIn(0f, 1f),
+        predictions = listOf(1, 2).mapNotNull { hours ->
+            val predictedTime = now + hours * 3_600_000L
+            if (predictedTime > estimatedEndTime) null else TimePrediction(
+                hoursAhead = hours,
+                position = ((predictedTime - snapshot.startTime).toDouble() / total).toFloat().coerceIn(0f, 1f),
+                percent = ChargingCalculator.predict(snapshot, now, hours * 60.0)
+            )
+        }
+    )
+}
+
 data class RunningViewState(
     val isLoading: Boolean = true,
     val startTime: Long = 0L,
@@ -15,7 +35,9 @@ data class RunningViewState(
     val calculation: ChargingCalculation = ChargingCalculation(),
     val elapsedMinutes: Int = 0,
     val milestoneEstimate: MilestoneEstimate? = null,
-    val milestoneEtaText: String = ""
+    val milestoneEtaText: String = "",
+    val startTimeText: String = "",
+    val timeProgress: TimeProgress? = null
 )
 
 sealed interface RunningViewAction
@@ -58,7 +80,13 @@ class RunningViewModel(
                     milestoneEstimate = status.milestoneEstimate,
                     milestoneEtaText = status.milestoneEstimate?.let {
                         clockTimeFormatter.format(it.estimatedTime)
-                    }.orEmpty()
+                    }.orEmpty(),
+                    startTimeText = status.snapshot?.let {
+                        clockTimeFormatter.format(it.startTime)
+                    }.orEmpty(),
+                    timeProgress = status.snapshot?.let {
+                        timeProgress(it, status.evaluatedAt, status.estimatedEndTime)
+                    }
                 )
             }.collect { viewState = it }
         }

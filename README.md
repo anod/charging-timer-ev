@@ -5,6 +5,12 @@ in the local time zone. Clock times use platform time preferences (the device's 
 setting on Android and iOS, and the locale's short time format on desktop). The Android
 charging notification uses the same clock formatter.
 
+The running screen also shows elapsed time as a bar from session start to ETA,
+with ticks predicting the battery percentage in one and two hours from now.
+Predictions are capped at the session target; ticks strictly after ETA are hidden.
+When neither tick remains, the bar shows "Target reached by" the ETA instead.
+The bar and predictions update on the service ticker and after charging-speed changes.
+
 Starting a timer persists a session snapshot (capacity, start/target percentages,
 optional preset identity and edited flag, efficiency and timestamped power segments) in SQLDelight
 2.4.1 SQLite storage. Presets and ordered power options, sessions and their power
