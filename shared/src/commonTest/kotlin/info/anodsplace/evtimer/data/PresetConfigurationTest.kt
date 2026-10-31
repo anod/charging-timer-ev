@@ -49,6 +49,8 @@ class PresetConfigurationTest {
         assertEquals(PresetNameError.ALREADY_EXISTS,
             normalizeAndValidatePresetName("hOME", listOf("Home")).error)
         assertEquals(PresetNameError.ALREADY_EXISTS,
+            normalizeAndValidatePresetName("home", listOf("  Home  ")).error)
+        assertEquals(PresetNameError.ALREADY_EXISTS,
             normalizeAndValidatePresetName("default", emptyList()).error)
         assertFailsWith<IllegalArgumentException> { edited.reduce(PresetEvent.SaveNew("new", "default")) }
     }
