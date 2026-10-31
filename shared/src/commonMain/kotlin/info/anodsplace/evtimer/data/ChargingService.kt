@@ -39,6 +39,7 @@ interface ChargingService {
     val status: StateFlow<ChargingStatus>
     suspend fun start()
     suspend fun stop()
+    suspend fun changePower(powerKw: Float)
     fun refresh()
 }
 
@@ -74,19 +75,14 @@ class ChargingServiceImpl(
     }
 
     private fun ensureTicker(isRunning: Boolean) {
-        if (isRunning) {
-            if (tickerJob == null) {
-                tickerJob = scope.launch {
-                    while (true) {
-                        delay(nextTickDelay())
-                        recompute()
-                    }
-                }
+        // Restart so a stale delay never skips the boundaries of a new power segment.
+        tickerJob?.cancel()
+        tickerJob = if (isRunning) scope.launch {
+            while (true) {
+                delay(nextTickDelay())
+                recompute()
             }
-        } else {
-            tickerJob?.cancel()
-            tickerJob = null
-        }
+        } else null
     }
 
     private fun recompute() {
@@ -100,8 +96,7 @@ class ChargingServiceImpl(
         val calculation = ChargingCalculation(
             timeRemainingMinutes = ceil(remaining).toInt(),
             estimatedPercent = currentPercent,
-            chargingSpeed = snapshot.segments.lastOrNull { it.startedAt <= now }?.powerKw
-                ?: snapshot.segments.first().powerKw
+            chargingSpeed = snapshot.powerAt(now)
         )
         val estimatedEndTime = if (session.isRunning) snapshot.startTime + ceil(
             ChargingCalculator.minutesToReach(snapshot, snapshot.startTime, snapshot.targetPercent) * 60_000.0
@@ -157,6 +152,16 @@ class ChargingServiceImpl(
         val session = repository.observeSession().first()
         if (!session.isRunning) return@withLock
         repository.saveSession(session.copy(isRunning = false))
+    }
+
+    override suspend fun changePower(powerKw: Float) = sessionMutex.withLock {
+        require(powerKw.isFinite() && powerKw > 0f) { "Invalid charging power" }
+        status.first { !it.isLoading }
+        val session = repository.observeSession().first()
+        val snapshot = session.snapshot ?: return@withLock
+        if (!session.isRunning) return@withLock
+        val updated = snapshot.withPower(clock.now().toEpochMilliseconds(), powerKw) ?: return@withLock
+        repository.saveSession(session.copy(snapshot = updated))
     }
 
     override fun refresh() {
