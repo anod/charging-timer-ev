@@ -142,6 +142,10 @@ cancel the alert's sound/vibration; Dismiss leaves the saved timer running, whil
 ends only the app's timer (the app cannot control the vehicle). The running screen shows
 **Finished** when the target is reached; there is no in-app completion popup. Notification
 text uses Android string resources and the finished headline uses Compose resources.
+Opening/resuming the app (including tapping the notification) acknowledges the completion
+and removes its alert, silencing sound/vibration without stopping the timer. Completion
+while the activity is already resumed is acknowledged without a ringing notification;
+the Finished screen and existing Stop Timer button remain visible.
 
 The shared `ChargingCompletionPlanner` plans from the snapshot-derived ETA. Android
 uses a wakeup `setExactAndAllowWhileIdle` alarm when exact-alarm access is available,

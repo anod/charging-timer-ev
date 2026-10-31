@@ -23,6 +23,7 @@ class ChargingCompletionController(
     // Device-local delivery marker, excluded by the backup allow-list.
     private val preferences = context.getSharedPreferences("charging_completion", Context.MODE_PRIVATE)
     private var scheduled: ChargingCompletionPlan? = null
+    private var isAppVisible = false
 
     init {
         scope.launch {
@@ -30,6 +31,16 @@ class ChargingCompletionController(
                 if (!status.isLoading) sync()
             }
         }
+    }
+
+    fun onActivityResumed() {
+        isAppVisible = true
+        notifier.cancel()
+        sync(force = true)
+    }
+
+    fun onActivityPaused() {
+        isAppVisible = false
     }
 
     fun sync(force: Boolean = false) {
@@ -63,7 +74,7 @@ class ChargingCompletionController(
         saveState(sessionId)
         scheduled = null
         alarmManager.cancel(alarmIntent())
-        notifier.post(sessionId)
+        if (!isAppVisible) notifier.post(sessionId)
     }
 
     fun dismiss(sessionId: Long) {
