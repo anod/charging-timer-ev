@@ -12,6 +12,11 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
+import androidx.lifecycle.ViewModelStore
+import androidx.lifecycle.ViewModelStoreOwner
+import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import info.anodsplace.evtimer.data.ChargingRepository
 import info.anodsplace.evtimer.data.ChargingService
 import info.anodsplace.evtimer.data.ChargingSession
@@ -36,6 +41,9 @@ class DesktopNavigationTest {
     @Test
     fun settingsGearMovesPreferenceOutOfConfigurationAndPreservesItOnBack() = runDesktopComposeUiTest {
         val repository = DesktopTestRepository()
+        val owner = object : ViewModelStoreOwner {
+            override val viewModelStore = ViewModelStore()
+        }
         setContent {
             KoinApplication(application = {
                 modules(uiModule, module {
@@ -45,7 +53,12 @@ class DesktopNavigationTest {
                     single<ClockTimeFormatter> { ClockTimeFormatter { "" } }
                 })
             }) {
-                ChargingTimerApp()
+                CompositionLocalProvider(LocalViewModelStoreOwner provides owner) {
+                    DisposableEffect(owner) {
+                        onDispose { owner.viewModelStore.clear() }
+                    }
+                    ChargingTimerApp()
+                }
             }
         }
         onNodeWithText("Notify at 80%").assertDoesNotExist()
