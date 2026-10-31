@@ -27,6 +27,18 @@ data class ChargingSessionSnapshot(
 
     val startTime: Long get() = segments.first().startedAt
 
+    fun powerAt(time: Long): Float =
+        segments.lastOrNull { it.startedAt <= time }?.powerKw ?: segments.first().powerKw
+
+    /** Appends a segment at [now]; returns null when the power is unchanged. */
+    fun withPower(now: Long, powerKw: Float): ChargingSessionSnapshot? {
+        val last = segments.last()
+        // A clock that did not advance past the last change still has to keep segments ordered.
+        val startedAt = maxOf(now, last.startedAt + 1)
+        if (powerAt(startedAt) == powerKw) return null
+        return copy(segments = segments + PowerSegment(startedAt, powerKw))
+    }
+
     companion object {
         fun from(settings: ChargingSettings, startedAt: Long) = ChargingSessionSnapshot(
             batteryCapacity = settings.batteryCapacity,

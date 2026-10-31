@@ -19,12 +19,20 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.clickable
+import androidx.compose.material3.Icon
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -32,7 +40,11 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
@@ -71,6 +83,20 @@ fun RunningTimerScreen(
 ) {
     val calculation = viewState.calculation
     val settings = viewState.settings
+    var showChangeSpeed by rememberSaveable { mutableStateOf(false) }
+
+    if (showChangeSpeed) {
+        ChangeSpeedSheet(
+            powers = settings.availablePowers,
+            currentPower = calculation.chargingSpeed,
+            onAddPower = { onEvent(RunningViewEvent.AddPower(it)) },
+            onApply = {
+                onEvent(RunningViewEvent.ChangePower(it))
+                showChangeSpeed = false
+            },
+            onDismiss = { showChangeSpeed = false }
+        )
+    }
 
     Box(modifier = modifier.fillMaxSize()) {
         // Static background shapes
@@ -105,15 +131,19 @@ fun RunningTimerScreen(
             Card(
                 modifier = Modifier.fillMaxWidth()
             ) {
+                // The 48dp speed row replaces 12dp of padding and 12dp of spacing so the rows below keep their positions.
                 Column(
-                    modifier = Modifier.padding(24.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                    modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 12.dp, bottom = 24.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    StatRow(
+                    EditableStatRow(
                         label = "Charging Speed",
-                        value = "${calculation.chargingSpeed} kW"
+                        value = "${calculation.chargingSpeed} kW",
+                        actionLabel = "Change charging speed",
+                        onClick = { showChangeSpeed = true }
                     )
 
+                    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     val currentKwh = remember(settings.batteryCapacity, calculation.estimatedPercent) {
                         ChargingCalculator.calculateKwh(settings.batteryCapacity, calculation.estimatedPercent)
                     }
@@ -156,6 +186,7 @@ fun RunningTimerScreen(
                         label = "Elapsed Time",
                         value = formatElapsedTime(viewState.elapsedMinutes)
                     )
+                    }
                 }
             }
 
@@ -173,6 +204,48 @@ fun RunningTimerScreen(
                 Text("Stop Timer", fontSize = 18.sp)
             }
         }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ChangeSpeedSheet(
+    powers: List<Float>,
+    currentPower: Float,
+    onAddPower: (Float) -> Unit,
+    onApply: (Float) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var selected by rememberSaveable { mutableFloatStateOf(currentPower) }
+    var showCustomPowerDialog by rememberSaveable { mutableStateOf(false) }
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text("Change speed", style = MaterialTheme.typography.titleLarge)
+            ChargingPowerChips(
+                powers = (powers + currentPower).distinct().sorted(),
+                selectedPower = selected,
+                onPowerSelected = { selected = it },
+                onAddCustomPower = { showCustomPowerDialog = true }
+            )
+            Button(
+                onClick = { onApply(selected) },
+                enabled = selected != currentPower,
+                modifier = Modifier.fillMaxWidth().height(56.dp)
+            ) { Text("Apply") }
+        }
+    }
+    if (showCustomPowerDialog) {
+        CustomPowerDialog(
+            onDismiss = { showCustomPowerDialog = false },
+            onConfirm = { power ->
+                onAddPower(power)
+                selected = power
+                showCustomPowerDialog = false
+            }
+        )
     }
 }
 
@@ -289,6 +362,51 @@ fun StatRow(
             style = MaterialTheme.typography.bodyLarge,
             fontWeight = FontWeight.Medium
         )
+    }
+}
+
+@Composable
+fun EditableStatRow(
+    label: String,
+    value: String,
+    actionLabel: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .heightIn(min = 48.dp)
+            .clickable(onClickLabel = actionLabel, role = Role.Button, onClick = onClick),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = value,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Medium
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .background(MaterialTheme.colorScheme.secondaryContainer, CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = EditIcon,
+                    contentDescription = actionLabel,
+                    modifier = Modifier.size(20.dp),
+                    tint = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+            }
+        }
     }
 }
 

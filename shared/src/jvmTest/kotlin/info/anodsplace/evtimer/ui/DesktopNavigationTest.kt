@@ -89,6 +89,7 @@ private class DesktopTestService : ChargingService {
     override val status = MutableStateFlow(ChargingStatus(isLoading = false, isRunning = true))
     override suspend fun start() = Unit
     override suspend fun stop() { status.value = ChargingStatus(isLoading = false) }
+    override suspend fun changePower(powerKw: Float) = Unit
     override fun refresh() = Unit
 }
 
