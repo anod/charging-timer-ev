@@ -27,6 +27,7 @@ class StorageRepositoryTest {
         val file = Files.createTempFile("evtimer-storage", ".preferences_pb").toFile()
         val job = Job()
         val store = PreferenceDataStoreFactory.create(
+            corruptionHandler = chargingPreferencesCorruptionHandler,
             migrations = listOf(ChargingSessionMigration()),
             scope = CoroutineScope(Dispatchers.IO + job), produceFile = { file }
         )
@@ -278,6 +279,28 @@ class StorageRepositoryTest {
             assertEquals(ChargingSettings.DEFAULT, repository.observeSettings().first())
             assertFalse(repository.observeSession().first().isRunning)
             assertEquals(2, repository.observePresets().first().size)
+        }
+    }
+
+    @Test
+    fun corruptRestoredPreferencesRecoverToDefaultsWithoutLosingDatabase() = runTest {
+        fixture { f ->
+            // Before the first DataStore read, simulate a torn preferences file.
+            f.file.writeBytes(byteArrayOf(0x0a, 0x7f))
+            f.database.storageQueries.putPreset("custom", "Custom", 75.0, 7.0, 80.0)
+            f.database.storageQueries.putSession(123L, 75.0, 25.0, 80.0, 1.0, null, null, true)
+            f.database.storageQueries.putSegment(123L, 123L, 7.0)
+            f.database.storageQueries.markMigrated()
+            f.database.storageQueries.setCurrentSession(123L)
+            val restore = object : StorageRestoreState {
+                override val requiresInterruption = true
+                override fun markReady() = Unit
+            }
+            val repository = ChargingRepositoryImpl(f.store, f.database, f.clock, restore)
+            assertEquals(75f, repository.observeSettings().first().batteryCapacity)
+            assertEquals(ChargingSettings.DEFAULT.startPercent, repository.observeSettings().first().startPercent)
+            assertEquals(ChargingSession(), repository.observeSession().first())
+            assertTrue(repository.observeHistory().first().single().interrupted)
         }
     }
 }

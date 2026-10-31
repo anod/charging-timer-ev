@@ -130,6 +130,8 @@ an existing installation. Before loaded status, the timer becomes an interrupted
 history entry with its original snapshot, no fabricated end percentage, and a
 restore-detection timestamp. Start a new timer explicitly to continue charging.
 Missing or stale selected-preset preferences fall back to Custom and valid defaults.
+Unreadable/corrupt preferences are logged and replaced with defaults without
+discarding a valid restored database.
 Normal updates retain the local marker and continue the local running session.
 An unmarked database from an older development build is conservatively treated
 as restored once; current released legacy DataStore-only timers still migrate.
