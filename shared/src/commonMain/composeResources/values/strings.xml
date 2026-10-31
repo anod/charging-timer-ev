@@ -45,6 +45,9 @@
     <string name="apply">Apply</string>
     <string name="percent_and_energy">%1$s% (%2$s %3$s)</string>
     <string name="value_with_separator">%1$s · %2$s</string>
+    <string name="time_progress">Estimated charging time</string>
+    <string name="time_prediction">+%1$sh · %2$s%</string>
+    <string name="target_reached_by">Target reached by %1$s</string>
 
     <string name="add_custom_power">Add Custom Power</string>
     <string name="add_custom_power_description">Add custom power</string>

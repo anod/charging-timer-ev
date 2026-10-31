@@ -28,7 +28,8 @@ data class ChargingStatus(
     val targetPercent: Float = ChargingSettings.DEFAULT.maxPercent,
     val snapshot: ChargingSessionSnapshot? = null,
     val elapsedMinutes: Int = 0,
-    val milestoneEstimate: MilestoneEstimate? = null
+    val milestoneEstimate: MilestoneEstimate? = null,
+    val evaluatedAt: Long = 0L
 )
 
 /**
@@ -115,7 +116,8 @@ class ChargingServiceImpl(
             } else 0,
             milestoneEstimate = if (session.isRunning) {
                 ChargingCalculator.estimateMilestone(snapshot, now)
-            } else null
+            } else null,
+            evaluatedAt = now
         )
     }
 
