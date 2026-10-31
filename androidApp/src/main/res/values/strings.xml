@@ -1,3 +1,12 @@
 <resources>
     <string name="app_name">Charging Timer for EV</string>
+    <string name="charging_title">EV Charging</string>
+    <string name="charging_channel">Charging Progress</string>
+    <string name="charging_channel_description">Shows real-time EV charging progress</string>
+    <string name="charging_loading">Loading charging progress&#8230;</string>
+    <string name="charging_stop">Stop</string>
+    <string name="charging_live_updates">Charging Live Updates</string>
+    <string name="charging_live_updates_message">Enable Live Updates to see charging progress on your status bar and lock screen.</string>
+    <string name="charging_live_updates_settings">Open settings</string>
+    <string name="charging_not_now">Not now</string>
 </resources>

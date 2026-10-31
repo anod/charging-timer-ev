@@ -77,10 +77,12 @@ dependencies {
     implementation(project(":shared"))
     implementation(project(":lib:permissions"))
     implementation(libs.androidx.activity)
+    implementation(libs.androidx.core)
     // Splash screen API
     implementation(libs.androidx.core.splashscreen)
     implementation(libs.koin.android)
     implementation(libs.koin.compose)
     implementation(libs.compose.uiToolingPreview)
     debugImplementation(libs.compose.uiTooling)
+    testImplementation(libs.kotlin.test.junit)
 }
