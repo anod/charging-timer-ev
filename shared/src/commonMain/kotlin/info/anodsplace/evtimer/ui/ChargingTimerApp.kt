@@ -27,38 +27,38 @@ fun ChargingTimerApp(
             if (backStack.isEmpty()) {
                 Box(modifier.fillMaxSize())
             } else {
-            NavDisplay(
-                backStack = backStack,
-                onBack = { navigation.onBack() },
-                entryDecorators = listOf(
-                    rememberSaveableStateHolderNavEntryDecorator(),
-                    rememberViewModelStoreNavEntryDecorator()
-                ),
-                entryProvider = { destination ->
-                    NavEntry(destination) {
-                        when (destination) {
-                            Destination.Config -> {
-                                val viewModel = koinViewModel<ConfigurationViewModel>()
-                                val viewState by viewModel.viewStates.collectAsState()
-                                LaunchedEffect(viewModel) {
-                                    viewModel.viewActions.collect {
-                                        navigation.navigate(Destination.Running)
+                NavDisplay(
+                    backStack = backStack,
+                    onBack = { navigation.onBack() },
+                    entryDecorators = listOf(
+                        rememberSaveableStateHolderNavEntryDecorator(),
+                        rememberViewModelStoreNavEntryDecorator()
+                    ),
+                    entryProvider = { destination ->
+                        NavEntry(destination) {
+                            when (destination) {
+                                Destination.Config -> {
+                                    val viewModel = koinViewModel<ConfigurationViewModel>()
+                                    val viewState by viewModel.viewStates.collectAsState()
+                                    LaunchedEffect(viewModel) {
+                                        viewModel.viewActions.collect {
+                                            navigation.navigate(Destination.Running)
+                                        }
                                     }
+                                    if (viewState.isLoading) Box(modifier.fillMaxSize())
+                                    else ConfigurationScreen(viewState, viewModel::handleEvent, modifier)
                                 }
-                                if (viewState.isLoading) Box(modifier.fillMaxSize())
-                                else ConfigurationScreen(viewState, viewModel::handleEvent, modifier)
+                                Destination.Running -> {
+                                    val viewModel = koinViewModel<RunningViewModel>()
+                                    val viewState by viewModel.viewStates.collectAsState()
+                                    if (viewState.isLoading) Box(modifier.fillMaxSize())
+                                    else RunningTimerScreen(viewState, viewModel::handleEvent, modifier)
+                                }
+                                else -> error("Screen not implemented for $destination")
                             }
-                            Destination.Running -> {
-                                val viewModel = koinViewModel<RunningViewModel>()
-                                val viewState by viewModel.viewStates.collectAsState()
-                                if (viewState.isLoading) Box(modifier.fillMaxSize())
-                                else RunningTimerScreen(viewState, viewModel::handleEvent, modifier)
-                            }
-                            else -> error("Screen not implemented for $destination")
                         }
                     }
-                }
-            )
+                )
             }
         }
     }

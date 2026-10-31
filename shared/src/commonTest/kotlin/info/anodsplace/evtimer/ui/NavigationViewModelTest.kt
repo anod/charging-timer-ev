@@ -21,6 +21,24 @@ import kotlin.test.assertTrue
 @OptIn(ExperimentalCoroutinesApi::class)
 class NavigationViewModelTest {
     @Test
+    fun loadingNeverSeedsConfigBeforeRestoringActiveRunning() = withNavigation { navigation, service ->
+        service.status.value = ChargingStatus()
+        val coldStart = NavigationViewModel(service)
+        try {
+            runCurrent()
+            assertEquals(emptyList(), coldStart.backStack.value)
+            coldStart.navigate(Destination.Config)
+            assertEquals(emptyList(), coldStart.backStack.value)
+            assertFalse(coldStart.onBack())
+            service.status.value = ChargingStatus(isLoading = false, isRunning = true)
+            runCurrent()
+            assertEquals(listOf(Destination.Config, Destination.Running), coldStart.backStack.value)
+        } finally {
+            coldStart.viewModelScope.cancel()
+        }
+    }
+
+    @Test
     fun inactiveSessionStartsAtConfigAndRootBackIsNotConsumed() = withNavigation { navigation, _ ->
         assertEquals(listOf(Destination.Config), navigation.backStack.value)
         assertFalse(navigation.onBack())

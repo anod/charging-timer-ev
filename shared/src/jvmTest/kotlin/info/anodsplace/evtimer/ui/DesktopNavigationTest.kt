@@ -80,15 +80,15 @@ class DesktopNavigationTest {
 }
 
 private class DesktopTestService : ChargingService {
-    override val status = MutableStateFlow(ChargingStatus(isRunning = true))
+    override val status = MutableStateFlow(ChargingStatus(isLoading = false, isRunning = true))
     override suspend fun start() = Unit
-    override suspend fun stop() { status.value = ChargingStatus() }
+    override suspend fun stop() { status.value = ChargingStatus(isLoading = false) }
     override fun refresh() = Unit
 }
 
 private class DesktopTestRepository : ChargingRepository {
     private val settings = MutableStateFlow(ChargingSettings())
-    private val session = MutableStateFlow(ChargingSession(isRunning = true))
+    private val session = MutableStateFlow(ChargingSession())
     override fun observeSettings() = settings
     override fun observeSession() = session
     override suspend fun saveSettings(settings: ChargingSettings) { this.settings.value = settings }

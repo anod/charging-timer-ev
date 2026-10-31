@@ -15,9 +15,59 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import info.anodsplace.evtimer.ui.NavigationViewModel
+import info.anodsplace.evtimer.ui.Destination
+import kotlin.time.Clock
+import kotlin.time.ExperimentalTime
+import kotlin.time.Instant
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ChargingViewModelTest {
+    @Test
+    @OptIn(ExperimentalTime::class)
+    fun backThenPowerAndTargetEditsLeaveRunningPredictionsSnapshotDriven() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val initial = ChargingSettings(60f, 12f, 20f, 80f)
+        val repository = ViewModelTestRepository(initial)
+        val clock = object : Clock {
+            override fun now() = Instant.fromEpochMilliseconds(1_800_000_000_000L)
+        }
+        val service = ChargingServiceImpl(repository, backgroundScope, clock)
+        val running = RunningViewModel(repository, service, ClockTimeFormatter { "ETA:$it" })
+        val config = ConfigurationViewModel(repository, service)
+        val navigation = NavigationViewModel(service)
+        try {
+            runCurrent()
+            service.start()
+            runCurrent()
+            val before = running.viewState
+            assertEquals(Destination.Running, navigation.backStack.value.last())
+            assertTrue(navigation.onBack())
+            assertEquals(Destination.Config, navigation.backStack.value.last())
+            config.handleEvent(ConfigurationViewEvent.UpdateChargingPower(22f))
+            runCurrent()
+            config.handleEvent(ConfigurationViewEvent.UpdateMaxPercent(90f))
+            runCurrent()
+
+            assertTrue(service.status.value.isRunning)
+            assertEquals(before.calculation.estimatedPercent, running.viewState.calculation.estimatedPercent)
+            assertEquals(before.calculation.timeRemainingMinutes, running.viewState.calculation.timeRemainingMinutes)
+            assertEquals(before.estimatedEndTime, running.viewState.estimatedEndTime)
+            assertEquals(before.estimatedEndTimeText, running.viewState.estimatedEndTimeText)
+            assertEquals(initial, running.viewState.settings)
+            assertEquals(initial.copy(chargingPower = 22f, maxPercent = 90f), config.viewState.settings)
+            assertEquals(Destination.Config, navigation.backStack.value.last())
+            service.stop()
+            runCurrent()
+            assertEquals(config.viewState.settings, running.viewState.settings)
+        } finally {
+            running.viewModelScope.cancel()
+            config.viewModelScope.cancel()
+            navigation.viewModelScope.cancel()
+            Dispatchers.resetMain()
+        }
+    }
+
     @Test
     fun rejectsNonFiniteCustomPowerWithoutPersistingIt() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
