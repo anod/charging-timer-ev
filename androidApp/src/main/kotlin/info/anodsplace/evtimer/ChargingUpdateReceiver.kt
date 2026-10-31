@@ -24,7 +24,8 @@ class ChargingUpdateReceiver : BroadcastReceiver(), KoinComponent {
         CoroutineScope(Dispatchers.Main).launch {
             try {
                 val status = withTimeout(8_000L) { chargingService.status.first { !it.isLoading } }
-                if (status.isRunning) {
+                val controller = (context.applicationContext as MainApplication).chargingSessionController
+                if (status.isRunning && !controller.isDismissed(status.startTime)) {
                     context.startForegroundService(Intent(context, ChargingForegroundService::class.java))
                 }
             } catch (error: TimeoutCancellationException) {
