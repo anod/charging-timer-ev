@@ -135,29 +135,11 @@ for that session, including after reopening the app. It does not stop the saved 
 use the notification's Stop action or stop it in the app. Background foreground-service
 restoration is retried when the app becomes visible if Android denies a background start.
 
-At the target ETA, a separate `charging_complete` high-importance notification repeats
-notification sound and vibration until handled. It respects silent/vibrate mode, channel
-settings and Do Not Disturb; it does not bypass DND. Both **Stop timer** and **Dismiss**
-cancel the alert's sound/vibration; Dismiss leaves the saved timer running, while Stop
-ends only the app's timer (the app cannot control the vehicle). The running screen shows
-**Finished** when the target is reached; there is no in-app completion popup. Notification
-text uses Android string resources and the finished headline uses Compose resources.
-Opening/resuming the app (including tapping the notification) acknowledges the completion
-and removes its alert, silencing sound/vibration without stopping the timer. Completion
-while the activity is already resumed is acknowledged without a ringing notification;
-the Finished screen and existing Stop Timer button remain visible.
-
-The shared `ChargingCompletionPlanner` plans from the snapshot-derived ETA. Android
-uses a wakeup `setExactAndAllowWhileIdle` alarm when exact-alarm access is available,
-otherwise `setAndAllowWhileIdle` (which may be delayed by minutes). There is no
-`USE_EXACT_ALARM` permission. Every session ETA change, including a speed change,
-replaces the alarm; stopping cancels it. Dismissing the Live Update does not cancel
-completion scheduling. Device-local completion delivery/acknowledgment preferences
-are excluded by the cloud backup and device-transfer allow-lists, and receivers validate
-the loaded running session and ETA before alerting. Restored interrupted history cannot
-produce a stale alert. App updates and exact-alarm grants re-evaluate scheduling.
-Boot rescheduling is not implemented here: #32 can call
-`ChargingCompletionController.sync(force = true)` after session loading.
+At the estimated target, Android posts one `charging_complete` notification with default
+sound and vibration, respecting the phone's notification settings. Tap it to open the app
+and dismiss it. A single wake-up timer follows the current future ETA, including speed
+changes; stopping cancels that timer and the notification. The running screen shows a
+resource-backed **Finished** headline at the target, with no completion popup.
 
 ### Android releases
 
