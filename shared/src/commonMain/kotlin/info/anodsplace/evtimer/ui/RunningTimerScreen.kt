@@ -83,6 +83,7 @@ import info.anodsplace.evtimer.generated.resources.elapsed_time
 import info.anodsplace.evtimer.generated.resources.hours_short
 import info.anodsplace.evtimer.generated.resources.minutes_short
 import info.anodsplace.evtimer.generated.resources.percent_and_energy
+import info.anodsplace.evtimer.generated.resources.power_value
 import info.anodsplace.evtimer.generated.resources.reached
 import info.anodsplace.evtimer.generated.resources.stop_timer
 import info.anodsplace.evtimer.generated.resources.target_percent
@@ -191,7 +192,7 @@ fun RunningTimerScreen(
                         value = stringResource(
                             Res.string.percent_and_energy,
                             formatLocaleNumber(calculation.estimatedPercent.roundToInt().toFloat(), 0, 0),
-                            formatLocaleNumber(currentKwh, 0, 2),
+                            formatLocaleNumber(currentKwh.toFloat(), 0, 2),
                             stringResource(Res.string.unit_kwh)
                         )
                     )
@@ -204,7 +205,7 @@ fun RunningTimerScreen(
                         value = stringResource(
                             Res.string.percent_and_energy,
                             formatLocaleNumber(settings.maxPercent.roundToInt().toFloat(), 0, 0),
-                            formatLocaleNumber(targetKwh, 0, 2),
+                            formatLocaleNumber(targetKwh.toFloat(), 0, 2),
                             stringResource(Res.string.unit_kwh)
                         )
                     )
@@ -392,7 +393,7 @@ fun BatteryChargingIndicator(
                     text = stringResource(
                         Res.string.percent_and_energy,
                         formatLocaleNumber(currentPercent.roundToInt().toFloat(), 0, 0),
-                        formatLocaleNumber(currentKwh, 0, 2),
+                        formatLocaleNumber(currentKwh.toFloat(), 0, 2),
                         stringResource(Res.string.unit_kwh)
                     ),
                     fontSize = 24.sp,

@@ -267,7 +267,7 @@ fun ConfigurationScreen(
                             Res.string.max_summary,
                             stringResource(Res.string.max),
                             formatLocaleNumber(valueState.settings.maxPercent.roundToInt().toFloat(), 0, 0),
-                            formatLocaleNumber(maxKwh, 0, 2),
+                            formatLocaleNumber(maxKwh.toFloat(), 0, 2),
                             stringResource(Res.string.unit_kwh)
                         )
                     },
@@ -285,7 +285,7 @@ fun ConfigurationScreen(
                         onValueChange = { onEvent(ConfigurationViewEvent.UpdateMaxPercent(it)) },
                         additionalInfo = stringResource(
                             Res.string.power_value,
-                            formatLocaleNumber(maxKwh, 0, 2),
+                            formatLocaleNumber(maxKwh.toFloat(), 0, 2),
                             stringResource(Res.string.unit_kwh)
                         )
                     )
@@ -300,7 +300,7 @@ fun ConfigurationScreen(
                             Res.string.start_summary,
                             stringResource(Res.string.start),
                             formatLocaleNumber(valueState.settings.startPercent.roundToInt().toFloat(), 0, 0),
-                            formatLocaleNumber(startKwh, 0, 2),
+                            formatLocaleNumber(startKwh.toFloat(), 0, 2),
                             stringResource(Res.string.unit_kwh)
                         )
                     },
@@ -318,7 +318,7 @@ fun ConfigurationScreen(
                         onValueChange = { onEvent(ConfigurationViewEvent.UpdateStartPercent(it)) },
                         additionalInfo = stringResource(
                             Res.string.power_value,
-                            formatLocaleNumber(startKwh, 0, 2),
+                            formatLocaleNumber(startKwh.toFloat(), 0, 2),
                             stringResource(Res.string.unit_kwh)
                         )
                     )
