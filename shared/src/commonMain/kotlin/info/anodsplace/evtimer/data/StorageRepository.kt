@@ -132,6 +132,9 @@ class ChargingRepositoryImpl(
         require(preset.id != CUSTOM_ID || preset.name == "Default") { "The Default preset cannot be renamed" }
         val name = if (preset.id == CUSTOM_ID) {
             preset.name
+        } else if (queries.presetById(preset.id).executeAsOneOrNull()?.name == preset.name) {
+            // Settings updates preserve names accepted before the current name policy.
+            preset.name
         } else {
             val validation = normalizeAndValidatePresetName(
                 preset.name,

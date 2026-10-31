@@ -4,12 +4,15 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.text.AnnotatedString
 import info.anodsplace.evtimer.data.ChargingPreset
 import info.anodsplace.evtimer.data.ChargingSettings
 import info.anodsplace.evtimer.data.ConfigurationViewEvent
@@ -83,7 +86,7 @@ class PresetRowTest {
     }
 
     @Test
-    fun familyEmojiPresetNameRendersInTheChipRowAndNameDialog() = runDesktopComposeUiTest {
+    fun familyEmojiPresetNameIsPreservedInChipAndDialogSemanticsAndSaveEvent() = runDesktopComposeUiTest {
         val settings = ChargingSettings.DEFAULT
         val family = "\uD83D\uDC68\u200D\uD83D\uDC69\u200D\uD83D\uDC67"
         val familyName = "Family $family"
@@ -94,12 +97,22 @@ class PresetRowTest {
                 ChargingPreset("family", familyName, settings)
             )
         ))
-        setContent { MaterialTheme { ConfigurationScreen(state.value, onEvent = {}) } }
+        val events = mutableListOf<ConfigurationViewEvent>()
+        setContent { MaterialTheme { ConfigurationScreen(state.value, onEvent = { events += it }) } }
 
         val familyChipText = onNodeWithText("Family", substring = true)
             .fetchSemanticsNode().config[SemanticsProperties.Text].joinToString("") { it.text }
         assertEquals(familyName, familyChipText)
         onNodeWithContentDescription("Save as new preset").performClick()
-        onNodeWithText("Preset name").assertExists()
+        onNodeWithText("Save").assertIsNotEnabled()
+        onNodeWithText("Preset name").performTextInput("Weekend ")
+        onNode(SemanticsMatcher.expectValue(SemanticsProperties.Text, listOf(AnnotatedString(family))))
+            .performClick()
+        val dialogName = "Weekend $family"
+        assertEquals(dialogName,
+            onNodeWithText("Preset name").fetchSemanticsNode().config[SemanticsProperties.EditableText].text)
+        onNodeWithText("Save").assertIsEnabled().performClick()
+        assertEquals(listOf<ConfigurationViewEvent>(ConfigurationViewEvent.SaveAsPreset(dialogName)), events)
+        onNodeWithText("Preset name").assertDoesNotExist()
     }
 }

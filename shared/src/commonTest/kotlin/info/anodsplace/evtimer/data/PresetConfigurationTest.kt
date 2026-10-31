@@ -4,6 +4,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertFailsWith
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class PresetConfigurationTest {
@@ -51,6 +52,8 @@ class PresetConfigurationTest {
         assertEquals(PresetNameError.ALREADY_EXISTS,
             normalizeAndValidatePresetName("home", listOf("  Home  ")).error)
         assertEquals(PresetNameError.ALREADY_EXISTS,
+            normalizeAndValidatePresetName("\u00E9T\u00C9", listOf("\u00C9t\u00E9")).error)
+        assertEquals(PresetNameError.ALREADY_EXISTS,
             normalizeAndValidatePresetName("default", emptyList()).error)
         assertFailsWith<IllegalArgumentException> { edited.reduce(PresetEvent.SaveNew("new", "default")) }
     }
@@ -60,17 +63,19 @@ class PresetConfigurationTest {
         val family = "\uD83D\uDC68\u200D\uD83D\uDC69\u200D\uD83D\uDC67"
         val flag = "\uD83C\uDDEE\uD83C\uDDF1"
         val skinTone = "\uD83D\uDC4D\uD83C\uDFFD"
-        assertEquals(family, normalizeAndValidatePresetName(family, emptyList()).name)
-        assertEquals(flag, normalizeAndValidatePresetName(flag, emptyList()).name)
-        assertEquals(skinTone, normalizeAndValidatePresetName(skinTone, emptyList()).name)
-        assertEquals("a".repeat(27) + family,
-            normalizeAndValidatePresetName("a".repeat(27) + family, emptyList()).name)
-        assertEquals("a".repeat(30) + flag,
-            normalizeAndValidatePresetName("a".repeat(30) + flag, emptyList()).name)
-        assertEquals("a".repeat(30) + skinTone,
-            normalizeAndValidatePresetName("a".repeat(30) + skinTone, emptyList()).name)
-        assertEquals(PresetNameError.TOO_LONG,
-            normalizeAndValidatePresetName("a".repeat(28) + family, emptyList()).error)
+        for ((emoji, codePoints) in listOf(family to 5, flag to 2, skinTone to 2)) {
+            for (name in listOf(emoji, "a".repeat(32 - codePoints) + emoji)) {
+                val validation = normalizeAndValidatePresetName(name, emptyList())
+                assertEquals(name, validation.name)
+                assertTrue(validation.isValid)
+                assertNull(validation.error)
+            }
+            val overlongName = "a".repeat(33 - codePoints) + emoji
+            val validation = normalizeAndValidatePresetName(overlongName, emptyList())
+            assertEquals(overlongName, validation.name)
+            assertFalse(validation.isValid)
+            assertEquals(PresetNameError.TOO_LONG, validation.error)
+        }
     }
 
     @Test fun resetRestoresPresetButNotSessionStart() {
