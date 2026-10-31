@@ -45,6 +45,12 @@ import info.anodsplace.evtimer.data.PresetNameError
 import info.anodsplace.evtimer.data.normalizeAndValidatePresetName
 import kotlin.math.roundToInt
 
+private val presetEmojiSuggestions = listOf(
+    listOf("\uD83C\uDFE0", "\uD83C\uDFE2"), // Home, work
+    listOf("\uD83D\uDE97", "\uD83D\uDE99", "\uD83D\uDE95"), // Cars
+    listOf("\uD83D\uDD34", "\uD83D\uDFE2", "\uD83D\uDD35", "\uD83D\uDFE1") // Colors
+)
+
 @Composable
 fun ConfigurationScreen(
     viewState: ConfigurationViewState,
@@ -81,17 +87,19 @@ fun ConfigurationScreen(
                         singleLine = true,
                         isError = error != null
                     )
-                    Row(
-                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        listOf("\uD83D\uDC68\u200D\uD83D\uDC69\u200D\uD83D\uDC67", "\uD83C\uDDEE\uD83C\uDDF1", "\uD83D\uDC4D\uD83C\uDFFD", "\u26A1").forEach { emoji ->
-                            FilterChip(
-                                selected = false,
-                                onClick = { presetName += emoji },
-                                label = { Text(emoji) }
-                            )
+                    presetEmojiSuggestions.forEach { suggestions ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            suggestions.forEach { emoji ->
+                                FilterChip(
+                                    selected = false,
+                                    onClick = { presetName += emoji },
+                                    label = { Text(emoji) }
+                                )
+                            }
                         }
                     }
                     if (error != null) {

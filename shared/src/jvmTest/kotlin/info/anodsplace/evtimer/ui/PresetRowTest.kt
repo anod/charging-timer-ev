@@ -133,14 +133,39 @@ class PresetRowTest {
         assertEquals(familyName, familyChipText)
         onNodeWithContentDescription("Save as new preset").performClick()
         onNodeWithText("Save").assertIsNotEnabled()
-        onNodeWithText("Preset name").performTextInput("Weekend ")
-        onNode(SemanticsMatcher.expectValue(SemanticsProperties.Text, listOf(AnnotatedString(family))))
-            .performClick()
-        val dialogName = "Weekend $family"
+        val flag = "\uD83C\uDDEE\uD83C\uDDF1"
+        val skinTone = "\uD83D\uDC4D\uD83C\uDFFD"
+        val dialogName = "Weekend $family$flag$skinTone"
+        onNodeWithText("Preset name").performTextInput(dialogName)
         assertEquals(dialogName,
             onNodeWithText("Preset name").fetchSemanticsNode().config[SemanticsProperties.EditableText].text)
         onNodeWithText("Save").assertIsEnabled().performClick()
         assertEquals(listOf<ConfigurationViewEvent>(ConfigurationViewEvent.SaveAsPreset(dialogName)), events)
         onNodeWithText("Preset name").assertDoesNotExist()
+    }
+
+    @Test
+    fun placeCarAndColorQuickPicksExposeTheirTextAndAppendToTheName() = runDesktopComposeUiTest {
+        val settings = ChargingSettings.DEFAULT
+        val state = ConfigurationViewState(
+            isLoading = false, settings = settings,
+            presets = listOf(ChargingPreset("custom", "Default", settings))
+        )
+        val events = mutableListOf<ConfigurationViewEvent>()
+        setContent { MaterialTheme { ConfigurationScreen(state, onEvent = { events += it }) } }
+        onNodeWithContentDescription("Save as new preset").performClick()
+        onNodeWithText("Save").assertIsNotEnabled()
+        val picks = listOf("\uD83C\uDFE0", "\uD83D\uDE99", "\uD83D\uDFE2")
+        var name = ""
+        for (emoji in picks) {
+            onNode(SemanticsMatcher.expectValue(SemanticsProperties.Text, listOf(AnnotatedString(emoji))))
+                .performClick()
+            name += emoji
+            assertEquals(name,
+                onNodeWithText("Preset name").fetchSemanticsNode().config[SemanticsProperties.EditableText].text)
+            onNodeWithText("Save").assertIsEnabled()
+        }
+        onNodeWithText("Save").performClick()
+        assertEquals(listOf<ConfigurationViewEvent>(ConfigurationViewEvent.SaveAsPreset(name)), events)
     }
 }
