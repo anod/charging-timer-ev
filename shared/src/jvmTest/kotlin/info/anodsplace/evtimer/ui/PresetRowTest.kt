@@ -34,7 +34,7 @@ class PresetRowTest {
             .fetchSemanticsNode().boundsInRoot.top
         val originalTop = settingsTop()
         onNodeWithText("Home").performClick()
-        assertEquals(emptyList(), events)
+        assertEquals(emptyList<ConfigurationViewEvent>(), events)
         runOnIdle { state.value = state.value.copy(settings = settings.copy(chargingPower = 22f)) }
         onNodeWithText("Home *").assertExists()
         assertEquals(originalTop, settingsTop())
@@ -43,7 +43,7 @@ class PresetRowTest {
         onNodeWithText("Update preset").assertDoesNotExist()
         onNodeWithText("Home *").performClick()
         onNodeWithText("Reset").performClick()
-        assertEquals(listOf(ConfigurationViewEvent.ResetPreset), events)
+        assertEquals(listOf<ConfigurationViewEvent>(ConfigurationViewEvent.ResetPreset), events)
         runOnIdle { state.value = state.value.copy(settings = settings) }
         assertEquals(originalTop, settingsTop())
         runOnIdle { state.value = state.value.copy(settings = settings.copy(chargingPower = 22f)) }
