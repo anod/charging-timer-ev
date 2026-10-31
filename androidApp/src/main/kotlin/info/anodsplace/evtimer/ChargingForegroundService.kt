@@ -13,6 +13,7 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import info.anodsplace.evtimer.data.ChargingService
+import info.anodsplace.evtimer.data.ClockTimeFormatter
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -21,8 +22,6 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
-import java.text.DateFormat
-import java.util.Date
 import java.util.Locale
 
 private const val CHANNEL_ID = "charging_progress"
@@ -34,6 +33,7 @@ private const val STOP_CHARGING_REQUEST_CODE = 1
 class ChargingForegroundService : Service(), KoinComponent {
     private val scope = CoroutineScope(Dispatchers.Main)
     private val chargingService: ChargingService by inject()
+    private val clockTimeFormatter: ClockTimeFormatter by inject()
     private var collectorJob: Job? = null
     private var lastPercentInt: Int? = null
     private var startedForeground = false
@@ -188,7 +188,7 @@ class ChargingForegroundService : Service(), KoinComponent {
             if (h > 0) "${h}h ${m}m left" else "${m}m left"
         } else if (percentInt >= 100) "Completed" else "Updating..."
         val eta = if (status.estimatedEndTime > 0) {
-            DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(status.estimatedEndTime))
+            clockTimeFormatter.format(status.estimatedEndTime)
         } else null
         val line = buildString {
             append(percentInt).append('%')

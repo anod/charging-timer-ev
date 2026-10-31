@@ -10,6 +10,7 @@ data class ChargingViewState(
     val startTime: Long = 0L,
     val currentPercent: Float = 0f,
     val estimatedEndTime: Long = 0L,
+    val estimatedEndTimeText: String = "",
     val settings: ChargingSettings = ChargingSettings(),
     val calculation: ChargingCalculation = ChargingCalculation()
 )
@@ -35,7 +36,8 @@ sealed interface ChargingViewEvent {
 
 class ChargingViewModel(
     private val repository: ChargingRepository,
-    private val service: ChargingService
+    private val service: ChargingService,
+    private val clockTimeFormatter: ClockTimeFormatter
 ) : BaseFlowViewModel<ChargingViewState, ChargingViewEvent, ChargingViewAction>() {
 
     init {
@@ -52,6 +54,9 @@ class ChargingViewModel(
                         startTime = status.startTime,
                         currentPercent = status.currentPercent,
                         estimatedEndTime = status.estimatedEndTime,
+                        estimatedEndTimeText = if (status.estimatedEndTime > 0L) {
+                            clockTimeFormatter.format(status.estimatedEndTime)
+                        } else "",
                         settings = settings,
                         calculation = status.calculation
                     )
