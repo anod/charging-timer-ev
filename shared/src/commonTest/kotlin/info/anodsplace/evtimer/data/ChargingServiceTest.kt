@@ -276,4 +276,80 @@ class ChargingServiceTest {
         runCurrent()
         assertEquals(1, repo.writes)
     }
+
+    @Test
+    fun changePowerKeepsPercentContinuousAndRecomputesEta() = runTest {
+        val repo = FakeChargingRepository()
+        val clock = FakeClock()
+        val service = ChargingServiceImpl(repo, backgroundScope, clock)
+        runCurrent()
+        service.start()
+        runCurrent()
+        val start = clock.milliseconds
+        clock.milliseconds = start + 30 * 60_000L
+        service.refresh()
+        val before = service.status.value
+        val etaBefore = before.estimatedEndTime
+        service.changePower(50f)
+        runCurrent()
+        val after = service.status.value
+        assertEquals(before.currentPercent, after.currentPercent, 0.001f)
+        assertEquals(50f, after.calculation.chargingSpeed)
+        assertEquals(listOf(12f, 50f), after.snapshot!!.segments.map { it.powerKw })
+        assertTrue(after.estimatedEndTime < etaBefore)
+        assertTrue(after.calculation.timeRemainingMinutes < before.calculation.timeRemainingMinutes)
+        assertEquals(after.estimatedEndTime, start + ceil(
+            ChargingCalculator.minutesToReach(after.snapshot!!, start, 80f) * 60_000.0
+        ).toLong())
+        assertEquals(repo.session.value.snapshot, after.snapshot)
+    }
+
+    @Test
+    fun multipleChangesAccumulateAndSamePowerIsIgnored() = runTest {
+        val repo = FakeChargingRepository()
+        val clock = FakeClock()
+        val service = ChargingServiceImpl(repo, backgroundScope, clock)
+        runCurrent()
+        service.start()
+        val writes = repo.writes
+        service.changePower(12f)
+        assertEquals(writes, repo.writes)
+        clock.milliseconds += 10 * 60_000L
+        service.changePower(7f)
+        clock.milliseconds += 10 * 60_000L
+        service.changePower(22f)
+        service.changePower(22f)
+        runCurrent()
+        val snapshot = service.status.value.snapshot!!
+        assertEquals(listOf(12f, 7f, 22f), snapshot.segments.map { it.powerKw })
+        assertEquals(22f, service.status.value.calculation.chargingSpeed)
+        assertEquals(writes + 2, repo.writes)
+        val percent = ChargingCalculator.percentAt(snapshot, clock.milliseconds)
+        assertEquals(percent, service.status.value.currentPercent, 0.001f)
+    }
+
+    @Test
+    fun changePowerSameInstantKeepsSegmentsOrdered() = runTest {
+        val repo = FakeChargingRepository()
+        val clock = FakeClock()
+        val service = ChargingServiceImpl(repo, backgroundScope, clock)
+        runCurrent()
+        service.start()
+        service.changePower(7f)
+        service.changePower(22f)
+        runCurrent()
+        val segments = service.status.value.snapshot!!.segments
+        assertEquals(listOf(12f, 7f, 22f), segments.map { it.powerKw })
+        assertTrue(segments.zipWithNext().all { (a, b) -> a.startedAt < b.startedAt })
+    }
+
+    @Test
+    fun changePowerWhenStoppedIsIgnoredAndInvalidPowerRejected() = runTest {
+        val repo = FakeChargingRepository()
+        val service = ChargingServiceImpl(repo, backgroundScope, FakeClock())
+        runCurrent()
+        service.changePower(50f)
+        assertEquals(0, repo.writes)
+        kotlin.test.assertFailsWith<IllegalArgumentException> { service.changePower(0f) }
+    }
 }

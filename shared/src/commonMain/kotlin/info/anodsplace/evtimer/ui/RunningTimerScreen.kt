@@ -24,7 +24,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -32,7 +35,11 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
@@ -71,6 +78,20 @@ fun RunningTimerScreen(
 ) {
     val calculation = viewState.calculation
     val settings = viewState.settings
+    var showChangeSpeed by rememberSaveable { mutableStateOf(false) }
+
+    if (showChangeSpeed) {
+        ChangeSpeedSheet(
+            powers = settings.availablePowers,
+            currentPower = calculation.chargingSpeed,
+            onAddPower = { onEvent(RunningViewEvent.AddPower(it)) },
+            onApply = {
+                onEvent(RunningViewEvent.ChangePower(it))
+                showChangeSpeed = false
+            },
+            onDismiss = { showChangeSpeed = false }
+        )
+    }
 
     Box(modifier = modifier.fillMaxSize()) {
         // Static background shapes
@@ -162,6 +183,13 @@ fun RunningTimerScreen(
             Spacer(modifier = Modifier.weight(1f))
 
             OutlinedButton(
+                onClick = { showChangeSpeed = true },
+                modifier = Modifier.fillMaxWidth().height(56.dp)
+            ) {
+                Text("Change speed", fontSize = 18.sp)
+            }
+
+            OutlinedButton(
                 onClick = { onEvent(RunningViewEvent.StopCharging) },
                 modifier = Modifier
                     .fillMaxWidth()
@@ -173,6 +201,48 @@ fun RunningTimerScreen(
                 Text("Stop Timer", fontSize = 18.sp)
             }
         }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ChangeSpeedSheet(
+    powers: List<Float>,
+    currentPower: Float,
+    onAddPower: (Float) -> Unit,
+    onApply: (Float) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var selected by rememberSaveable { mutableFloatStateOf(currentPower) }
+    var showCustomPowerDialog by rememberSaveable { mutableStateOf(false) }
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text("Change speed", style = MaterialTheme.typography.titleLarge)
+            ChargingPowerChips(
+                powers = (powers + currentPower).distinct().sorted(),
+                selectedPower = selected,
+                onPowerSelected = { selected = it },
+                onAddCustomPower = { showCustomPowerDialog = true }
+            )
+            Button(
+                onClick = { onApply(selected) },
+                enabled = selected != currentPower,
+                modifier = Modifier.fillMaxWidth().height(56.dp)
+            ) { Text("Apply") }
+        }
+    }
+    if (showCustomPowerDialog) {
+        CustomPowerDialog(
+            onDismiss = { showCustomPowerDialog = false },
+            onConfirm = { power ->
+                onAddPower(power)
+                selected = power
+                showCustomPowerDialog = false
+            }
+        )
     }
 }
 
