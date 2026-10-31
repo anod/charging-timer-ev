@@ -28,7 +28,8 @@ CREATE TABLE charge_session (
     actual_percent REAL CHECK (actual_percent BETWEEN 0 AND 100),
     reviewed INTEGER AS Boolean NOT NULL DEFAULT 0,
     is_running INTEGER AS Boolean NOT NULL DEFAULT 0,
-    interrupted INTEGER AS Boolean NOT NULL DEFAULT 0
+    interrupted INTEGER AS Boolean NOT NULL DEFAULT 0,
+    preset_edited INTEGER AS Boolean NOT NULL DEFAULT 0
 );
 
 CREATE UNIQUE INDEX one_running_session ON charge_session(is_running) WHERE is_running = 1;
@@ -93,11 +94,11 @@ SELECT * FROM power_segment ORDER BY session_id, started_at;
 
 putSession:
 INSERT INTO charge_session(id, battery_capacity, start_percent, target_percent, efficiency,
-preset_id, preset_name, is_running) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+preset_id, preset_name, is_running, preset_edited) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(id) DO UPDATE SET battery_capacity = excluded.battery_capacity,
 start_percent = excluded.start_percent, target_percent = excluded.target_percent,
 efficiency = excluded.efficiency, preset_id = excluded.preset_id, preset_name = excluded.preset_name,
-is_running = excluded.is_running;
+is_running = excluded.is_running, preset_edited = excluded.preset_edited;
 
 clearSegments:
 DELETE FROM power_segment WHERE session_id = ?;

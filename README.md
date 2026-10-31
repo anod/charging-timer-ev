@@ -6,17 +6,27 @@ setting on Android and iOS, and the locale's short time format on desktop). The 
 charging notification uses the same clock formatter.
 
 Starting a timer persists a session snapshot (capacity, start/target percentages,
-optional preset identity, efficiency and timestamped power segments) in SQLDelight
+optional preset identity and edited flag, efficiency and timestamped power segments) in SQLDelight
 2.4.1 SQLite storage. Presets and ordered power options, sessions and their power
 segments are structured tables; completed sessions retain estimated end percentage,
 optional actual percentage and review status. DataStore keeps selected preset, start
-percentage and simple preferences. Later settings edits affect the next session, not
+percentage, unsaved named-preset edits and simple preferences. Later settings edits affect the next session, not
 one already running. A transactional, idempotent migration imports legacy settings
 as the Custom preset and preserves every segment of an existing running snapshot
 before publishing loaded status. Its database marker commits before legacy-key
 cleanup, so an interrupted migration never imports twice.
 Android's app-update receiver waits for that loaded status and restarts the charging
 foreground service only when the migrated session is still running.
+
+Config starts with the built-in Custom preset, seeded from existing manual settings.
+Custom always appears first and cannot be renamed or deleted. Selecting a named preset
+applies capacity, charging power, target and its power options, but never the session's
+start percentage. Named-preset edits stay selected with a dot and a "Changed from" banner:
+Update preset commits them, Save as new preset leaves the original unchanged, and Reset
+reapplies saved values. Matching the saved values again clears the banner. Custom edits
+save directly; Save as preset creates and selects a named preset. Names accept emoji and
+must not be blank; advanced name rules and preset management are separate features.
+Selecting another preset discards the previous working edits.
 
 Android uses AndroidSqliteDriver, iOS NativeSqliteDriver, and desktop JdbcSqliteDriver
 with `charging.db` in the platform app-data directory. SQLDelight migration verification
@@ -108,7 +118,7 @@ The [privacy policy](docs/privacy.md) is published from `docs` using GitHub Page
 ### Backup & restore
 
 Android Auto Backup and Google's device-to-device migration can include presets,
-power options, charging history and simple preferences, subject to the user's
+power options, charging history, unsaved preset edits and simple preferences, subject to the user's
 backup settings and transport availability. Both modes explicitly allow only
 `databases/charging.db`, its rollback journal (`charging.db-journal`), defensive
 WAL recovery file (`charging.db-wal`) and
@@ -126,6 +136,11 @@ If the framework refuses DELETE, a warning is logged instead of blocking startup
 the allow-list also includes WAL to retain committed rows in that fallback.
 SQLite rebuilds the disposable shared-memory (`-shm`) file.
 Older schemas migrate on open, including the committed v1 backup baseline.
+Schema v3 adds a session `preset_edited` flag (false for existing sessions); snapshot
+identity, edited flag and values remain independent of later preset edits or deletion.
+Working edits use separate keys in the already allow-listed DataStore file, not the
+saved SQL preset. They survive process death and restore with their selected preset.
+Missing, mismatched or malformed draft state logs a warning and selects Custom.
 
 Restored running timers **never resume automatically**. A no-backup installation
 marker detects a database arriving on another installation; the backup agent also

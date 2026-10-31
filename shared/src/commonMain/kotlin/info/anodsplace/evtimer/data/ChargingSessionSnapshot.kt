@@ -13,7 +13,8 @@ data class ChargingSessionSnapshot(
     val segments: List<PowerSegment>,
     val presetId: String? = null,
     val presetName: String? = null,
-    val efficiency: Float = 1f
+    val efficiency: Float = 1f,
+    val presetEdited: Boolean = false
 ) {
     init {
         require(batteryCapacity.isFinite() && batteryCapacity > 0f)

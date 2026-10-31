@@ -23,6 +23,120 @@ import kotlin.time.Clock
 import kotlin.time.Instant
 
 class StorageRepositoryTest {
+    @Test
+    fun namedWorkingEditsSurviveRestartAndExplicitActionsNeverOverwriteOriginal() = runTest {
+        fixture { f ->
+            val home = ChargingPreset("home", "\uD83C\uDFE0 Home", ChargingSettings.DEFAULT.copy(
+                batteryCapacity = 60f, chargingPower = 7f, maxPercent = 80f
+            ))
+            f.repo.saveSettings(ChargingSettings.DEFAULT.copy(startPercent = 25f))
+            f.repo.savePreset(home)
+            f.repo.selectPreset(home.id)
+            val applied = home.settings.copy(startPercent = 25f)
+            assertEquals(applied, f.repo.observeSettings().first())
+            val edited = applied.withAddedPower(50f)
+            f.repo.saveSettings(edited)
+            assertEquals(home, f.repo.observePresets().first().first { it.id == home.id })
+            assertTrue(f.repo.observeConfiguration().first().isEdited)
+            var restarted = f.repository()
+            assertEquals(edited, restarted.observeSettings().first())
+            assertTrue(restarted.observeConfiguration().first().isEdited)
+            restarted.resetPreset()
+            assertEquals(applied, restarted.observeSettings().first())
+            assertFalse(restarted.observeConfiguration().first().isEdited)
+            restarted.saveSettings(edited)
+            restarted.updateSelectedPreset()
+            assertEquals(edited.copy(startPercent = ChargingSettings.DEFAULT.startPercent),
+                restarted.observePresets().first().first { it.id == home.id }.settings)
+            assertFalse(restarted.observeConfiguration().first().isEdited)
+            val savedHome = restarted.observePresets().first().first { it.id == home.id }
+            restarted.saveSettings(edited.copy(maxPercent = 90f))
+            restarted.saveAsPreset("\u26A1 Highway")
+            restarted = f.repository()
+            val new = restarted.observeConfiguration().first()
+            assertEquals("\u26A1 Highway", new.selected.name)
+            assertEquals(90f, new.settings.maxPercent)
+            assertFalse(new.isEdited)
+            assertEquals(savedHome, new.presets.first { it.id == home.id })
+            restarted.deletePreset(new.selectedId)
+            assertEquals("custom", restarted.observeConfiguration().first().selectedId)
+            assertEquals(25f, restarted.observeSettings().first().startPercent)
+            assertEquals("custom", restarted.observePresets().first().first().id)
+        }
+    }
+
+    @Test
+    fun matchingValuesClearDraftAndCustomCannotBeRenamed() = runTest {
+        fixture { f ->
+            f.repo.saveAsPreset("Home")
+            val selected = f.repo.observeConfiguration().first()
+            f.repo.saveSettings(selected.settings.withAddedPower(50f))
+            f.repo.saveSettings(selected.settings.copy(startPercent = 30f))
+            assertFalse(f.repo.observeConfiguration().first().isEdited)
+            assertNull(f.store.data.first()[SessionPreferences.draftValues])
+            assertFalse(f.repository().observeConfiguration().first().isEdited)
+            assertFailsWith<IllegalArgumentException> {
+                f.repo.savePreset(ChargingPreset("custom", "Renamed", ChargingSettings.DEFAULT))
+            }
+            assertFailsWith<IllegalArgumentException> { f.repo.saveAsPreset("  ") }
+            assertEquals("Custom", f.repo.observePresets().first().first().name)
+        }
+    }
+
+    @Test
+    fun editedSessionMetadataSurvivesRestartDeletionHistoryAndRestore() = runTest {
+        fixture { f ->
+            f.repo.saveAsPreset("Home")
+            val selected = f.repo.observeConfiguration().first()
+            f.repo.saveSettings(selected.settings.withAddedPower(50f))
+            val scope = CoroutineScope(Dispatchers.Default + Job())
+            val snapshot: ChargingSessionSnapshot
+            try {
+                val service = ChargingServiceImpl(f.repo, scope, f.clock)
+                service.start()
+                snapshot = requireNotNull(f.repo.observeSession().first().snapshot)
+                assertEquals(selected.selectedId, snapshot.presetId)
+                assertEquals("Home", snapshot.presetName)
+                assertTrue(snapshot.presetEdited)
+                assertEquals(50f, snapshot.segments.single().powerKw)
+            } finally {
+                scope.coroutineContext[Job]!!.cancelAndJoin()
+            }
+            assertEquals(snapshot, f.repository().observeSession().first().snapshot)
+            f.repo.deletePreset(selected.selectedId)
+            val restore = object : StorageRestoreState {
+                override val requiresInterruption = true
+                override fun markReady() = Unit
+            }
+            val restored = ChargingRepositoryImpl(f.store, f.database, f.clock, restore)
+            assertFalse(restored.observeSession().first().isRunning)
+            assertEquals(snapshot, restored.observeHistory().first().single().snapshot)
+            assertTrue(restored.observeHistory().first().single().interrupted)
+        }
+    }
+
+    @Test
+    fun staleMissingAndMalformedRestoredDraftsFallBackToCustomWithoutLosingPresets() = runTest {
+        listOf("missing", "stale", "malformed", "partial").forEach { scenario ->
+            fixture { f ->
+                f.repo.saveAsPreset("Home")
+                val selected = f.repo.observeConfiguration().first().selectedId
+                f.store.edit {
+                    it[SessionPreferences.draftPreset] = if (scenario == "stale") "other" else selected
+                    if (scenario != "partial") it[SessionPreferences.draftValues] =
+                        if (scenario == "malformed") "60,NaN,80,7" else "60,7,80,7"
+                    if (scenario == "missing") it[SessionPreferences.selectedPreset] = "gone"
+                }
+                val restored = f.repository().observeConfiguration().first()
+                assertEquals("custom", restored.selectedId)
+                assertFalse(restored.isEdited)
+                assertEquals(2, restored.presets.size)
+                assertNull(f.store.data.first()[SessionPreferences.draftValues])
+                assertNull(f.store.data.first()[SessionPreferences.draftPreset])
+            }
+        }
+    }
+
     private class Fixture {
         val file = Files.createTempFile("evtimer-storage", ".preferences_pb").toFile()
         val job = Job()
@@ -153,7 +267,7 @@ class StorageRepositoryTest {
         fixture { f ->
             f.repo.observeSettings().first()
             f.database.storageQueries.putPreset("custom", "Custom", 1e100, 11.0, 100.0)
-            f.database.storageQueries.putSession(123L, 1e100, 20.0, 80.0, 1.0, null, null, true)
+            f.database.storageQueries.putSession(123L, 1e100, 20.0, 80.0, 1.0, null, null, true, false)
             f.database.storageQueries.putSegment(123L, 123L, 11.0)
             val restarted = f.repository()
             assertEquals(ChargingSettings.DEFAULT.batteryCapacity, restarted.observeSettings().first().batteryCapacity)
@@ -288,7 +402,7 @@ class StorageRepositoryTest {
             // Before the first DataStore read, simulate a torn preferences file.
             f.file.writeBytes(byteArrayOf(0x0a, 0x7f))
             f.database.storageQueries.putPreset("custom", "Custom", 75.0, 7.0, 80.0)
-            f.database.storageQueries.putSession(123L, 75.0, 25.0, 80.0, 1.0, null, null, true)
+            f.database.storageQueries.putSession(123L, 75.0, 25.0, 80.0, 1.0, null, null, true, false)
             f.database.storageQueries.putSegment(123L, 123L, 7.0)
             f.database.storageQueries.markMigrated()
             f.database.storageQueries.setCurrentSession(123L)

@@ -4,11 +4,17 @@ import androidx.lifecycle.viewModelScope
 import info.anodsplace.viewmodel.BaseFlowViewModel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.channels.Channel
 
 data class ConfigurationViewState(
     val isLoading: Boolean = true,
-    val settings: ChargingSettings = ChargingSettings()
-)
+    val settings: ChargingSettings = ChargingSettings(),
+    val presets: List<ChargingPreset> = listOf(ChargingPreset(ChargingRepositoryImpl.CUSTOM_ID, "Custom", ChargingSettings.DEFAULT)),
+    val selectedPresetId: String = ChargingRepositoryImpl.CUSTOM_ID
+) {
+    val presetConfiguration get() = PresetConfiguration(presets, selectedPresetId, settings)
+}
 
 sealed interface ConfigurationViewAction {
     data object OpenRunning : ConfigurationViewAction
@@ -21,33 +27,52 @@ sealed interface ConfigurationViewEvent {
     data class AddCustomPower(val power: Float) : ConfigurationViewEvent
     data class UpdateStartPercent(val percent: Float) : ConfigurationViewEvent
     data class UpdateMaxPercent(val percent: Float) : ConfigurationViewEvent
+    data class SelectPreset(val id: String) : ConfigurationViewEvent
+    data object UpdatePreset : ConfigurationViewEvent
+    data class SaveAsPreset(val name: String) : ConfigurationViewEvent
+    data object ResetPreset : ConfigurationViewEvent
 }
 
 class ConfigurationViewModel(
     private val repository: ChargingRepository,
-    private val service: ChargingService
+    private val service: ChargingService,
+    private val presetRepository: PresetRepository
 ) : BaseFlowViewModel<ConfigurationViewState, ConfigurationViewEvent, ConfigurationViewAction>() {
-    private var latestSettings = ChargingSettings.DEFAULT
+    private val events = Channel<ConfigurationViewEvent>(Channel.UNLIMITED)
 
     init {
         viewState = ConfigurationViewState()
         viewModelScope.launch {
-            combine(repository.observeSettings(), service.status) { settings, status -> settings to status }
-                .collect { (settings, status) ->
+            combine(presetRepository.observeConfiguration(), service.status) { configuration, status -> configuration to status }
+                .collect { (configuration, status) ->
                     if (status.isLoading) return@collect
-                    latestSettings = settings
-                    viewState = ConfigurationViewState(isLoading = false, settings = settings)
+                    viewState = ConfigurationViewState(
+                        isLoading = false, settings = configuration.settings,
+                        presets = configuration.presets, selectedPresetId = configuration.selectedId
+                    )
                 }
+        }
+        viewModelScope.launch {
+            for (event in events) processEvent(event)
         }
     }
 
     override fun handleEvent(event: ConfigurationViewEvent) {
         if (viewState.isLoading) return
+        check(events.trySend(event).isSuccess)
+    }
+
+    private suspend fun processEvent(event: ConfigurationViewEvent) {
+        val latestSettings = repository.observeSettings().first()
         when (event) {
-            ConfigurationViewEvent.StartCharging -> viewModelScope.launch {
+            ConfigurationViewEvent.StartCharging -> {
                 service.start()
                 emitAction(ConfigurationViewAction.OpenRunning)
             }
+            is ConfigurationViewEvent.SelectPreset -> presetRepository.selectPreset(event.id)
+            ConfigurationViewEvent.UpdatePreset -> presetRepository.updateSelectedPreset()
+            is ConfigurationViewEvent.SaveAsPreset -> presetRepository.saveAsPreset(event.name)
+            ConfigurationViewEvent.ResetPreset -> presetRepository.resetPreset()
             is ConfigurationViewEvent.UpdateBatteryCapacity ->
                 saveSettings(latestSettings.copy(batteryCapacity = event.capacity))
             is ConfigurationViewEvent.UpdateChargingPower ->
@@ -64,7 +89,5 @@ class ConfigurationViewModel(
         }
     }
 
-    private fun saveSettings(settings: ChargingSettings) {
-        viewModelScope.launch { repository.saveSettings(settings) }
-    }
+    private suspend fun saveSettings(settings: ChargingSettings) = repository.saveSettings(settings)
 }
