@@ -2,6 +2,8 @@ package info.anodsplace.evtimer.data
 
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.edit
+import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
+import info.anodsplace.evtimer.db.ChargingDatabase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -13,6 +15,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import kotlin.time.Clock
 
 class ChargingPersistenceTest {
     @Test
@@ -21,6 +24,8 @@ class ChargingPersistenceTest {
         val oldJob = Job()
         val newJob = Job()
         val restartJob = Job()
+        val dbFile = Files.createTempFile("evtimer-session", ".db").toFile()
+        var driver = JdbcSqliteDriver("jdbc:sqlite:${dbFile.absolutePath}", schema = ChargingDatabase.Schema)
         try {
             val oldStore = PreferenceDataStoreFactory.create(
                 scope = CoroutineScope(Dispatchers.IO + oldJob), produceFile = { file }
@@ -38,7 +43,7 @@ class ChargingPersistenceTest {
                 migrations = listOf(ChargingSessionMigration()),
                 scope = CoroutineScope(Dispatchers.IO + newJob), produceFile = { file }
             )
-            val repo = ChargingRepositoryImpl(upgraded)
+            val repo = ChargingRepositoryImpl(upgraded, ChargingDatabase(driver), Clock.System, LocalStorageRestoreState)
             val session = repo.observeSession().first()
             assertTrue(session.isRunning)
             assertEquals(1_800_000_000_123L, session.startTime)
@@ -47,11 +52,13 @@ class ChargingPersistenceTest {
             val newSettings = ChargingSettings(100f, 50f, 10f, 90f)
             repo.saveSettings(newSettings)
             newJob.cancelAndJoin()
+            driver.close()
+            driver = JdbcSqliteDriver("jdbc:sqlite:${dbFile.absolutePath}", schema = ChargingDatabase.Schema)
             val restarted = PreferenceDataStoreFactory.create(
                 migrations = listOf(ChargingSessionMigration()),
                 scope = CoroutineScope(Dispatchers.IO + restartJob), produceFile = { file }
             )
-            val restored = ChargingRepositoryImpl(restarted)
+            val restored = ChargingRepositoryImpl(restarted, ChargingDatabase(driver), Clock.System, LocalStorageRestoreState)
             assertEquals(session, restored.observeSession().first())
             assertEquals(newSettings, restored.observeSettings().first())
             val segmented = expected.copy(
@@ -67,7 +74,9 @@ class ChargingPersistenceTest {
             oldJob.cancelAndJoin()
             newJob.cancelAndJoin()
             restartJob.cancelAndJoin()
+            driver.close()
             check(file.delete())
+            check(dbFile.delete())
         }
     }
 }

@@ -2,6 +2,9 @@ package info.anodsplace.evtimer
 
 import info.anodsplace.evtimer.data.ChargingRepository
 import info.anodsplace.evtimer.data.ChargingRepositoryImpl
+import info.anodsplace.evtimer.data.PresetRepository
+import info.anodsplace.evtimer.data.ChargingHistoryRepository
+import info.anodsplace.evtimer.db.ChargingDatabase
 import info.anodsplace.evtimer.data.ChargingService
 import info.anodsplace.evtimer.data.ChargingServiceImpl
 import info.anodsplace.evtimer.data.ConfigurationViewModel
@@ -25,8 +28,11 @@ expect val platformModule: org.koin.core.module.Module
 val commonModule = module {
     single<Clock> { Clock.System }
     single { CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate) }
+    single { ChargingDatabase(get()) }
     singleOf(::ChargingRepositoryImpl) {
         bind<ChargingRepository>()
+        bind<PresetRepository>()
+        bind<ChargingHistoryRepository>()
     }
     singleOf(::ChargingServiceImpl) {
         bind<ChargingService>()

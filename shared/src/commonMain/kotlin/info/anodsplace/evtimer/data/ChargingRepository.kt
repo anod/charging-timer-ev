@@ -1,16 +1,13 @@
 package info.anodsplace.evtimer.data
 
-import androidx.datastore.core.DataStore
 import androidx.datastore.core.DataMigration
 import androidx.datastore.preferences.core.MutablePreferences
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
-import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
 
 interface ChargingRepository {
     suspend fun saveSettings(settings: ChargingSettings)
@@ -34,41 +31,8 @@ data class ChargingSession(
     val startTime: Long get() = snapshot?.startTime ?: 0L
 }
 
-class ChargingRepositoryImpl(
-    private val dataStore: DataStore<Preferences>
-) : ChargingRepository {
-
-    override suspend fun saveSettings(settings: ChargingSettings) {
-        dataStore.edit { prefs ->
-            prefs[SessionPreferences.batteryCapacity] = settings.batteryCapacity
-            prefs[SessionPreferences.chargingPower] = settings.chargingPower
-            prefs[SessionPreferences.startPercent] = settings.startPercent
-            prefs[SessionPreferences.maxPercent] = settings.maxPercent
-            prefs[SessionPreferences.availablePowers] = settings.availablePowers.joinToString(",")
-        }
-    }
-
-    override fun observeSettings(): Flow<ChargingSettings> {
-        return dataStore.data.map(SessionPreferences::readSettings)
-    }
-
-    override suspend fun saveSession(session: ChargingSession) {
-        dataStore.edit { prefs ->
-            prefs[SessionPreferences.isRunning] = session.isRunning
-            prefs[SessionPreferences.startTime] = session.startTime
-            SessionPreferences.writeSnapshot(prefs, session.snapshot)
-        }
-    }
-
-    override fun observeSession(): Flow<ChargingSession> = dataStore.data.map { prefs ->
-        ChargingSession(
-            isRunning = prefs[SessionPreferences.isRunning] ?: false,
-            snapshot = SessionPreferences.readSnapshot(prefs)
-        )
-    }
-}
-
 internal object SessionPreferences {
+    val selectedPreset = stringPreferencesKey("selected_preset")
     val batteryCapacity = floatPreferencesKey("battery_capacity")
     val chargingPower = floatPreferencesKey("charging_power")
     val startPercent = floatPreferencesKey("start_percent")
@@ -83,6 +47,14 @@ internal object SessionPreferences {
     private val presetId = stringPreferencesKey("snapshot_preset_id")
     private val presetName = stringPreferencesKey("snapshot_preset_name")
     private val segments = stringPreferencesKey("snapshot_segments")
+
+    fun clearStructuredData(prefs: MutablePreferences) {
+        listOf(batteryCapacity, chargingPower, maxPercent).forEach(prefs::remove)
+        prefs.remove(availablePowers)
+        prefs.remove(isRunning)
+        prefs.remove(startTime)
+        writeSnapshot(prefs, null)
+    }
 
     fun readSettings(prefs: Preferences): ChargingSettings = ChargingSettings(
         batteryCapacity = validSetting(prefs, batteryCapacity, ChargingSettings.DEFAULT.batteryCapacity) { it > 0f },

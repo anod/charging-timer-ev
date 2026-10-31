@@ -8,7 +8,10 @@
 
     <application
         android:name=".MainApplication"
-        android:allowBackup="false"
+        android:allowBackup="true"
+        android:backupAgent=".ChargingBackupAgent"
+        android:fullBackupOnly="true"
+        android:dataExtractionRules="@xml/data_extraction_rules"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:supportsRtl="true"
@@ -32,6 +35,13 @@
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="User-started EV charging timer that estimates charging progress and time remaining while the app is in the background, with an ongoing notification and a stop action. Does not connect to or control a vehicle." />
         </service>
+        <receiver
+            android:name=".ChargingUpdateReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
     </application>
 
 </manifest>
