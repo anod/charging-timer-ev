@@ -7,13 +7,18 @@ title: EV Charging Timer privacy policy
 EV Charging Timer (`info.anodsplace.evtimer`) estimates charging progress and
 remaining time from values you enter. It does not connect to or control your car.
 
-## Data stays on your device
+## Local data and Android backup
 
 The app does not collect, transmit, sell, or share personal data. It has no
 accounts, advertising, analytics, tracking, or remote server connection.
 Battery capacity, charging power, charge targets, and timer state are stored
-locally on your device. The app disables Android cloud backup of its data.
-Some device manufacturers may still support device-to-device migration.
+locally on your device, along with presets and charging history.
+If enabled in your Android settings, these records and simple app preferences
+can be included in your Google/Android cloud backup or transferred to a new device.
+Android and your backup provider manage that backup; the developer has no access
+to it. Notification-dismissal state, caches and device-local installation markers
+are excluded. Restored running timers are saved as interrupted history and do not
+automatically resume charging notifications.
 You can delete local data by clearing the app's storage in Android settings or
 uninstalling the app.
 
@@ -31,8 +36,9 @@ features are local; they do not upload charging information.
 ## Google Play
 
 Google Play distributes the app and operates under Google's own privacy policy.
-The app itself does not send usage or charging information to Google or the
-developer.
+The app itself has no network upload of usage or charging information. Android
+may back up app data to the user's backup provider as described above; this is
+separate from data collection by the developer.
 
 ## Changes and contact
 

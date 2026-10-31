@@ -27,7 +27,8 @@ CREATE TABLE charge_session (
     end_percent REAL CHECK (end_percent BETWEEN 0 AND 100),
     actual_percent REAL CHECK (actual_percent BETWEEN 0 AND 100),
     reviewed INTEGER AS Boolean NOT NULL DEFAULT 0,
-    is_running INTEGER AS Boolean NOT NULL DEFAULT 0
+    is_running INTEGER AS Boolean NOT NULL DEFAULT 0,
+    interrupted INTEGER AS Boolean NOT NULL DEFAULT 0
 );
 
 CREATE UNIQUE INDEX one_running_session ON charge_session(is_running) WHERE is_running = 1;
@@ -106,6 +107,10 @@ INSERT INTO power_segment VALUES (?, ?, ?);
 
 finishSession:
 UPDATE charge_session SET is_running = 0, ended_at = ?, end_percent = ? WHERE is_running = 1;
+
+interruptRestoredSession:
+UPDATE charge_session SET is_running = 0, ended_at = ?, end_percent = NULL, interrupted = 1
+WHERE is_running = 1;
 
 clearRunning:
 UPDATE charge_session SET is_running = 0 WHERE is_running = 1;

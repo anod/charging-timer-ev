@@ -33,7 +33,8 @@ data class ChargingHistoryEntry(
     val endedAt: Long,
     val endPercent: Float?,
     val actualPercent: Float?,
-    val reviewed: Boolean
+    val reviewed: Boolean,
+    val interrupted: Boolean = false
 )
 
 interface ChargingHistoryRepository {
@@ -44,7 +45,8 @@ interface ChargingHistoryRepository {
 class ChargingRepositoryImpl(
     private val dataStore: DataStore<Preferences>,
     private val database: ChargingDatabase,
-    private val clock: Clock
+    private val clock: Clock,
+    private val restoreState: StorageRestoreState = LocalStorageRestoreState
 ) : ChargingRepository, PresetRepository, ChargingHistoryRepository {
     private val queries = database.storageQueries
     private val mutex = Mutex()
@@ -76,12 +78,21 @@ class ChargingRepositoryImpl(
                     putPreset(ChargingPreset(CUSTOM_ID, "Custom", ChargingSettings.DEFAULT))
                 }
                 recoverActiveSession()
+                if (restoreState.requiresInterruption) {
+                    println("Charging storage: restored timer interrupted; explicit start required")
+                    queries.interruptRestoredSession(clock.now().toEpochMilliseconds())
+                    queries.setCurrentSession(null)
+                }
             }
             // The SQL marker commits first: a crash before cleanup retries cleanup, never imports twice.
             dataStore.edit {
-                if (it[SessionPreferences.selectedPreset] == null) it[SessionPreferences.selectedPreset] = CUSTOM_ID
+                val selected = it[SessionPreferences.selectedPreset]
+                if (selected == null || queries.presetById(selected).executeAsOneOrNull() == null) {
+                    it[SessionPreferences.selectedPreset] = CUSTOM_ID
+                }
                 SessionPreferences.clearStructuredData(it)
             }
+            restoreState.markReady()
             initialized = true
         }
     }
@@ -237,7 +248,7 @@ class ChargingRepositoryImpl(
                 queries.history(mapper = ::Charge_session).executeAsList().mapNotNull { row ->
                     try {
                         ChargingHistoryEntry(row.id, snapshot(row), requireNotNull(row.ended_at),
-                            row.end_percent?.toFloat(), row.actual_percent?.toFloat(), row.reviewed)
+                            row.end_percent?.toFloat(), row.actual_percent?.toFloat(), row.reviewed, row.interrupted)
                     } catch (_: IllegalArgumentException) {
                         println("Charging storage: invalid history snapshot ${row.id}; skipping")
                         null

@@ -10,8 +10,11 @@ import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import info.anodsplace.evtimer.db.ChargingDatabase
 import java.io.File
 import java.util.Properties
+import info.anodsplace.evtimer.data.LocalStorageRestoreState
+import info.anodsplace.evtimer.data.StorageRestoreState
 
 actual val platformModule: Module = module {
+    single<StorageRestoreState> { LocalStorageRestoreState }
     single<SqlDriver> {
         val os = System.getProperty("os.name").lowercase()
         val root = when {

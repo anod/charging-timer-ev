@@ -17,7 +17,9 @@ is regenerated and signing credentials are not persisted in that cache.
    <https://anod.github.io/charging-timer-ev/privacy.html> is publicly accessible.
    Enter that URL in Play Console's privacy policy field.
 3. Complete the store listing and App content sections: Data safety (the app
-   collects/shares no user data; preferences and timer state remain local),
+   collects/shares no user data with the developer; local preferences, presets and
+   charging history may be included in the user's Android/Google backup or device
+   transfer, managed by the OS and inaccessible to the developer),
    ads declaration (no ads), app access (no login), content rating questionnaire,
    and target audience. Answer based on the actual build being submitted.
 4. Declare the `specialUse` foreground service in Play Console. Explain the

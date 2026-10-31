@@ -210,4 +210,74 @@ class StorageRepositoryTest {
             assertEquals(1L, f.database.storageQueries.migrationDone().executeAsOne())
         }
     }
+
+    @Test
+    fun restoredRunningSessionBecomesInterruptedHistoryBeforeFirstLoadedStatus() = runTest {
+        fixture { f ->
+            val snapshot = ChargingSessionSnapshot.from(ChargingSettings.DEFAULT, 123L)
+            f.repo.saveSession(ChargingSession(true, snapshot))
+            var marked = false
+            val restore = object : StorageRestoreState {
+                override val requiresInterruption = true
+                override fun markReady() { marked = true }
+            }
+            f.store.edit { it[SessionPreferences.selectedPreset] = "not-in-restored-database" }
+            val repository = ChargingRepositoryImpl(f.store, f.database, f.clock, restore)
+            val serviceScope = CoroutineScope(Dispatchers.Default + Job())
+            try {
+                val service = ChargingServiceImpl(repository, serviceScope, f.clock)
+                assertFalse(service.status.first { !it.isLoading }.isRunning)
+                assertTrue(marked)
+                assertEquals(ChargingSession(), repository.observeSession().first())
+                val history = repository.observeHistory().first().single()
+                assertEquals(snapshot, history.snapshot)
+                assertTrue(history.interrupted)
+                assertEquals(f.now, history.endedAt)
+                assertNull(history.endPercent)
+                assertFalse(history.reviewed)
+                assertEquals("custom", f.store.data.first()[SessionPreferences.selectedPreset])
+                assertEquals(ChargingSettings.DEFAULT, repository.observeSettings().first())
+                assertFalse(f.repository().observeSession().first().isRunning)
+                service.start()
+                assertTrue(repository.observeSession().first().isRunning)
+            } finally {
+                serviceScope.coroutineContext[Job]!!.cancelAndJoin()
+            }
+        }
+    }
+
+    @Test
+    fun restoredLegacyPreferencesWithoutDatabaseCannotResumeTimer() = runTest {
+        fixture { f ->
+            f.store.edit {
+                it[SessionPreferences.isRunning] = true
+                it[SessionPreferences.startTime] = 123L
+            }
+            val restore = object : StorageRestoreState {
+                override val requiresInterruption = true
+                override fun markReady() = Unit
+            }
+            val repository = ChargingRepositoryImpl(f.store, f.database, f.clock, restore)
+            assertEquals(ChargingSession(), repository.observeSession().first())
+            assertTrue(repository.observeHistory().first().single().interrupted)
+        }
+    }
+
+    @Test
+    fun missingPreferencesFallBackToCustomWithoutResumingRestoredSession() = runTest {
+        fixture { f ->
+            f.repo.savePreset(ChargingPreset("car", "EV", ChargingSettings(60f, 7f, 20f, 80f)))
+            f.repo.selectPreset("car")
+            f.repo.saveSession(ChargingSession(true, ChargingSessionSnapshot.from(ChargingSettings.DEFAULT, 123L)))
+            f.store.edit { it.clear() }
+            val restore = object : StorageRestoreState {
+                override val requiresInterruption = true
+                override fun markReady() = Unit
+            }
+            val repository = ChargingRepositoryImpl(f.store, f.database, f.clock, restore)
+            assertEquals(ChargingSettings.DEFAULT, repository.observeSettings().first())
+            assertFalse(repository.observeSession().first().isRunning)
+            assertEquals(2, repository.observePresets().first().size)
+        }
+    }
 }

@@ -105,6 +105,41 @@ See [Internal testing releases](docs/releasing.md) for signing setup, required
 GitHub Secrets, the manual Play upload workflow, and the Play Console checklist.
 The [privacy policy](docs/privacy.md) is published from `docs` using GitHub Pages.
 
+### Backup & restore
+
+Android Auto Backup and Google's device-to-device migration can include presets,
+power options, charging history and simple preferences, subject to the user's
+backup settings and transport availability. Both modes explicitly allow only
+`databases/charging.db`, its rollback journal (`charging.db-journal`) and
+`files/.charging_settings.preferences_pb` (including the leading dot). Other files,
+notification-dismissal preferences, installation/restore markers, caches and
+no-backup files are excluded. Cloud backup has a 25 MB per-app quota; Android's
+device-transfer limit is 2 GB. This is not an app-managed export or a guarantee
+that Google will retain or restore a particular backup.
+
+The Android database uses **DELETE**, not WAL, journaling. Committed rows live in
+the main database; including the rollback journal also permits recovery if the
+system stops the writer during an uncommitted transaction. Android stops the app
+while performing Auto Backup; no custom checkpoint or live-file copying is needed.
+Older schemas migrate on open, including the committed v1 backup baseline.
+
+Restored running timers **never resume automatically**. A no-backup installation
+marker detects a database arriving on another installation; the backup agent also
+records restore completion, including preferences-only restores or restores over
+an existing installation. Before loaded status, the timer becomes an interrupted
+history entry with its original snapshot, no fabricated end percentage, and a
+restore-detection timestamp. Start a new timer explicitly to continue charging.
+Missing or stale selected-preset preferences fall back to Custom and valid defaults.
+Normal updates retain the local marker and continue the local running session.
+An unmarked database from an older development build is conservatively treated
+as restored once; current released legacy DataStore-only timers still migrate.
+
+JVM tests cover schema migration, committed-file and hot-journal recovery,
+inconsistent database/preferences and stopped restore state. Pixel restore
+simulation uses app-local file swaps, not backup-transport switching or uninstall.
+Actual Google cloud/D2D transport execution and iOS backup behavior require
+separate validation; the developer cannot access the user's Google backup.
+
 ### Build and Run Desktop (JVM) Application
 
 To build and run the development version of the desktop app, use the run configuration from the run widget
