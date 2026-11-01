@@ -7,6 +7,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -43,8 +46,7 @@ class PresetEditorTest {
         onNodeWithText("Delete preset?").assertDoesNotExist()
         assertEquals(emptyList(), deleted)
         onNodeWithText("Delete").performClick()
-        // The background list is excluded from semantics while the dialog is open.
-        onNodeWithText("Delete").performClick()
+        onNode(hasText("Delete") and hasAnyAncestor(isDialog())).performClick()
         assertEquals(listOf("home"), deleted)
     }
 
