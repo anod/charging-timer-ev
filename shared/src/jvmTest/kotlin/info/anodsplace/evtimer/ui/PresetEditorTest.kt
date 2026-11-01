@@ -1,6 +1,10 @@
 package info.anodsplace.evtimer.ui
 
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -16,6 +20,34 @@ import kotlin.test.assertEquals
 
 @OptIn(ExperimentalTestApi::class)
 class PresetEditorTest {
+    @Test
+    fun deletingRequiresConfirmationAndCancelLeavesPresetUntouched() = runDesktopComposeUiTest {
+        val presets = listOf(
+            ChargingPreset("custom", "Default", ChargingSettings.DEFAULT),
+            ChargingPreset("home", "Home", ChargingSettings.DEFAULT)
+        )
+        val deleted = mutableListOf<String>()
+        setContent {
+            MaterialTheme {
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                    PresetManagement(presets, {}, { deleted += it }, { _, _ -> })
+                }
+            }
+        }
+        onNodeWithText("Move up").assertIsNotEnabled()
+        onNodeWithText("Move down").assertIsNotEnabled()
+        onNodeWithText("Delete").performClick()
+        assertEquals(emptyList(), deleted)
+        onNodeWithText("Delete preset?").assertExists()
+        onNodeWithText("Cancel").performClick()
+        onNodeWithText("Delete preset?").assertDoesNotExist()
+        assertEquals(emptyList(), deleted)
+        onNodeWithText("Delete").performClick()
+        // The background list is excluded from semantics while the dialog is open.
+        onNodeWithText("Delete").performClick()
+        assertEquals(listOf("home"), deleted)
+    }
+
     @Test
     fun editsNameValuesAndRemovesPowerOnlyOnSave() = runDesktopComposeUiTest {
         val initial = ChargingPreset("home", "Home", ChargingSettings.DEFAULT)
