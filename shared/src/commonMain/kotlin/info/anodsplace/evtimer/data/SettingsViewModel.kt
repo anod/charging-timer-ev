@@ -17,8 +17,8 @@ class SettingsViewModel(
     val presets: StateFlow<List<ChargingPreset>> =
         presetRepository.observePresets().stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
-    fun savePreset(preset: ChargingPreset) {
-        viewModelScope.launch { presetRepository.savePreset(preset) }
+    fun renamePreset(id: String, name: String) {
+        viewModelScope.launch { presetRepository.renamePreset(id, name) }
     }
 
     fun deletePreset(id: String) {
@@ -30,7 +30,7 @@ class SettingsViewModel(
             val ids = presets.value.map { it.id }.toMutableList()
             val index = ids.indexOf(id)
             val target = index + direction
-            require(index > 0 && target in 1 until ids.size) { "Invalid preset move" }
+            require(index >= 0 && target in ids.indices) { "Invalid preset move" }
             ids.add(target, ids.removeAt(index))
             presetRepository.reorderPresets(ids)
         }

@@ -1,19 +1,24 @@
 # Presets
 
-Open Settings from the Configuration header gear to add, edit, delete or reorder presets.
+Configuration remains the place to edit capacity, power and target, and to add presets
+with the preset-row **+**. Working changes show an asterisk on the selected preset chip.
+Tap that chip to Update the saved preset or Reset the working changes. This applies to
+Default too; changes are not silently written over saved presets.
+
+Settings provides only name/emoji changes, confirmed deletion and Move up/Move down.
+Default is an ordinary preset: it can be renamed, moved or deleted. At least one preset
+must remain, so deletion is disabled for the last preset. Deleting the selected preset
+selects the first remaining one, clears the deleted preset's draft and preserves Start.
 Names can include emoji and must be unique (case-insensitive), with a maximum of 32 Unicode
-code points. The built-in Default preset (internal ID `custom`) always stays first and cannot
-be renamed, deleted or moved; its charging values and power options remain editable.
+code points. Default is not a reserved name after it has been renamed or deleted.
 
-In the preset editor, tap a power chip to remove it or use Add to insert a power option.
-At least one option must remain. Removing the selected power selects the first remaining
-option. Changes are committed with Save; Cancel leaves the preset unchanged.
+Under Configuration's Charging Power, choose **Remove power options** to tap unwanted
+chips, then **Done** to return to selection. At least one option must remain. Removing the
+selected power selects the first remaining option. The existing **+** adds power options.
+Power changes follow the same working-draft/Update/Reset behavior as other charging values.
 
-Deleting a preset requires confirmation. Deleting the selected preset selects Default and
-clears its working draft, while preserving the start percentage. Reordering and editing other
-presets do not discard Configuration's unsaved working edits.
-
-Preset values, power options and ordering live in SQLDelight `charging.db`. Schema migration
-3 to 4 initializes ordering from the previous alphabetical order. Existing Android cloud
-backup and device-transfer rules include this database and the DataStore selection/draft
-preferences; no additional backup paths are required.
+Presets, power options and ordering live in SQLDelight `charging.db`. Schema migration
+3 to 4 preserves the previous order (Default first, then names alphabetically); that is
+only the initial migrated order, not a permanent constraint. Existing Android cloud backup
+and device-transfer rules include the database and DataStore selection/draft preferences.
+A deleted Default is not recreated on restart or restore unless all preset data is missing.

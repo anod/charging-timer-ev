@@ -53,9 +53,6 @@ SELECT * FROM preset ORDER BY position, name, id;
 presetById:
 SELECT * FROM preset WHERE id = ?;
 
-normalizeDefaultName:
-UPDATE preset SET name = 'Default' WHERE id = 'custom' AND name != 'Default';
-
 putPreset:
 INSERT INTO preset(id, name, battery_capacity, charging_power, target_percent, position)
 VALUES (?, ?, ?, ?, ?, coalesce((SELECT max(position) + 1 FROM preset), 0))

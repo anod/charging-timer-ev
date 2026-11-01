@@ -69,7 +69,7 @@ fun ChargingTimerApp(
                                     SettingsScreen(
                                         notifyAt80, viewModel::setNotifyAt80,
                                         presets = presets,
-                                        onSavePreset = viewModel::savePreset,
+                                        onRenamePreset = viewModel::renamePreset,
                                         onDeletePreset = viewModel::deletePreset,
                                         onMovePreset = viewModel::movePreset,
                                         onBack = { navigation.onBack() },

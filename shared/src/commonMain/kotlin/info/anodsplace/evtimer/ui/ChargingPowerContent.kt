@@ -10,6 +10,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.InputChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.SelectableChipColors
 import androidx.compose.material3.OutlinedTextField
@@ -20,6 +21,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.semantics.contentDescription
@@ -38,16 +40,36 @@ import info.anodsplace.evtimer.generated.resources.dc
 import info.anodsplace.evtimer.generated.resources.power_kw_label
 import info.anodsplace.evtimer.generated.resources.power_value
 import info.anodsplace.evtimer.generated.resources.unit_kw
+import info.anodsplace.evtimer.generated.resources.remove_power
+import info.anodsplace.evtimer.generated.resources.removable_power
+import info.anodsplace.evtimer.generated.resources.remove_power_options
+import info.anodsplace.evtimer.generated.resources.done
 import org.jetbrains.compose.resources.stringResource
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ChargingPowerContent(
     settings: info.anodsplace.evtimer.data.ChargingSettings,
     onEvent: (ConfigurationViewEvent) -> Unit,
 ) {
     var showCustomPowerDialog by remember { mutableStateOf(false) }
+    var removingPowers by rememberSaveable { mutableStateOf(false) }
 
-    ChargingPowerChips(
+    if (removingPowers) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            settings.availablePowers.forEach { power ->
+                val description = stringResource(Res.string.remove_power, formatPower(power))
+                InputChip(
+                    selected = false,
+                    enabled = settings.availablePowers.any { it != power },
+                    onClick = { onEvent(ConfigurationViewEvent.RemoveCustomPower(power)) },
+                    label = { Text(stringResource(Res.string.removable_power, formatPower(power))) },
+                    modifier = Modifier.semantics { contentDescription = description },
+                    shape = TonalChipShape
+                )
+            }
+        }
+    } else ChargingPowerChips(
         powers = settings.availablePowers,
         selectedPower = settings.chargingPower,
         onPowerSelected = { onEvent(ConfigurationViewEvent.UpdateChargingPower(it)) },
@@ -55,6 +77,9 @@ fun ChargingPowerContent(
         shape = TonalChipShape,
         colors = tonalFilterChipColors()
     )
+    TextButton(onClick = { removingPowers = !removingPowers }) {
+        Text(stringResource(if (removingPowers) Res.string.done else Res.string.remove_power_options))
+    }
 
     if (showCustomPowerDialog) {
         CustomPowerDialog(

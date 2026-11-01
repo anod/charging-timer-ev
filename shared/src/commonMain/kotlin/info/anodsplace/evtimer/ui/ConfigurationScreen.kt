@@ -206,9 +206,7 @@ fun ConfigurationScreen(
                             enabled = !viewState.isLoading,
                             label = {
                                 Text(
-                                    if (preset.id == "custom") {
-                                        stringResource(Res.string.default_preset)
-                                    } else if (selected && presets.isEdited) {
+                                    if (selected && presets.isEdited) {
                                         stringResource(Res.string.edited_preset_name, preset.name)
                                     } else {
                                         preset.name

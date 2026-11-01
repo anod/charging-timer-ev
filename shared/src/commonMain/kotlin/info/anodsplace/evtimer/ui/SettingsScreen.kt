@@ -36,7 +36,7 @@ fun SettingsScreen(
     onBack: () -> Unit,
     onOpenLicenses: () -> Unit,
     presets: List<ChargingPreset>,
-    onSavePreset: (ChargingPreset) -> Unit,
+    onRenamePreset: (String, String) -> Unit,
     onDeletePreset: (String) -> Unit,
     onMovePreset: (String, Int) -> Unit,
     modifier: Modifier = Modifier
@@ -48,7 +48,7 @@ fun SettingsScreen(
             modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            PresetManagement(presets, onSavePreset, onDeletePreset, onMovePreset)
+            PresetManagement(presets, onRenamePreset, onDeletePreset, onMovePreset)
             HorizontalDivider()
             Row(
                 modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).toggleable(

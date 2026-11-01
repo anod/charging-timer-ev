@@ -6,21 +6,15 @@ data class PresetConfiguration(
     val settings: ChargingSettings
 ) {
     val selected: ChargingPreset get() = presets.first { it.id == selectedId }
-    val isEdited: Boolean get() = selectedId != ChargingRepositoryImpl.CUSTOM_ID &&
-        !settings.matchesPreset(selected.settings)
+    val isEdited: Boolean get() = !settings.matchesPreset(selected.settings)
 
     fun reduce(event: PresetEvent): PresetConfiguration = when (event) {
         is PresetEvent.Select -> {
             val preset = presets.firstOrNull { it.id == event.id }
-                ?: presets.first { it.id == ChargingRepositoryImpl.CUSTOM_ID }
+                ?: presets.first()
             copy(selectedId = preset.id, settings = preset.settings.copy(startPercent = settings.startPercent))
         }
-        is PresetEvent.Edit -> copy(
-            settings = event.settings,
-            presets = if (selectedId == ChargingRepositoryImpl.CUSTOM_ID) {
-                presets.map { if (it.id == selectedId) it.copy(settings = event.settings) else it }
-            } else presets
-        )
+        is PresetEvent.Edit -> copy(settings = event.settings)
         PresetEvent.Update -> copy(presets = presets.map {
             if (it.id == selectedId) it.copy(settings = settings) else it
         })
@@ -32,10 +26,10 @@ data class PresetConfiguration(
         }
         PresetEvent.Reset -> copy(settings = selected.settings.copy(startPercent = settings.startPercent))
         is PresetEvent.Delete -> {
-            require(event.id != ChargingRepositoryImpl.CUSTOM_ID) { "The Default preset cannot be deleted" }
+            require(presets.size > 1) { "At least one preset is required" }
             require(presets.any { it.id == event.id }) { "Unknown preset: ${event.id}" }
             val next = copy(presets = presets.filterNot { it.id == event.id })
-            if (selectedId == event.id) next.reduce(PresetEvent.Select(ChargingRepositoryImpl.CUSTOM_ID)) else next
+            if (selectedId == event.id) next.reduce(PresetEvent.Select(next.presets.first().id)) else next
         }
     }
 }

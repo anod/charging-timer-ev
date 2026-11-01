@@ -21,6 +21,32 @@ import kotlin.test.assertTrue
 @OptIn(ExperimentalTestApi::class)
 class CustomPowerDialogTest {
     @Test
+    fun configurationRemovalModeDoesNotSelectPowerAndDoneRestoresSelectionChips() = runDesktopComposeUiTest {
+        val events = mutableListOf<ConfigurationViewEvent>()
+        setContent { MaterialTheme { ChargingPowerContent(ChargingSettings.DEFAULT, { events += it }) } }
+        onNodeWithText("11.0 kW").assertIsSelected()
+        onNodeWithText("Remove power options").performClick()
+        onNodeWithText("11.0 kW \u00D7").performClick()
+        assertEquals(listOf<ConfigurationViewEvent>(ConfigurationViewEvent.RemoveCustomPower(11f)), events)
+        onNodeWithText("Done").performClick()
+        onNodeWithText("11.0 kW").assertIsSelected()
+        assertEquals(1, events.size)
+    }
+
+    @Test
+    fun removalModeDisablesLastOption() = runDesktopComposeUiTest {
+        setContent {
+            MaterialTheme {
+                ChargingPowerContent(ChargingSettings.DEFAULT.copy(availablePowers = listOf(11f)), {})
+            }
+        }
+        onNodeWithText("Remove power options").performClick()
+        onNodeWithText("11.0 kW \u00D7").assertIsNotEnabled()
+        onNodeWithText("Done").performClick()
+        onNodeWithText("11.0 kW").assertIsSelected()
+    }
+
+    @Test
     fun allQuickPicksReplaceTheEditableValueWithoutConfirming() = runDesktopComposeUiTest {
         val confirmed = mutableListOf<Float>()
         var dismissals = 0

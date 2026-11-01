@@ -28,6 +28,7 @@ interface PresetRepository {
     suspend fun resetPreset()
     fun observePresets(): Flow<List<ChargingPreset>>
     suspend fun savePreset(preset: ChargingPreset)
+    suspend fun renamePreset(id: String, name: String)
     suspend fun deletePreset(id: String)
     suspend fun selectPreset(id: String)
     suspend fun reorderPresets(ids: List<String>)
@@ -86,11 +87,10 @@ class ChargingRepositoryImpl(
                     }
                     if (snapshot != null) putSession(ChargingSession(prefs[SessionPreferences.isRunning] == true, snapshot))
                 }
-                if (queries.presetById(CUSTOM_ID).executeAsOneOrNull() == null) {
-                    println("Charging storage: missing Default preset; restoring defaults")
+                if (queries.allPresets().executeAsList().isEmpty()) {
+                    println("Charging storage: no presets; restoring defaults")
                     putPreset(ChargingPreset(CUSTOM_ID, "Default", ChargingSettings.DEFAULT))
                 }
-                queries.normalizeDefaultName()
                 recoverActiveSession()
                 if (restoreState.requiresInterruption) {
                     println("Charging storage: restored timer interrupted; explicit start required")
@@ -102,16 +102,16 @@ class ChargingRepositoryImpl(
             dataStore.edit {
                 val selected = it[SessionPreferences.selectedPreset]
                 if (selected == null || queries.presetById(selected).executeAsOneOrNull() == null) {
-                    println("Charging storage: missing preset selection; selecting Default")
-                    it[SessionPreferences.selectedPreset] = CUSTOM_ID
+                    println("Charging storage: missing preset selection; selecting first preset")
+                    it[SessionPreferences.selectedPreset] = queries.allPresets().executeAsList().first().id
                 }
                 val draftId = it[SessionPreferences.draftPreset]
                 val draftValues = it[SessionPreferences.draftValues]
                 if ((draftId != null || draftValues != null) &&
-                    (draftId == CUSTOM_ID || draftId != it[SessionPreferences.selectedPreset] ||
+                    (draftId != it[SessionPreferences.selectedPreset] ||
                         draftValues == null || decodePresetDraft(draftValues) == null)) {
-                    println("Charging storage: invalid preset draft; selecting Default")
-                    it[SessionPreferences.selectedPreset] = CUSTOM_ID
+                    println("Charging storage: invalid preset draft; selecting first preset")
+                    it[SessionPreferences.selectedPreset] = queries.allPresets().executeAsList().first().id
                     it.remove(SessionPreferences.draftPreset)
                     it.remove(SessionPreferences.draftValues)
                 }
@@ -137,10 +137,7 @@ class ChargingRepositoryImpl(
 
     private fun putPreset(preset: ChargingPreset) {
         require(preset.id.isNotBlank() && preset.name.isNotBlank())
-        require(preset.id != CUSTOM_ID || preset.name == "Default") { "The Default preset cannot be renamed" }
-        val name = if (preset.id == CUSTOM_ID) {
-            preset.name
-        } else if (queries.presetById(preset.id).executeAsOneOrNull()?.name == preset.name) {
+        val name = if (queries.presetById(preset.id).executeAsOneOrNull()?.name == preset.name) {
             // Settings updates preserve names accepted before the current name policy.
             preset.name
         } else {
@@ -184,10 +181,17 @@ class ChargingRepositoryImpl(
 
     override suspend fun savePreset(preset: ChargingPreset) { transaction { putPreset(preset) } }
 
+    override suspend fun renamePreset(id: String, name: String) {
+        transaction {
+            val preset = readPresets().firstOrNull { it.id == id }
+            requireNotNull(preset) { "Unknown preset: $id" }
+            putPreset(preset.copy(name = name))
+        }
+    }
+
     override suspend fun reorderPresets(ids: List<String>) {
         transaction {
             val existing = readPresets().map { it.id }
-            require(ids.firstOrNull() == CUSTOM_ID) { "The Default preset must stay first" }
             require(ids.size == existing.size && ids.toSet() == existing.toSet()) { "Invalid preset order" }
             ids.forEachIndexed { index, id -> queries.setPresetPosition(index.toLong(), id) }
         }
@@ -208,12 +212,12 @@ class ChargingRepositoryImpl(
 
     private fun readPresets(): List<ChargingPreset> = queries.allPresets().executeAsList().map {
         ChargingPreset(it.id, it.name, settings(it, ChargingSettings.DEFAULT.startPercent))
-    }.sortedBy { if (it.id == CUSTOM_ID) 0 else 1 }
+    }
 
     private fun configuration(prefs: Preferences, presets: List<ChargingPreset>): PresetConfiguration {
         val selected = presets.firstOrNull { it.id == prefs[SessionPreferences.selectedPreset] }
-            ?: presets.first { it.id == CUSTOM_ID }
-        val draft = if (selected.id != CUSTOM_ID && prefs[SessionPreferences.draftPreset] == selected.id) {
+            ?: presets.first()
+        val draft = if (prefs[SessionPreferences.draftPreset] == selected.id) {
             prefs[SessionPreferences.draftValues]?.let(::decodePresetDraft)
         } else null
         return PresetConfiguration(presets, selected.id, (draft ?: selected.settings).copy(
