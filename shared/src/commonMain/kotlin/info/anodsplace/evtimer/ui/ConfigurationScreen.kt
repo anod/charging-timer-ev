@@ -197,6 +197,8 @@ fun ConfigurationScreen(
                     Box {
                         FilterChip(
                             selected = selected,
+                            shape = TonalChipShape,
+                            colors = tonalFilterChipColors(),
                             onClick = {
                                 if (selected && presets.isEdited) showPresetMenu = true
                                 else if (!selected) onEvent(ConfigurationViewEvent.SelectPreset(preset.id))
@@ -238,6 +240,8 @@ fun ConfigurationScreen(
                 FilterChip(
                     selected = false,
                     enabled = !viewState.isLoading,
+                    shape = TonalChipShape,
+                    colors = tonalFilterChipColors(),
                     onClick = { showNameDialog = true },
                     label = { Text("+") },
                     modifier = Modifier.semantics { contentDescription = saveAsPresetDescription }
@@ -381,7 +385,7 @@ fun ConfigurationScreenPreview() {
             maxPercent = 80f
         )
     )
-    MaterialTheme {
+    AppTheme(dynamicColor = false) {
         ConfigurationScreen(
             viewState = dummyState.copy(selectedPresetId = ChargingRepositoryImpl.CUSTOM_ID),
             onEvent = {}
@@ -393,7 +397,7 @@ fun ConfigurationScreenPreview() {
 @Composable
 fun ConfigurationNamedPresetPreview() {
     val settings = ChargingSettings.DEFAULT.copy(batteryCapacity = 75f, chargingPower = 11f, maxPercent = 80f)
-    MaterialTheme {
+    AppTheme(dynamicColor = false) {
         ConfigurationScreen(
             ConfigurationViewState(
                 isLoading = false, settings = settings,
@@ -418,7 +422,7 @@ fun ConfigurationEditedPresetMenuPreview() = ConfigurationEditedPresetPreviewCon
 @Composable
 private fun ConfigurationEditedPresetPreviewContent(showMenu: Boolean = false) {
     val settings = ChargingSettings.DEFAULT.copy(batteryCapacity = 75f, maxPercent = 80f)
-    MaterialTheme {
+    AppTheme(dynamicColor = false) {
         ConfigurationScreen(
             ConfigurationViewState(
                 isLoading = false, settings = settings.copy(chargingPower = 22f),
@@ -444,5 +448,23 @@ fun ConfigurationScreenErrorEqualPreview() {
             maxPercent = 70f // equal triggers error banner
         )
     )
-    MaterialTheme { ConfigurationScreen(viewState = dummyState, onEvent = {}) }
+    AppTheme(dynamicColor = false) { ConfigurationScreen(viewState = dummyState, onEvent = {}) }
+}
+
+@Preview(name = "Tonal glass Configuration - light")
+@Composable
+private fun ConfigurationTonalLightPreview() = ConfigurationTonalPreview(darkTheme = false)
+
+@Preview(name = "Tonal glass Configuration - dark")
+@Composable
+private fun ConfigurationTonalDarkPreview() = ConfigurationTonalPreview(darkTheme = true)
+
+@Composable
+private fun ConfigurationTonalPreview(darkTheme: Boolean) {
+    AppTheme(darkTheme = darkTheme, dynamicColor = false) {
+        ConfigurationScreen(
+            viewState = ConfigurationViewState(isLoading = false),
+            onEvent = {}
+        )
+    }
 }

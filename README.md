@@ -21,6 +21,16 @@ The wave background fills the window, including behind the gesture/navigation ba
 system-bar insets apply only to Running's foreground content. Configuration retains
 its original system-bar padding.
 
+Configuration and Running use the owner-selected Tonal glass treatment: rounded
+surface-container cards and summary chips, opaque selected chips, role-matched
+foreground text and a fully opaque battery text plate. Static green cards use
+90% surface opacity over the known background/waves; Android dynamic-colour
+text surfaces stay opaque because wallpaper palettes vary. The shared contrast
+regression tests cover static light/dark wave combinations and representative
+opaque dynamic palettes. Shapes and title weights change without changing type
+sizes, spacing, insets, semantics, state or motion. There is no backdrop blur or
+new dependency; sheets/dialogs and Settings surface adoption are a later step.
+
 Starting a timer persists a session snapshot (capacity, start/target percentages,
 optional preset identity and edited flag, efficiency and timestamped power segments) in SQLDelight
 2.4.1 SQLite storage. Presets and ordered power options, sessions and their power

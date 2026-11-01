@@ -10,6 +10,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.SelectableChipColors
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -19,6 +21,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
@@ -48,7 +51,9 @@ fun ChargingPowerContent(
         powers = settings.availablePowers,
         selectedPower = settings.chargingPower,
         onPowerSelected = { onEvent(ConfigurationViewEvent.UpdateChargingPower(it)) },
-        onAddCustomPower = { showCustomPowerDialog = true }
+        onAddCustomPower = { showCustomPowerDialog = true },
+        shape = TonalChipShape,
+        colors = tonalFilterChipColors()
     )
 
     if (showCustomPowerDialog) {
@@ -69,7 +74,9 @@ fun ChargingPowerChips(
     selectedPower: Float,
     onPowerSelected: (Float) -> Unit,
     onAddCustomPower: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    shape: Shape = FilterChipDefaults.shape,
+    colors: SelectableChipColors = FilterChipDefaults.filterChipColors()
 ) {
     val addPowerDescription = stringResource(Res.string.add_custom_power_description)
     FlowRow(
@@ -80,6 +87,8 @@ fun ChargingPowerChips(
         powers.forEach { power ->
             FilterChip(
                 selected = power == selectedPower,
+                shape = shape,
+                colors = colors,
                 onClick = { onPowerSelected(power) },
                 label = {
                     Text(
@@ -94,6 +103,8 @@ fun ChargingPowerChips(
         }
         FilterChip(
             selected = false,
+            shape = shape,
+            colors = colors,
             label = { Text("+") },
             onClick = onAddCustomPower,
             modifier = Modifier.semantics { contentDescription = addPowerDescription }

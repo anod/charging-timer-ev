@@ -181,7 +181,10 @@ fun RunningTimerScreen(
 
             // Charging Stats
             Card(
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.medium,
+                colors = tonalCardColors(),
+                border = tonalCardBorder()
             ) {
                 // The 48dp speed row replaces 12dp of padding and 12dp of spacing so the rows below keep their positions.
                 Column(
@@ -423,7 +426,7 @@ fun BatteryChargingIndicator(
     val terminalColor = borderColor.copy(alpha = 0.45f)
     val fillColor = MaterialTheme.colorScheme.primary
     val blinkColor = MaterialTheme.colorScheme.primary.copy(alpha = blinkAlpha)
-    val textBgColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.85f)
+    val textBgColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 1f)
 
     Box(
         modifier = modifier
@@ -461,7 +464,7 @@ fun BatteryChargingIndicator(
             Box(
                 modifier = Modifier
                     .align(Alignment.Center)
-                    .background(textBgColor, RoundedCornerShape(6.dp))
+                    .background(textBgColor, RoundedCornerShape(12.dp))
                     .padding(horizontal = 10.dp, vertical = 4.dp)
             ) {
                 Text(
@@ -507,7 +510,8 @@ fun StatRow(
         Text(
             text = value,
             style = MaterialTheme.typography.bodyLarge,
-            fontWeight = FontWeight.Medium
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurface
         )
     }
 }
@@ -537,7 +541,8 @@ fun EditableStatRow(
             Text(
                 text = value,
                 style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.Medium
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface
             )
             Spacer(modifier = Modifier.width(12.dp))
             Box(
@@ -591,7 +596,7 @@ private fun RunningTimerScreenPreview() {
             chargingSpeed = 10.5f
         )
     )
-    MaterialTheme {
+    AppTheme(dynamicColor = false) {
         Scaffold {
             RunningTimerScreen(viewState = state, onEvent = {})
         }
@@ -618,7 +623,7 @@ private fun RunningTimerScreenAltPreview() {
             chargingSpeed = 7.0f
         )
     )
-    MaterialTheme {
+    AppTheme(dynamicColor = false) {
         Scaffold {
             RunningTimerScreen(viewState = state, onEvent = {})
         }
@@ -641,7 +646,7 @@ private fun RunningTimerScreenReachedPreview() {
         ),
         elapsedMinutes = 202
     )
-    MaterialTheme {
+    AppTheme(dynamicColor = false) {
         Scaffold {
             RunningTimerScreen(viewState = state, onEvent = {})
         }
