@@ -1,6 +1,7 @@
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 
 plugins {
+    alias(libs.plugins.aboutlibraries)
     alias(libs.plugins.kotlin.jvm)
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)

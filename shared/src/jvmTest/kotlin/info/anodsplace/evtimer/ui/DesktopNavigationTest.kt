@@ -9,6 +9,9 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.assertIsOn
+import androidx.compose.ui.test.assertIsOff
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import info.anodsplace.evtimer.data.ChargingRepository
 import info.anodsplace.evtimer.data.ChargingService
@@ -28,12 +31,13 @@ import org.koin.compose.viewmodel.koinViewModel
 import kotlin.test.Test
 import kotlin.test.assertTrue
 import kotlin.test.assertFalse
+import kotlin.test.assertEquals
 
 @OptIn(ExperimentalTestApi::class, androidx.compose.ui.InternalComposeUiApi::class)
 class DesktopNavigationTest {
     @Test
     @Suppress("DEPRECATION")
-    fun escapePopsRunningWithoutClickingOrFocusingAnyControl() = runDesktopComposeUiTest {
+    fun escapeAndSettingsNavigationPreserveRunningTimer() = runDesktopComposeUiTest {
         val service = DesktopTestService()
         val repository = DesktopTestRepository()
         lateinit var navigation: NavigationViewModel
@@ -52,6 +56,12 @@ class DesktopNavigationTest {
                 ChargingTimerApp(navigation = navigation)
             }
         }
+        runOnIdle {
+            assertEquals(listOf(Destination.Config, Destination.Running), navigation.backStack.value)
+        }
+        waitUntil(timeoutMillis = 5_000) {
+            onAllNodes(hasText("Charging in Progress")).fetchSemanticsNodes().isNotEmpty()
+        }
         onNodeWithText("Charging in Progress").assertExists()
         // The test scene has no Window callback. Invoke the same handler with pure Compose
         // events, before focus dispatch, just as the desktop Window does.
@@ -65,6 +75,25 @@ class DesktopNavigationTest {
         }
         escape()
         onNodeWithText("Start Timer").assertExists()
+        assertTrue(service.status.value.isRunning)
+        onNodeWithText("Notify at 80%").assertDoesNotExist()
+        onNodeWithContentDescription("Settings").performClick()
+        onNodeWithText("Notify at 80%").assertIsOn().performClick()
+        onNodeWithText("Notify at 80%").assertIsOff()
+        onNodeWithText("About").assertExists()
+        onNodeWithText("Source code").assertExists()
+        onNodeWithText("Privacy policy").assertExists()
+        onNodeWithText("Open-source licenses").assertExists()
+        onNodeWithContentDescription("Back").performClick()
+        onNodeWithText("Start Timer").assertExists()
+        onNodeWithText("Notify at 80%").assertDoesNotExist()
+        onNodeWithContentDescription("Settings").performClick()
+        onNodeWithText("Notify at 80%").assertIsOff()
+        onNodeWithText("Open-source licenses").performClick()
+        onNodeWithContentDescription("Back").performClick()
+        onNodeWithText("About").assertExists()
+        onNodeWithText("Notify at 80%").assertIsOff()
+        onNodeWithContentDescription("Back").performClick()
         assertTrue(service.status.value.isRunning)
         onNodeWithContentDescription("Start input field").performClick()
         onNodeWithText("Start Timer").performClick()
@@ -94,6 +123,9 @@ private class DesktopTestService : ChargingService {
 }
 
 private class DesktopTestRepository : ChargingRepository, PresetRepository {
+    private val notifyAt80 = MutableStateFlow(true)
+    override fun observeNotifyAt80() = notifyAt80
+    override suspend fun setNotifyAt80(enabled: Boolean) { notifyAt80.value = enabled }
     private val settings = MutableStateFlow(ChargingSettings())
     private val session = MutableStateFlow(ChargingSession())
     override fun observeSettings() = settings

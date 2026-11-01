@@ -1,0 +1,4 @@
+<resources>
+    <string name="charging_finished">Finished</string>
+    <string name="notify_at_80">Notify at 80%</string>
+</resources>

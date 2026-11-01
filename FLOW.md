@@ -55,7 +55,7 @@
 │  │ Time Left:  2h 15m   │   │
 │  └──────────────────────┘   │
 │                             │
-│  [   Stop Charging   ]      │
+│  [    Stop Timer    ]       │
 │                             │
 └─────────────────────────────┘
               │
@@ -89,7 +89,7 @@
 4. When complete (time = 0), shows "Complete"
 
 ### 4. Stopping Charge
-1. User clicks "Stop Charging"
+1. User clicks "Stop Timer"
 2. System resets charging state
 3. Returns to Configuration screen
 4. All settings are preserved

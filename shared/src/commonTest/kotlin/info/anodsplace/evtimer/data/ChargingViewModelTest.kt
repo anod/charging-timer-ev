@@ -351,6 +351,9 @@ class ChargingViewModelTest {
 }
 
 private class ViewModelTestRepository(initialSettings: ChargingSettings = ChargingSettings()) : ChargingRepository, PresetRepository {
+    private val notifyAt80 = MutableStateFlow(true)
+    override fun observeNotifyAt80() = notifyAt80
+    override suspend fun setNotifyAt80(enabled: Boolean) { notifyAt80.value = enabled }
     private val settings = MutableStateFlow(initialSettings)
     private val session = MutableStateFlow(ChargingSession())
     val savedSettings = mutableListOf<ChargingSettings>()

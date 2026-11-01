@@ -43,7 +43,9 @@ class ConfigurationViewModel(
     init {
         viewState = ConfigurationViewState()
         viewModelScope.launch {
-            combine(presetRepository.observeConfiguration(), service.status) { configuration, status -> configuration to status }
+            combine(
+                presetRepository.observeConfiguration(), service.status
+            ) { configuration, status -> configuration to status }
                 .collect { (configuration, status) ->
                     if (status.isLoading) return@collect
                     viewState = ConfigurationViewState(

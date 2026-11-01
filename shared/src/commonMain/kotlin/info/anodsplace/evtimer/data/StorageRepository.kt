@@ -57,6 +57,13 @@ class ChargingRepositoryImpl(
     private val mutex = Mutex()
     private var initialized = false
 
+    override fun observeNotifyAt80(): Flow<Boolean> =
+        dataStore.data.map { it[SessionPreferences.notifyAt80] ?: true }
+
+    override suspend fun setNotifyAt80(enabled: Boolean) {
+        dataStore.edit { it[SessionPreferences.notifyAt80] = enabled }
+    }
+
     private suspend fun initialize() = withContext(Dispatchers.Default) {
         mutex.withLock {
             if (initialized) return@withLock

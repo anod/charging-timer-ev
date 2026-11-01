@@ -24,6 +24,21 @@ import kotlin.time.Instant
 
 class StorageRepositoryTest {
     @Test
+    fun notifyAt80DefaultsOnAndPersistsIndependentlyOfPresets() = runTest {
+        fixture { f ->
+            assertTrue(f.repo.observeNotifyAt80().first())
+            f.repo.setNotifyAt80(false)
+            f.repo.saveAsPreset("Home")
+            val restarted = f.repository()
+            assertFalse(restarted.observeNotifyAt80().first())
+            restarted.selectPreset(ChargingRepositoryImpl.CUSTOM_ID)
+            assertFalse(restarted.observeNotifyAt80().first())
+            restarted.setNotifyAt80(true)
+            assertTrue(f.repository().observeNotifyAt80().first())
+        }
+    }
+
+    @Test
     fun earlierUnreleasedV3DefaultNameIsNormalizedWithoutChangingSnapshotsOrValues() = runTest {
         fixture { f ->
             f.repo.observeSettings().first()

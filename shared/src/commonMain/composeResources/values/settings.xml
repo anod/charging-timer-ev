@@ -1,0 +1,12 @@
+<resources>
+    <string name="settings_title">Settings</string>
+    <string name="settings_back">Back</string>
+    <string name="settings_about">About</string>
+    <string name="settings_version">Version %1$s</string>
+    <string name="settings_source">Source code</string>
+    <string name="settings_privacy">Privacy policy</string>
+    <string name="settings_oss_licenses">Open-source licenses</string>
+    <string name="oss_website">Website</string>
+    <string name="oss_view_license">View license</string>
+    <string name="oss_close">Close</string>
+</resources>

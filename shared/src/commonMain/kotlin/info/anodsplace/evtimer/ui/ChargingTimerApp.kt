@@ -17,6 +17,7 @@ import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
 import info.anodsplace.evtimer.data.ConfigurationViewModel
 import info.anodsplace.evtimer.data.RunningViewModel
+import info.anodsplace.evtimer.data.SettingsViewModel
 import org.koin.compose.viewmodel.koinViewModel
 
 @Composable
@@ -50,9 +51,9 @@ fun ChargingTimerApp(
                                     }
                                     if (viewState.isLoading) Box(modifier.fillMaxSize())
                                     else ConfigurationScreen(
-                                        viewState,
-                                        viewModel::handleEvent,
-                                        modifier.windowInsetsPadding(WindowInsets.systemBars)
+                                        viewState, viewModel::handleEvent,
+                                        modifier.windowInsetsPadding(WindowInsets.systemBars),
+                                        onOpenSettings = { navigation.navigate(Destination.Settings) }
                                     )
                                 }
                                 Destination.Running -> {
@@ -61,6 +62,20 @@ fun ChargingTimerApp(
                                     if (viewState.isLoading) Box(modifier.fillMaxSize())
                                     else RunningTimerScreen(viewState, viewModel::handleEvent, modifier)
                                 }
+                                Destination.Settings -> {
+                                    val viewModel = koinViewModel<SettingsViewModel>()
+                                    val notifyAt80 by viewModel.notifyAt80.collectAsState()
+                                    SettingsScreen(
+                                        notifyAt80, viewModel::setNotifyAt80,
+                                        onBack = { navigation.onBack() },
+                                        onOpenLicenses = { navigation.navigate(Destination.Licenses) },
+                                        modifier = modifier.windowInsetsPadding(WindowInsets.systemBars)
+                                    )
+                                }
+                                Destination.Licenses -> LicensesScreen(
+                                    onBack = { navigation.onBack() },
+                                    modifier = modifier.windowInsetsPadding(WindowInsets.systemBars)
+                                )
                                 else -> error("Screen not implemented for $destination")
                             }
                         }
