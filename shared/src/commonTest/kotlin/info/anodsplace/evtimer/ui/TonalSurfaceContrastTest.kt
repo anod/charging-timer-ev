@@ -17,7 +17,7 @@ class TonalSurfaceContrastTest {
             for (background in waveBackgrounds(scheme)) {
                 for (surface in listOf(scheme.surfaceContainer, scheme.surfaceContainerLow)) {
                     val panel = tonalSurfaceColor(surface, usesDynamicColor = false)
-                    assertEquals(0.9f, panel.alpha, 0.001f)
+                    assertEquals(230f / 255f, panel.alpha, 0.0001f)
                     val painted = panel.compositeOver(background)
                     assertContrast(scheme.onSurface, painted)
                     assertContrast(scheme.onSurfaceVariant, painted)
