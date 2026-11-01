@@ -11,6 +11,16 @@ Predictions are capped at the session target; ticks strictly after ETA are hidde
 When neither tick remains, the bar shows "Target reached by" the ETA instead.
 The bar and predictions update on the service ticker and after charging-speed changes.
 
+The Running screen's decorative background has three gently drifting, low-alpha
+theme-coloured waves at fixed fractions of the screen height. Their water lines
+never follow charge percentage. Paths are cached per canvas size; animation state
+is read only while drawing horizontal translations. Disabling system animations
+leaves static waves through Compose's motion-duration scale, without a new setting.
+The battery, prediction bar, stats and controls are unchanged.
+The wave background fills the window, including behind the gesture/navigation bar;
+system-bar insets apply only to Running's foreground content. Configuration retains
+its original system-bar padding.
+
 Starting a timer persists a session snapshot (capacity, start/target percentages,
 optional preset identity and edited flag, efficiency and timestamped power segments) in SQLDelight
 2.4.1 SQLite storage. Presets and ordered power options, sessions and their power

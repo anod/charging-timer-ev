@@ -3,6 +3,9 @@ package info.anodsplace.evtimer.ui
 import androidx.compose.material3.Surface
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -46,7 +49,11 @@ fun ChargingTimerApp(
                                         }
                                     }
                                     if (viewState.isLoading) Box(modifier.fillMaxSize())
-                                    else ConfigurationScreen(viewState, viewModel::handleEvent, modifier)
+                                    else ConfigurationScreen(
+                                        viewState,
+                                        viewModel::handleEvent,
+                                        modifier.windowInsetsPadding(WindowInsets.systemBars)
+                                    )
                                 }
                                 Destination.Running -> {
                                     val viewModel = koinViewModel<RunningViewModel>()
