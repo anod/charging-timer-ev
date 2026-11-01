@@ -4,8 +4,13 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsEnabled
@@ -26,6 +31,7 @@ import info.anodsplace.evtimer.data.ChargingSettings
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 @OptIn(ExperimentalTestApi::class)
 class PresetManagementTest {
@@ -144,32 +150,55 @@ class PresetManagementTest {
             moveBy(Offset(0f, rowHeight * 1.5f), delayMillis = 200)
         }
         runOnIdle { assertEquals(emptyList(), orders) }
+        assertTrue(
+            onNodeWithTag("preset-home").fetchSemanticsNode().boundsInRoot.top <
+                onNodeWithTag("preset-custom").fetchSemanticsNode().boundsInRoot.top
+        )
         onNodeWithContentDescription("Drag to reorder Default", useUnmergedTree = true).performTouchInput { up() }
         runOnIdle { assertEquals(listOf(listOf("home", "custom")), orders) }
     }
 
     @Test
-    fun cancelledHandleDragDoesNotCommit() = runDesktopComposeUiTest {
+    fun dragCancelledByAnotherGestureDoesNotCommit() = runDesktopComposeUiTest {
         val presets = listOf(
             ChargingPreset("custom", "Default", ChargingSettings.DEFAULT),
             ChargingPreset("home", "Home", ChargingSettings.DEFAULT)
         )
         val orders = mutableListOf<List<String>>()
+        var consumeGesture by mutableStateOf(false)
         setContent {
             MaterialTheme {
-                Column { PresetManagement(presets, { _, _ -> }, {}, { _, _ -> }, { orders += it }) }
+                Column(Modifier.pointerInput(Unit) {
+                    awaitPointerEventScope {
+                        while (true) {
+                            val event = awaitPointerEvent(PointerEventPass.Initial)
+                            if (consumeGesture) event.changes.forEach { it.consume() }
+                        }
+                    }
+                }) {
+                    PresetManagement(presets, { _, _ -> }, {}, { _, _ -> }, { orders += it })
+                }
             }
         }
         val rowHeight = onNodeWithTag("preset-custom").fetchSemanticsNode().boundsInRoot.height
         onNodeWithContentDescription("Drag to reorder Default", useUnmergedTree = true).performTouchInput {
             down(center)
             moveBy(Offset(0f, rowHeight * 1.5f), delayMillis = 200)
-            cancel()
+        }
+        assertTrue(
+            onNodeWithTag("preset-home").fetchSemanticsNode().boundsInRoot.top <
+                onNodeWithTag("preset-custom").fetchSemanticsNode().boundsInRoot.top
+        )
+        runOnIdle { consumeGesture = true }
+        // Desktop's synthetic cancel() emits no event; a competing consumer cancels the real detector.
+        onNodeWithContentDescription("Drag to reorder Default", useUnmergedTree = true).performTouchInput {
+            moveBy(Offset(0f, 1f))
+            up()
         }
         runOnIdle { assertEquals(emptyList(), orders) }
         val firstTop = onNodeWithTag("preset-custom").fetchSemanticsNode().boundsInRoot.top
         val lastTop = onNodeWithTag("preset-home").fetchSemanticsNode().boundsInRoot.top
-        kotlin.test.assertTrue(firstTop < lastTop, "Cancelled row top=$firstTop must precede Home top=$lastTop")
+        assertTrue(firstTop < lastTop, "Cancelled row top=$firstTop must precede Home top=$lastTop")
     }
 
     @Test

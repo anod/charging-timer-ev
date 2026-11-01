@@ -3,10 +3,7 @@ package info.anodsplace.evtimer.ui
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.awaitTouchSlopOrCancellation
-import androidx.compose.foundation.gestures.drag
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -37,7 +34,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
@@ -151,26 +147,18 @@ internal fun PresetManagement(
                         Modifier.size(48.dp)
                             .semantics { contentDescription = reorderDescription }
                             .pointerInput(dragState, id, rowHeight) {
-                                if (presets.size > 1) awaitEachGesture {
-                                    val down = awaitFirstDown(requireUnconsumed = false)
-                                    var overSlop = Offset.Zero
-                                    val start = awaitTouchSlopOrCancellation(down.id) { change, amount ->
-                                        change.consume()
-                                        overSlop = amount
-                                    }
-                                    if (start != null) {
-                                        dragState.start(id)
-                                        try {
-                                            dragState.drag(overSlop.y, rowHeight)
-                                            val dropped = drag(start.id) { change ->
-                                                dragState.drag(change.position.y - change.previousPosition.y, rowHeight)
-                                                change.consume()
-                                            }
-                                            if (dropped) dragState.finish()?.let(commitOrder)
-                                        } finally {
-                                            if (dragState.draggedId == id) dragState.cancel()
+                                try {
+                                    if (presets.size > 1) detectDragGestures(
+                                        onDragStart = { dragState.start(id) },
+                                        onDragCancel = { dragState.cancel() },
+                                        onDragEnd = { dragState.finish()?.let(commitOrder) },
+                                        onDrag = { change, amount ->
+                                            change.consume()
+                                            dragState.drag(amount.y, rowHeight)
                                         }
-                                    }
+                                    )
+                                } finally {
+                                    if (dragState.draggedId == id) dragState.cancel()
                                 }
                             },
                         contentAlignment = Alignment.Center
