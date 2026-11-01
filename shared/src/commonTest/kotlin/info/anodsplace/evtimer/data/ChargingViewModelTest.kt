@@ -369,6 +369,7 @@ private class ViewModelTestRepository(initialSettings: ChargingSettings = Chargi
     override suspend fun savePreset(preset: ChargingPreset) = Unit
     override suspend fun deletePreset(id: String) = Unit
     override suspend fun selectPreset(id: String) = Unit
+    override suspend fun reorderPresets(ids: List<String>) { require(ids == listOf("custom")) }
     override fun observeSession() = session
     override suspend fun saveSettings(settings: ChargingSettings) {
         savedSettings.add(settings)
