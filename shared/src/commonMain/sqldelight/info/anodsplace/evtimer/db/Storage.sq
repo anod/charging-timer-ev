@@ -5,7 +5,8 @@ CREATE TABLE preset (
     name TEXT NOT NULL,
     battery_capacity REAL NOT NULL CHECK (battery_capacity > 0),
     charging_power REAL NOT NULL CHECK (charging_power > 0),
-    target_percent REAL NOT NULL CHECK (target_percent BETWEEN 0 AND 100)
+    target_percent REAL NOT NULL CHECK (target_percent BETWEEN 0 AND 100),
+    position INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE power_option (
@@ -47,18 +48,19 @@ CREATE TABLE storage_migration (
 );
 
 allPresets:
-SELECT * FROM preset ORDER BY name, id;
+SELECT * FROM preset ORDER BY position, name, id;
 
 presetById:
 SELECT * FROM preset WHERE id = ?;
 
-normalizeDefaultName:
-UPDATE preset SET name = 'Default' WHERE id = 'custom' AND name != 'Default';
-
 putPreset:
-INSERT INTO preset VALUES (?, ?, ?, ?, ?)
+INSERT INTO preset(id, name, battery_capacity, charging_power, target_percent, position)
+VALUES (?, ?, ?, ?, ?, coalesce((SELECT max(position) + 1 FROM preset), 0))
 ON CONFLICT(id) DO UPDATE SET name = excluded.name, battery_capacity = excluded.battery_capacity,
 charging_power = excluded.charging_power, target_percent = excluded.target_percent;
+
+setPresetPosition:
+UPDATE preset SET position = ? WHERE id = ?;
 
 deletePreset:
 DELETE FROM preset WHERE id = ?;

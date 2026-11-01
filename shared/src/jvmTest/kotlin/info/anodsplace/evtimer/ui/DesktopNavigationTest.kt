@@ -137,8 +137,10 @@ private class DesktopTestRepository : ChargingRepository, PresetRepository {
     override suspend fun saveAsPreset(name: String) = Unit
     override suspend fun resetPreset() = Unit
     override suspend fun savePreset(preset: ChargingPreset) = Unit
+    override suspend fun renamePreset(id: String, name: String) = Unit
     override suspend fun deletePreset(id: String) = Unit
     override suspend fun selectPreset(id: String) = Unit
+    override suspend fun reorderPresets(ids: List<String>) { require(ids == listOf("custom")) }
     override fun observeSession() = session
     override suspend fun saveSettings(settings: ChargingSettings) { this.settings.value = settings }
     override suspend fun saveSession(session: ChargingSession) { this.session.value = session }

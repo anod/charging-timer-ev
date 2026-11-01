@@ -10,6 +10,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.InputChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.SelectableChipColors
 import androidx.compose.material3.OutlinedTextField
@@ -38,16 +39,34 @@ import info.anodsplace.evtimer.generated.resources.dc
 import info.anodsplace.evtimer.generated.resources.power_kw_label
 import info.anodsplace.evtimer.generated.resources.power_value
 import info.anodsplace.evtimer.generated.resources.unit_kw
+import info.anodsplace.evtimer.generated.resources.remove_power
+import info.anodsplace.evtimer.generated.resources.removable_power
 import org.jetbrains.compose.resources.stringResource
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ChargingPowerContent(
     settings: info.anodsplace.evtimer.data.ChargingSettings,
     onEvent: (ConfigurationViewEvent) -> Unit,
+    removingPowers: Boolean = false,
 ) {
     var showCustomPowerDialog by remember { mutableStateOf(false) }
 
-    ChargingPowerChips(
+    if (removingPowers) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            settings.availablePowers.forEach { power ->
+                val description = stringResource(Res.string.remove_power, formatPower(power))
+                InputChip(
+                    selected = false,
+                    enabled = settings.availablePowers.any { it != power },
+                    onClick = { onEvent(ConfigurationViewEvent.RemoveCustomPower(power)) },
+                    label = { Text(stringResource(Res.string.removable_power, formatPower(power))) },
+                    modifier = Modifier.semantics { contentDescription = description },
+                    shape = TonalChipShape
+                )
+            }
+        }
+    } else ChargingPowerChips(
         powers = settings.availablePowers,
         selectedPower = settings.chargingPower,
         onPowerSelected = { onEvent(ConfigurationViewEvent.UpdateChargingPower(it)) },
@@ -55,7 +74,6 @@ fun ChargingPowerContent(
         shape = TonalChipShape,
         colors = tonalFilterChipColors()
     )
-
     if (showCustomPowerDialog) {
         CustomPowerDialog(
             onDismiss = { showCustomPowerDialog = false },

@@ -25,6 +25,28 @@ import kotlin.time.Instant
 @OptIn(ExperimentalCoroutinesApi::class)
 class ChargingViewModelTest {
     @Test
+    fun powerRemovalUpdatesSelectionAndRejectsMissingAndLastOptions() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val initial = ChargingSettings.DEFAULT.copy(availablePowers = listOf(7f, 11f))
+        val repo = ViewModelTestRepository(initial)
+        val viewModel = ConfigurationViewModel(repo, ViewModelTestService(), repo)
+        try {
+            runCurrent()
+            viewModel.handleEvent(ConfigurationViewEvent.RemoveCustomPower(11f))
+            runCurrent()
+            assertEquals(listOf(initial.withRemovedPower(11f)), repo.savedSettings)
+            assertEquals(7f, viewModel.viewState.settings.chargingPower)
+            viewModel.handleEvent(ConfigurationViewEvent.RemoveCustomPower(7f))
+            viewModel.handleEvent(ConfigurationViewEvent.RemoveCustomPower(50f))
+            runCurrent()
+            assertEquals(1, repo.savedSettings.size)
+        } finally {
+            viewModel.viewModelScope.cancel()
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
     @OptIn(ExperimentalTime::class)
     fun backThenPowerAndTargetEditsLeaveRunningPredictionsSnapshotDriven() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
@@ -367,8 +389,10 @@ private class ViewModelTestRepository(initialSettings: ChargingSettings = Chargi
     override suspend fun saveAsPreset(name: String) = Unit
     override suspend fun resetPreset() = Unit
     override suspend fun savePreset(preset: ChargingPreset) = Unit
+    override suspend fun renamePreset(id: String, name: String) = Unit
     override suspend fun deletePreset(id: String) = Unit
     override suspend fun selectPreset(id: String) = Unit
+    override suspend fun reorderPresets(ids: List<String>) { require(ids == listOf("custom")) }
     override fun observeSession() = session
     override suspend fun saveSettings(settings: ChargingSettings) {
         savedSettings.add(settings)

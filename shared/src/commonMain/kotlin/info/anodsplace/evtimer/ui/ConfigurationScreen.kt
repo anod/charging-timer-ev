@@ -55,7 +55,7 @@ import info.anodsplace.evtimer.generated.resources.Res
 import info.anodsplace.evtimer.generated.resources.*
 import kotlin.math.roundToInt
 
-private val presetEmojiSuggestions = listOf(
+internal val presetEmojiSuggestions = listOf(
     listOf("\uD83C\uDFE0", "\uD83C\uDFE2"), // Home, work
     listOf("\uD83D\uDE97", "\uD83D\uDE99", "\uD83D\uDE95"), // Cars
     listOf("\uD83D\uDD34", "\uD83D\uDFE2", "\uD83D\uDD35", "\uD83D\uDFE1") // Colors
@@ -75,6 +75,7 @@ fun ConfigurationScreen(
         mutableStateOf(expandedCards(presets.selectedId))
     }
     var showNameDialog by rememberSaveable { mutableStateOf(false) }
+    var removingPowers by rememberSaveable { mutableStateOf(false) }
     var presetName by rememberSaveable { mutableStateOf("") }
     val presetNameValidation = remember(presetName, presets.presets) {
         normalizeAndValidatePresetName(presetName, presets.presets.map { it.name })
@@ -206,9 +207,7 @@ fun ConfigurationScreen(
                             enabled = !viewState.isLoading,
                             label = {
                                 Text(
-                                    if (preset.id == "custom") {
-                                        stringResource(Res.string.default_preset)
-                                    } else if (selected && presets.isEdited) {
+                                    if (selected && presets.isEdited) {
                                         stringResource(Res.string.edited_preset_name, preset.name)
                                     } else {
                                         preset.name
@@ -359,11 +358,23 @@ fun ConfigurationScreen(
                     viewState = viewState,
                     expanded = cardExpansion.power,
                     onExpandedChange = { cardExpansion = cardExpansion.copy(power = it) },
-                    modifier = Modifier
+                    modifier = Modifier,
+                    headerAction = {
+                        IconButton(onClick = { removingPowers = !removingPowers }) {
+                            Icon(
+                                if (removingPowers) DoneIcon else EditIcon,
+                                stringResource(
+                                    if (removingPowers) Res.string.finish_power_options
+                                    else Res.string.edit_power_options
+                                )
+                            )
+                        }
+                    }
                 ) {
                     ChargingPowerContent(
                         settings = viewState.settings,
-                        onEvent = onEvent
+                        onEvent = onEvent,
+                        removingPowers = removingPowers
                     )
                 }
             }

@@ -25,6 +25,7 @@ sealed interface ConfigurationViewEvent {
     data class UpdateBatteryCapacity(val capacity: Float) : ConfigurationViewEvent
     data class UpdateChargingPower(val power: Float) : ConfigurationViewEvent
     data class AddCustomPower(val power: Float) : ConfigurationViewEvent
+    data class RemoveCustomPower(val power: Float) : ConfigurationViewEvent
     data class UpdateStartPercent(val percent: Float) : ConfigurationViewEvent
     data class UpdateMaxPercent(val percent: Float) : ConfigurationViewEvent
     data class SelectPreset(val id: String) : ConfigurationViewEvent
@@ -83,6 +84,12 @@ class ConfigurationViewModel(
                 if (event.power.isFinite() && event.power > 0f) {
                     saveSettings(latestSettings.withAddedPower(event.power))
                 } else println("Charging settings: rejecting invalid custom power")
+            }
+            is ConfigurationViewEvent.RemoveCustomPower -> {
+                if (event.power in latestSettings.availablePowers &&
+                    latestSettings.availablePowers.any { it != event.power }) {
+                    saveSettings(latestSettings.withRemovedPower(event.power))
+                } else println("Charging settings: rejecting missing or last power option removal")
             }
             is ConfigurationViewEvent.UpdateStartPercent ->
                 saveSettings(latestSettings.copy(startPercent = event.percent))
