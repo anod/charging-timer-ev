@@ -141,7 +141,7 @@ class PresetManagementTest {
         val rowHeight = onNodeWithTag("preset-custom").fetchSemanticsNode().boundsInRoot.height
         onNodeWithContentDescription("Drag to reorder Default", useUnmergedTree = true).performTouchInput {
             down(center)
-            moveBy(Offset(0f, rowHeight * 1.5f), durationMillis = 200)
+            moveBy(Offset(0f, rowHeight * 1.5f), delayMillis = 200)
         }
         runOnIdle { assertEquals(emptyList(), orders) }
         onNodeWithContentDescription("Drag to reorder Default", useUnmergedTree = true).performTouchInput { up() }
@@ -163,7 +163,7 @@ class PresetManagementTest {
         val rowHeight = onNodeWithTag("preset-custom").fetchSemanticsNode().boundsInRoot.height
         onNodeWithContentDescription("Drag to reorder Default", useUnmergedTree = true).performTouchInput {
             down(center)
-            moveBy(Offset(0f, rowHeight * 1.5f), durationMillis = 200)
+            moveBy(Offset(0f, rowHeight * 1.5f), delayMillis = 200)
             cancel()
         }
         runOnIdle { assertEquals(emptyList(), orders) }
