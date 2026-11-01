@@ -6,10 +6,12 @@
     <string name="delete_preset_confirmation">Delete "%1$s"? If selected, the first remaining preset will be used instead.</string>
     <string name="move_up">Move up</string>
     <string name="move_down">Move down</string>
-    <string name="last_preset_hint">Keep at least one preset. Add another on the main screen before deleting this one.</string>
+    <string name="last_preset_hint">Keep at least one preset.</string>
     <string name="preset_name_required">Enter a preset name</string>
-    <string name="remove_power_options">Remove power options</string>
-    <string name="done">Done</string>
+    <string name="reorder_preset">Drag to reorder %1$s</string>
+    <string name="delete_named_preset">Delete %1$s</string>
+    <string name="edit_power_options">Edit power options</string>
+    <string name="finish_power_options">Finish editing power options</string>
     <string name="remove_power">Remove %1$s kW</string>
     <string name="removable_power">%1$s kW ×</string>
 </resources>

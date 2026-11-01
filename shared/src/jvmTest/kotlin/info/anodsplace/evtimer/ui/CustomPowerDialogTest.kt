@@ -7,12 +7,14 @@ import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import info.anodsplace.evtimer.data.ChargingSettings
 import info.anodsplace.evtimer.data.ConfigurationViewEvent
+import info.anodsplace.evtimer.data.ConfigurationViewState
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -23,13 +25,22 @@ class CustomPowerDialogTest {
     @Test
     fun configurationRemovalModeDoesNotSelectPowerAndDoneRestoresSelectionChips() = runDesktopComposeUiTest {
         val events = mutableListOf<ConfigurationViewEvent>()
-        setContent { MaterialTheme { ChargingPowerContent(ChargingSettings.DEFAULT, { events += it }) } }
-        onNodeWithText("11.0 kW").assertIsSelected()
-        onNodeWithText("Remove power options").performClick()
+        setContent {
+            MaterialTheme {
+                ConfigurationScreen(ConfigurationViewState(isLoading = false, settings = ChargingSettings.DEFAULT),
+                    { events += it })
+            }
+        }
+        onNodeWithText("Remove power options").assertDoesNotExist()
+        onNodeWithText("Done").assertDoesNotExist()
+        onNodeWithText("11.0 kW").performScrollTo().assertIsSelected()
+        onNodeWithContentDescription("Edit power options").performScrollTo().performClick()
+        onNodeWithContentDescription("Add custom power").assertDoesNotExist()
         onNodeWithText("11.0 kW \u00D7").performClick()
         assertEquals(listOf<ConfigurationViewEvent>(ConfigurationViewEvent.RemoveCustomPower(11f)), events)
-        onNodeWithText("Done").performClick()
+        onNodeWithContentDescription("Finish editing power options").performClick()
         onNodeWithText("11.0 kW").assertIsSelected()
+        onNodeWithContentDescription("Add custom power").assertExists()
         assertEquals(1, events.size)
     }
 
@@ -37,12 +48,14 @@ class CustomPowerDialogTest {
     fun removalModeDisablesLastOption() = runDesktopComposeUiTest {
         setContent {
             MaterialTheme {
-                ChargingPowerContent(ChargingSettings.DEFAULT.copy(availablePowers = listOf(11f)), {})
+                ConfigurationScreen(
+                    ConfigurationViewState(isLoading = false,
+                        settings = ChargingSettings.DEFAULT.copy(availablePowers = listOf(11f))), {})
             }
         }
-        onNodeWithText("Remove power options").performClick()
+        onNodeWithContentDescription("Edit power options").performScrollTo().performClick()
         onNodeWithText("11.0 kW \u00D7").assertIsNotEnabled()
-        onNodeWithText("Done").performClick()
+        onNodeWithContentDescription("Finish editing power options").performClick()
         onNodeWithText("11.0 kW").assertIsSelected()
     }
 

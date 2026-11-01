@@ -21,7 +21,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.semantics.contentDescription
@@ -42,8 +41,6 @@ import info.anodsplace.evtimer.generated.resources.power_value
 import info.anodsplace.evtimer.generated.resources.unit_kw
 import info.anodsplace.evtimer.generated.resources.remove_power
 import info.anodsplace.evtimer.generated.resources.removable_power
-import info.anodsplace.evtimer.generated.resources.remove_power_options
-import info.anodsplace.evtimer.generated.resources.done
 import org.jetbrains.compose.resources.stringResource
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -51,9 +48,9 @@ import org.jetbrains.compose.resources.stringResource
 fun ChargingPowerContent(
     settings: info.anodsplace.evtimer.data.ChargingSettings,
     onEvent: (ConfigurationViewEvent) -> Unit,
+    removingPowers: Boolean = false,
 ) {
     var showCustomPowerDialog by remember { mutableStateOf(false) }
-    var removingPowers by rememberSaveable { mutableStateOf(false) }
 
     if (removingPowers) {
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -77,10 +74,6 @@ fun ChargingPowerContent(
         shape = TonalChipShape,
         colors = tonalFilterChipColors()
     )
-    TextButton(onClick = { removingPowers = !removingPowers }) {
-        Text(stringResource(if (removingPowers) Res.string.done else Res.string.remove_power_options))
-    }
-
     if (showCustomPowerDialog) {
         CustomPowerDialog(
             onDismiss = { showCustomPowerDialog = false },

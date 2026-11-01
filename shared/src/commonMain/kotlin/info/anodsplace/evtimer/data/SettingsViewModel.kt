@@ -25,6 +25,10 @@ class SettingsViewModel(
         viewModelScope.launch { presetRepository.deletePreset(id) }
     }
 
+    fun reorderPresets(ids: List<String>) {
+        viewModelScope.launch { presetRepository.reorderPresets(ids) }
+    }
+
     fun movePreset(id: String, direction: Int) {
         viewModelScope.launch {
             val ids = presets.value.map { it.id }.toMutableList()

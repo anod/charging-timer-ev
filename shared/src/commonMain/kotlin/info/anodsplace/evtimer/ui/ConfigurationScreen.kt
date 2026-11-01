@@ -75,6 +75,7 @@ fun ConfigurationScreen(
         mutableStateOf(expandedCards(presets.selectedId))
     }
     var showNameDialog by rememberSaveable { mutableStateOf(false) }
+    var removingPowers by rememberSaveable { mutableStateOf(false) }
     var presetName by rememberSaveable { mutableStateOf("") }
     val presetNameValidation = remember(presetName, presets.presets) {
         normalizeAndValidatePresetName(presetName, presets.presets.map { it.name })
@@ -357,11 +358,23 @@ fun ConfigurationScreen(
                     viewState = viewState,
                     expanded = cardExpansion.power,
                     onExpandedChange = { cardExpansion = cardExpansion.copy(power = it) },
-                    modifier = Modifier
+                    modifier = Modifier,
+                    headerAction = {
+                        IconButton(onClick = { removingPowers = !removingPowers }) {
+                            Icon(
+                                if (removingPowers) DoneIcon else EditIcon,
+                                stringResource(
+                                    if (removingPowers) Res.string.finish_power_options
+                                    else Res.string.edit_power_options
+                                )
+                            )
+                        }
+                    }
                 ) {
                     ChargingPowerContent(
                         settings = viewState.settings,
-                        onEvent = onEvent
+                        onEvent = onEvent,
+                        removingPowers = removingPowers
                     )
                 }
             }

@@ -72,6 +72,7 @@ fun ChargingTimerApp(
                                         onRenamePreset = viewModel::renamePreset,
                                         onDeletePreset = viewModel::deletePreset,
                                         onMovePreset = viewModel::movePreset,
+                                        onReorderPresets = viewModel::reorderPresets,
                                         onBack = { navigation.onBack() },
                                         onOpenLicenses = { navigation.navigate(Destination.Licenses) },
                                         modifier = modifier.windowInsetsPadding(WindowInsets.systemBars)

@@ -39,6 +39,7 @@ fun SettingsScreen(
     onRenamePreset: (String, String) -> Unit,
     onDeletePreset: (String) -> Unit,
     onMovePreset: (String, Int) -> Unit,
+    onReorderPresets: (List<String>) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val uriHandler = LocalUriHandler.current
@@ -48,7 +49,7 @@ fun SettingsScreen(
             modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            PresetManagement(presets, onRenamePreset, onDeletePreset, onMovePreset)
+            PresetManagement(presets, onRenamePreset, onDeletePreset, onMovePreset, onReorderPresets)
             HorizontalDivider()
             Row(
                 modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).toggleable(
