@@ -24,6 +24,82 @@ import kotlin.time.Instant
 
 class StorageRepositoryTest {
     @Test
+    fun presetCrudOrderingAndPowerOptionsSurviveRestart() = runTest {
+        fixture { f ->
+            val custom = f.repo.observePresets().first().single()
+            val home = ChargingPreset("home", "\uD83C\uDFE0 Home", ChargingSettings.DEFAULT)
+            val work = ChargingPreset("work", "Work", ChargingSettings.DEFAULT.copy(maxPercent = 80f))
+            f.repo.savePreset(work)
+            f.repo.savePreset(home)
+            assertEquals(listOf("custom", "work", "home"), f.repo.observePresets().first().map { it.id })
+            f.repo.reorderPresets(listOf("custom", "home", "work"))
+            var restarted = f.repository()
+            assertEquals(listOf("custom", "home", "work"), restarted.observePresets().first().map { it.id })
+            val edited = home.copy(name = "\u26A1 Garage", settings = home.settings.withAddedPower(50f)
+                .withRemovedPower(11f).copy(batteryCapacity = 60f, maxPercent = 90f))
+            restarted.savePreset(edited)
+            restarted = f.repository()
+            assertEquals(listOf(custom, edited, work), restarted.observePresets().first())
+            restarted.selectPreset(home.id)
+            restarted.saveSettings(edited.settings.copy(startPercent = 25f, maxPercent = 95f))
+            assertTrue(restarted.observeConfiguration().first().isEdited)
+            restarted.reorderPresets(listOf("custom", "work", "home"))
+            assertTrue(restarted.observeConfiguration().first().isEdited)
+            assertEquals(95f, restarted.observeSettings().first().maxPercent)
+            restarted.deletePreset(home.id)
+            restarted = f.repository()
+            val configuration = restarted.observeConfiguration().first()
+            assertEquals("custom", configuration.selectedId)
+            assertFalse(configuration.isEdited)
+            assertEquals(custom.settings.copy(startPercent = 25f), configuration.settings)
+            assertEquals(listOf("custom", "work"), configuration.presets.map { it.id })
+            assertTrue(f.database.storageQueries.options(home.id).executeAsList().isEmpty())
+        }
+    }
+
+    @Test
+    fun invalidOrdersAndBuiltInMutationsAreRejectedWithoutChangingStorage() = runTest {
+        fixture { f ->
+            f.repo.savePreset(ChargingPreset("home", "Home", ChargingSettings.DEFAULT))
+            val before = f.repo.observePresets().first()
+            for (order in listOf(
+                listOf("home", "custom"), listOf("custom"), listOf("custom", "unknown"),
+                listOf("custom", "home", "home"), emptyList()
+            )) {
+                assertFailsWith<IllegalArgumentException> { f.repo.reorderPresets(order) }
+                assertEquals(before, f.repo.observePresets().first())
+            }
+            assertFailsWith<IllegalArgumentException> { f.repo.deletePreset("custom") }
+            assertFailsWith<IllegalArgumentException> {
+                f.repo.savePreset(before.first().copy(name = "Renamed"))
+            }
+            assertFailsWith<IllegalArgumentException> {
+                f.repo.savePreset(before.last().copy(name = "dEfAuLt"))
+            }
+            assertFailsWith<IllegalArgumentException> {
+                f.repo.savePreset(before.last().copy(name = "x".repeat(33)))
+            }
+            assertEquals(before, f.repository().observePresets().first())
+        }
+    }
+
+    @Test
+    fun editingBuiltInPowerOptionsPersistsWithoutChangingNamedPresets() = runTest {
+        fixture { f ->
+            f.repo.saveAsPreset("Home")
+            val home = f.repo.observeConfiguration().first().selected
+            f.repo.selectPreset("custom")
+            val custom = f.repo.observePresets().first().first()
+            val updated = custom.copy(settings = custom.settings.withAddedPower(50f).withRemovedPower(50f))
+            f.repo.savePreset(updated)
+            val restarted = f.repository()
+            assertEquals(updated, restarted.observePresets().first().first())
+            assertEquals(home, restarted.observePresets().first().last())
+            assertEquals(updated.settings, restarted.observeSettings().first())
+        }
+    }
+
+    @Test
     fun notifyAt80DefaultsOnAndPersistsIndependentlyOfPresets() = runTest {
         fixture { f ->
             assertTrue(f.repo.observeNotifyAt80().first())

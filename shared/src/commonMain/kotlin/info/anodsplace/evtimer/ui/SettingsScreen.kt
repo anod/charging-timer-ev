@@ -24,6 +24,7 @@ import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import info.anodsplace.evtimer.APP_VERSION
+import info.anodsplace.evtimer.data.ChargingPreset
 import info.anodsplace.evtimer.generated.resources.*
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
@@ -34,6 +35,10 @@ fun SettingsScreen(
     onNotifyAt80Change: (Boolean) -> Unit,
     onBack: () -> Unit,
     onOpenLicenses: () -> Unit,
+    presets: List<ChargingPreset>,
+    onSavePreset: (ChargingPreset) -> Unit,
+    onDeletePreset: (String) -> Unit,
+    onMovePreset: (String, Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val uriHandler = LocalUriHandler.current
@@ -43,6 +48,8 @@ fun SettingsScreen(
             modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            PresetManagement(presets, onSavePreset, onDeletePreset, onMovePreset)
+            HorizontalDivider()
             Row(
                 modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).toggleable(
                     value = notifyAt80 == true,

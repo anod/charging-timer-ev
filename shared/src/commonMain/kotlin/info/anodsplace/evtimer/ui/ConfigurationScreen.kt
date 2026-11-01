@@ -55,7 +55,7 @@ import info.anodsplace.evtimer.generated.resources.Res
 import info.anodsplace.evtimer.generated.resources.*
 import kotlin.math.roundToInt
 
-private val presetEmojiSuggestions = listOf(
+internal val presetEmojiSuggestions = listOf(
     listOf("\uD83C\uDFE0", "\uD83C\uDFE2"), // Home, work
     listOf("\uD83D\uDE97", "\uD83D\uDE99", "\uD83D\uDE95"), // Cars
     listOf("\uD83D\uDD34", "\uD83D\uDFE2", "\uD83D\uDD35", "\uD83D\uDFE1") // Colors

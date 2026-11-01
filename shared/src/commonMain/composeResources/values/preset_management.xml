@@ -1,0 +1,19 @@
+<resources>
+    <string name="settings_presets">Presets</string>
+    <string name="edit">Edit</string>
+    <string name="edit_preset">Edit preset</string>
+    <string name="delete">Delete</string>
+    <string name="delete_preset">Delete preset?</string>
+    <string name="delete_preset_confirmation">Delete "%1$s"? If selected, the built-in preset will be used instead.</string>
+    <string name="move_up">Move up</string>
+    <string name="move_down">Move down</string>
+    <string name="fixed_preset">Built in. Always first; cannot be renamed or deleted.</string>
+    <string name="preset_values">%1$s kWh · %2$s kW · %3$s%</string>
+    <string name="capacity_kwh_label">Capacity (kWh)</string>
+    <string name="preset_name_required">Enter a preset name</string>
+    <string name="preset_value_invalid">Enter a positive number; target must be between 0 and 100</string>
+    <string name="settings_power_options">Power options</string>
+    <string name="power_options_hint">Tap a chip to remove it. Keep at least one option.</string>
+    <string name="remove_power">Remove %1$s kW</string>
+    <string name="removable_power">%1$s kW ×</string>
+</resources>

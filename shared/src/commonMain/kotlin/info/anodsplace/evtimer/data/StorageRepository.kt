@@ -30,6 +30,7 @@ interface PresetRepository {
     suspend fun savePreset(preset: ChargingPreset)
     suspend fun deletePreset(id: String)
     suspend fun selectPreset(id: String)
+    suspend fun reorderPresets(ids: List<String>)
 }
 
 data class ChargingHistoryEntry(
@@ -182,6 +183,15 @@ class ChargingRepositoryImpl(
     }
 
     override suspend fun savePreset(preset: ChargingPreset) { transaction { putPreset(preset) } }
+
+    override suspend fun reorderPresets(ids: List<String>) {
+        transaction {
+            val existing = readPresets().map { it.id }
+            require(ids.firstOrNull() == CUSTOM_ID) { "The Default preset must stay first" }
+            require(ids.size == existing.size && ids.toSet() == existing.toSet()) { "Invalid preset order" }
+            ids.forEachIndexed { index, id -> queries.setPresetPosition(index.toLong(), id) }
+        }
+    }
 
     override suspend fun deletePreset(id: String) {
         changeConfiguration(PresetEvent.Delete(id))
