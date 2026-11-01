@@ -169,7 +169,7 @@ class PresetManagementTest {
         runOnIdle { assertEquals(emptyList(), orders) }
         val firstTop = onNodeWithTag("preset-custom").fetchSemanticsNode().boundsInRoot.top
         val lastTop = onNodeWithTag("preset-home").fetchSemanticsNode().boundsInRoot.top
-        kotlin.test.assertTrue(firstTop < lastTop)
+        kotlin.test.assertTrue(firstTop < lastTop, "Cancelled row top=$firstTop must precede Home top=$lastTop")
     }
 
     @Test

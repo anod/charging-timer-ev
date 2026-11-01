@@ -147,15 +147,19 @@ internal fun PresetManagement(
                         Modifier.size(48.dp)
                             .semantics { contentDescription = reorderDescription }
                             .pointerInput(dragState, id, rowHeight) {
-                                if (presets.size > 1) detectDragGestures(
-                                    onDragStart = { dragState.start(id) },
-                                    onDragCancel = { dragState.cancel() },
-                                    onDragEnd = { dragState.finish()?.let(commitOrder) },
-                                    onDrag = { change, amount ->
-                                        change.consume()
-                                        dragState.drag(amount.y, rowHeight)
-                                    }
-                                )
+                                try {
+                                    if (presets.size > 1) detectDragGestures(
+                                        onDragStart = { dragState.start(id) },
+                                        onDragCancel = { dragState.cancel() },
+                                        onDragEnd = { dragState.finish()?.let(commitOrder) },
+                                        onDrag = { change, amount ->
+                                            change.consume()
+                                            dragState.drag(amount.y, rowHeight)
+                                        }
+                                    )
+                                } finally {
+                                    if (dragState.draggedId == id) dragState.cancel()
+                                }
                             },
                         contentAlignment = Alignment.Center
                     ) {
