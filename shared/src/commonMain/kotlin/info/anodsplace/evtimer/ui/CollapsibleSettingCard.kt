@@ -132,6 +132,8 @@ fun CollapsibleSettingCard(
                     haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                     onExpandedChange(true)
                 },
+                shape = MaterialTheme.shapes.small,
+                colors = tonalSummaryColors(),
                 label = { Text(collapsedLabel) },
                 modifier = modifier
                     .semantics { contentDescription = expandDescription }
