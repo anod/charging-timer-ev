@@ -10,7 +10,11 @@ internal class CompletionNotificationState {
     private var initialSessionId: Long? = null
     private var notifiedSessionId: Long? = null
 
-    fun update(isRunning: Boolean, latest: ChargingHistoryEntry?): CompletionNotificationAction {
+    fun update(
+        isRunning: Boolean,
+        latest: ChargingHistoryEntry?,
+        restoring: Boolean = false
+    ): CompletionNotificationAction {
         if (!initialized) {
             initialSessionId = latest?.id
             initialized = true
@@ -20,7 +24,7 @@ internal class CompletionNotificationState {
             return CompletionNotificationAction.Cancel
         }
         // Cold stopped history must not re-alert after the user taps an auto-cancel notification.
-        if (latest.id == initialSessionId || latest.id == notifiedSessionId) {
+        if ((!restoring && latest.id == initialSessionId) || latest.id == notifiedSessionId) {
             return CompletionNotificationAction.Keep
         }
         notifiedSessionId = latest.id

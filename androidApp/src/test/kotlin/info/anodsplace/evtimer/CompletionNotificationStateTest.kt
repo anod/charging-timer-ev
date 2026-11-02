@@ -60,4 +60,56 @@ class CompletionNotificationStateTest {
             assertEquals(CompletionNotificationAction.Cancel, state.update(false, it))
         }
     }
+
+    @Test
+    fun coldCompletedHistoryPostsOnlyOnceAcrossRestoreAndObserverRaces() {
+        for (observerFirst in listOf(true, false)) {
+            val state = CompletionNotificationState()
+            if (observerFirst) {
+                assertEquals(CompletionNotificationAction.Keep, state.update(false, completed))
+            }
+            assertEquals(CompletionNotificationAction.Post, state.update(false, completed, restoring = true))
+            assertEquals(CompletionNotificationAction.Keep, state.update(false, completed))
+            assertEquals(CompletionNotificationAction.Keep, state.update(false, completed, restoring = true))
+        }
+    }
+
+    @Test
+    fun coldOverdueTransitionAndExplicitRestoreShareDeliveryState() {
+        for (restoreFirst in listOf(true, false)) {
+            val state = CompletionNotificationState()
+            state.update(true, null)
+            assertEquals(
+                CompletionNotificationAction.Post,
+                state.update(false, completed, restoring = restoreFirst)
+            )
+            assertEquals(
+                CompletionNotificationAction.Keep,
+                state.update(false, completed, restoring = !restoreFirst)
+            )
+        }
+    }
+
+    @Test
+    fun restoreDoesNotPostManualStopInterruptedReviewedOrMissingHistory() {
+        for (latest in listOf(
+            null,
+            completed.copy(endPercent = 79f),
+            completed.copy(endPercent = null, interrupted = true),
+            completed.copy(reviewed = true)
+        )) {
+            assertEquals(
+                CompletionNotificationAction.Cancel,
+                CompletionNotificationState().update(false, latest, restoring = true)
+            )
+        }
+    }
+
+    @Test
+    fun futureRunningRestoreDoesNotReplayOlderCompletedHistory() {
+        assertEquals(
+            CompletionNotificationAction.Keep,
+            CompletionNotificationState().update(true, completed, restoring = true)
+        )
+    }
 }

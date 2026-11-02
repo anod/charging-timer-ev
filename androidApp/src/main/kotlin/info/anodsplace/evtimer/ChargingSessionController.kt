@@ -50,6 +50,8 @@ class ChargingSessionController(
             return
         }
         if (isDismissed(status.startTime)) return
+        // A cold restore of an overdue timer uses the completion notification instead.
+        if (activeSessionId == null && !refresh && status.estimatedEndTime <= System.currentTimeMillis()) return
         if (activeSessionId == status.startTime && !refresh) return
         try {
             context.startForegroundService(Intent(context, ChargingForegroundService::class.java))
