@@ -80,7 +80,16 @@ class DesktopNavigationTest {
         onNodeWithText("Start Timer").assertExists()
         assertTrue(service.status.value.isRunning)
         onNodeWithText("Notify at 80%").assertDoesNotExist()
+        onNodeWithContentDescription("Charging history").assertDoesNotExist()
+        onNodeWithText("Charging history").assertDoesNotExist()
         onNodeWithContentDescription("Settings").performClick()
+        onNodeWithText("Charging history").performClick()
+        onNodeWithText("No past sessions yet").assertExists()
+        runOnIdle {
+            assertEquals(listOf(Destination.Config, Destination.Settings, Destination.History), navigation.backStack.value)
+        }
+        onNodeWithContentDescription("Back").performClick()
+        onNodeWithText("Notify at 80%").assertExists()
         onNodeWithText("Notify at 80%").assertIsOn().performClick()
         onNodeWithText("Notify at 80%").assertIsOff()
         onNodeWithText("About").assertExists()

@@ -57,8 +57,7 @@ fun ChargingTimerApp(
                                     else ConfigurationScreen(
                                         viewState, viewModel::handleEvent,
                                         modifier.windowInsetsPadding(WindowInsets.systemBars),
-                                        onOpenSettings = { navigation.navigate(Destination.Settings) },
-                                        onOpenHistory = { navigation.navigate(Destination.History) }
+                                        onOpenSettings = { navigation.navigate(Destination.Settings) }
                                     )
                                 }
                                 Destination.Running -> {
@@ -80,6 +79,7 @@ fun ChargingTimerApp(
                                         onReorderPresets = viewModel::reorderPresets,
                                         onBack = { navigation.onBack() },
                                         onOpenLicenses = { navigation.navigate(Destination.Licenses) },
+                                        onOpenHistory = { navigation.navigate(Destination.History) },
                                         modifier = modifier.windowInsetsPadding(WindowInsets.systemBars)
                                     )
                                 }

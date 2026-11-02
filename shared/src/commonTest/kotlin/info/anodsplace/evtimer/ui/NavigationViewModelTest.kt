@@ -25,6 +25,37 @@ import kotlin.test.assertTrue
 @OptIn(ExperimentalCoroutinesApi::class)
 class NavigationViewModelTest {
     @Test
+    fun settingsHistorySummaryRoundTripPreservesReviewState() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val snapshot = ChargingSessionSnapshot.from(ChargingSettings(), 1L)
+        val old = ChargingHistoryEntry(1L, snapshot, 60_001L, 21f, null, false)
+        val history = TestHistoryRepository(listOf(old.copy(id = 2L, reviewed = true), old))
+        val navigation = NavigationViewModel(NavigationTestService(false), history)
+        try {
+            runCurrent()
+            val before = history.entries.value
+            navigation.navigate(Destination.Settings)
+            navigation.navigate(Destination.History)
+            repeat(2) {
+                navigation.openHistorySummary(old)
+                assertEquals(listOf(Destination.Config, Destination.Settings, Destination.History, Destination.EndSummary),
+                    navigation.backStack.value)
+                assertTrue(navigation.onBack())
+                runCurrent()
+                assertEquals(listOf(Destination.Config, Destination.Settings, Destination.History), navigation.backStack.value)
+                assertEquals(before, history.entries.value)
+            }
+            assertTrue(navigation.onBack())
+            assertEquals(listOf(Destination.Config, Destination.Settings), navigation.backStack.value)
+            assertTrue(navigation.onBack())
+            assertEquals(listOf(Destination.Config), navigation.backStack.value)
+        } finally {
+            navigation.viewModelScope.cancel()
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
     fun historySummaryReturnsToHistoryWithoutReviewingOrReplacingItOnTicks() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val snapshot = ChargingSessionSnapshot.from(ChargingSettings(), 1L)

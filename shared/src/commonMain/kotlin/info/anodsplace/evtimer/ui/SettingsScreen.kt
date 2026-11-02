@@ -40,7 +40,8 @@ fun SettingsScreen(
     onDeletePreset: (String) -> Unit,
     onMovePreset: (String, Int) -> Unit,
     onReorderPresets: (List<String>) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onOpenHistory: () -> Unit = {}
 ) {
     val uriHandler = LocalUriHandler.current
     Column(modifier.fillMaxSize()) {
@@ -49,6 +50,9 @@ fun SettingsScreen(
             modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            TextButton(onClick = onOpenHistory) {
+                Text(stringResource(Res.string.history_title))
+            }
             PresetManagement(presets, onRenamePreset, onDeletePreset, onMovePreset, onReorderPresets)
             HorizontalDivider()
             Row(
