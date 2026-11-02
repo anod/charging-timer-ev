@@ -139,11 +139,27 @@ INSERT OR IGNORE INTO storage_migration(id) VALUES (1);
 backupSessions:
 SELECT * FROM charge_session WHERE is_running = 0 AND ended_at IS NOT NULL ORDER BY ended_at DESC, id DESC;
 
+backupSegments:
+SELECT power_segment.* FROM power_segment
+JOIN charge_session ON charge_session.id = power_segment.session_id
+WHERE charge_session.is_running = 0 AND charge_session.ended_at IS NOT NULL
+ORDER BY power_segment.session_id, power_segment.started_at;
+
+clearBackupSegments:
+DELETE FROM power_segment;
+
+clearBackupOptions:
+DELETE FROM power_option;
+
 clearBackupSessions:
 DELETE FROM charge_session;
 
 clearBackupPresets:
 DELETE FROM preset;
+
+importBackupPreset:
+INSERT INTO preset(id, name, battery_capacity, charging_power, target_percent, position)
+VALUES (?, ?, ?, ?, ?, ?);
 
 importBackupSession:
 INSERT INTO charge_session(id, battery_capacity, start_percent, target_percent, efficiency,

@@ -131,3 +131,47 @@ section yet.
 `ManualBackupTest` includes SQLite table/column and DataStore key coverage guards.
 New persisted fields must be covered by this format or explicitly excluded with
 a reason. Android Auto Backup and device-transfer rules are unchanged.
+
+## Database alignment and compatibility
+
+The small serializable backup models are the versioned file contract, not another
+storage layer. SQLDelight generates its database models from SQL; tying JSON to
+those generated classes would couple old files to schema changes and SQLite
+implementation details. These are the intentional mappings:
+
+| SQL data | JSON representation |
+|---|---|
+| `preset` columns | `presets[]`: same identity, stored name, capacity, power, target and position |
+| `power_option.preset_id`, `position`, `power_kw` | Parent preset, `powerOptions[]` array order and values |
+| `charge_session` settings, identity, end values and flags | `sessions[]` fields, including `presetEdited`; snake_case becomes camelCase |
+| `power_segment.session_id`, `started_at`, `power_kw` | Parent session and `segments[]` timestamps/power |
+| `charge_session.is_running` | Excluded; always false on import |
+| `storage_migration` | Excluded; device-local marker, current-session pointer cleared |
+| Active DataStore preferences/draft | Typed `preferences` fields; obsolete migration/session keys excluded |
+
+Additive optional JSON fields must have defaults so existing version-1 files
+remain readable. Required shape or meaning changes need a new format version and
+an explicit old-version reader/upgrader; never silently reinterpret old fields.
+There is no invented version-0 migration. The fixed first-version compatibility
+fixture must keep working when a future reader is added. Newer versions fail
+with a specific error even if their payload shape has changed.
+
+## Resource use
+
+All document I/O runs on Android's IO dispatcher; encode/decode/validation and SQL
+work run off the UI thread. The reader decodes directly into typed models rather
+than retaining a second full JSON object tree. It first reads a small version
+header and ignores unknown fields; numeric/Boolean serializers reject quoted
+values rather than coercing wrong types. A nesting-depth limit of 32 also applies
+to unknown fields, preventing deeply nested documents exhausting the parser stack.
+
+ID checks are hash-based and ordered-segment validation allocates no pair list.
+Export uses four bulk queries regardless of history/preset count. Import uses
+bulk deletes without reading all destination child rows, and inserts preset
+positions directly rather than recalculating the maximum position for every row.
+The large-history regression checks those query counts with 2,000 sessions.
+
+The 16 MiB limit is a **file-size** cap, not a promise of 16 MiB peak heap usage:
+the bounded UTF-8 bytes, decoded text and typed models still coexist during
+parsing; export also constructs its typed snapshot and output bytes. This is
+an explicit user-triggered operation, not a continuously running background task.

@@ -384,6 +384,8 @@ class ChargingRepositoryImpl(
             mutex.withLock {
                 val prefs = dataStore.data.first()
                 database.transactionWithResult {
+                    val options = queries.allOptions().executeAsList().groupBy { it.preset_id }
+                    val segments = queries.backupSegments().executeAsList().groupBy { it.session_id }
                     ManualBackup(
                         BackupFormat.FORMAT, BackupFormat.VERSION, clock.now().toString(), appVersion,
                         BackupPreferences(
@@ -399,12 +401,12 @@ class ChargingRepositoryImpl(
                         ),
                         queries.allPresets().executeAsList().map {
                             BackupPreset(it.id, it.name, it.battery_capacity, it.charging_power,
-                                it.target_percent, queries.options(it.id).executeAsList().map { option -> option.power_kw },
+                                it.target_percent, options[it.id].orEmpty().map { option -> option.power_kw },
                                 it.position)
                         },
                         queries.backupSessions().executeAsList().map {
                             BackupSession(it.id, it.battery_capacity, it.start_percent, it.target_percent,
-                                it.efficiency, queries.segments(it.id).executeAsList().map { segment ->
+                                it.efficiency, segments[it.id].orEmpty().map { segment ->
                                     BackupSegment(segment.started_at, segment.power_kw)
                                 }, it.preset_id, it.preset_name, it.ended_at, it.end_percent,
                                 it.actual_percent, it.reviewed, it.interrupted, it.preset_edited)
@@ -430,13 +432,13 @@ class ChargingRepositoryImpl(
                 database.transaction {
                     queries.setCurrentSession(null)
                     // Explicit child deletes also work with drivers that disable foreign-key enforcement.
-                    queries.allSegments().executeAsList().map { it.session_id }.distinct().forEach(queries::clearSegments)
+                    queries.clearBackupSegments()
                     queries.clearBackupSessions()
-                    queries.allOptions().executeAsList().map { it.preset_id }.distinct().forEach(queries::clearOptions)
+                    queries.clearBackupOptions()
                     queries.clearBackupPresets()
                     backup.presets.forEach {
-                        queries.putPreset(it.id, it.name, it.batteryCapacity, it.chargingPower, it.targetPercent)
-                        queries.setPresetPosition(it.position, it.id)
+                        queries.importBackupPreset(it.id, it.name, it.batteryCapacity, it.chargingPower,
+                            it.targetPercent, it.position)
                         it.powerOptions.forEachIndexed { index, power -> queries.putOption(it.id, index.toLong(), power) }
                     }
                     backup.sessions.forEach {

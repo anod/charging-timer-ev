@@ -7,6 +7,10 @@ import androidx.lifecycle.viewModelScope
 import info.anodsplace.evtimer.ui.Destination
 import info.anodsplace.evtimer.ui.NavigationViewModel
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
+import app.cash.sqldelight.db.SqlDriver
+import app.cash.sqldelight.db.SqlCursor
+import app.cash.sqldelight.db.SqlPreparedStatement
+import app.cash.sqldelight.db.QueryResult
 import info.anodsplace.evtimer.db.ChargingDatabase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -388,6 +392,30 @@ class ManualBackupTest {
         assertEquals(included + excluded.keys, keys)
     }
 
+    @Test
+    fun largeHistoryUsesConstantExportQueryCountAndNoReadBeforeDelete() = runTest {
+        val presets = (0 until 50).map {
+            sample.presets.first().copy(id = "preset-$it", name = "Preset $it", position = it.toLong())
+        }
+        val sessions = (0 until 2_000).map {
+            sample.sessions.first().copy(id = it.toLong(), reviewed = true)
+        }
+        val large = sample.copy(preferences = BackupPreferences("preset-0", 25f), presets = presets, sessions = sessions)
+        fixture { f ->
+            f.repo.observeSettings().first()
+            f.queryCount = 0
+            f.repo.restoreBackup(large)
+            assertEquals(1, f.queryCount, "Only the running-session guard reads SQL during a valid-selection import")
+            f.queryCount = 0
+            val exported = f.repo.exportBackup("test")
+            assertEquals(4, f.queryCount, "Export must not issue a query per preset or history row")
+            val decoded = BackupFormat.decode(BackupFormat.encode(exported))
+            assertEquals(exported, decoded)
+            assertEquals(2_000, decoded.sessions.size)
+            assertEquals(4_000, decoded.sessions.sumOf { it.segments.size })
+        }
+    }
+
     private class Fixture {
         val file = Files.createTempFile("evtimer-manual-backup", ".preferences_pb").toFile()
         val job = Job()
@@ -402,8 +430,21 @@ class ManualBackupTest {
                 return delegate.updateData(transform)
             }
         }
-        val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY,
+        private val sqlite = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY,
             Properties().apply { setProperty("foreign_keys", "true") }, ChargingDatabase.Schema)
+        var queryCount = 0
+        val driver = object : SqlDriver by sqlite {
+            override fun <R> executeQuery(
+                identifier: Int?,
+                sql: String,
+                mapper: (SqlCursor) -> QueryResult<R>,
+                parameters: Int,
+                binders: (SqlPreparedStatement.() -> Unit)?
+            ): QueryResult<R> {
+                queryCount++
+                return sqlite.executeQuery(identifier, sql, mapper, parameters, binders)
+            }
+        }
         val database = ChargingDatabase(driver)
         val clock = object : Clock { override fun now() = Instant.fromEpochMilliseconds(1_000_000) }
         fun repository() = ChargingRepositoryImpl(store, database, clock, LocalStorageRestoreState)
