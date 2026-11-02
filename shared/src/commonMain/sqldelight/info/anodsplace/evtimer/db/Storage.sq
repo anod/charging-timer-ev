@@ -143,7 +143,7 @@ clearBackupSessions:
 DELETE FROM charge_session;
 
 clearBackupPresets:
-DELETE FROM preset WHERE id != 'custom';
+DELETE FROM preset;
 
 importBackupSession:
 INSERT INTO charge_session(id, battery_capacity, start_percent, target_percent, efficiency,

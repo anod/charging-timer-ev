@@ -108,6 +108,12 @@ current create/rename policy (trimmed, case-insensitively unique, at most 32
 Unicode code points) still applies to new names entered in the UI.
 
 Restore is disabled while charging and checked again under the repository mutex.
+Restore reproduces the file's nonempty preset set, ordering and stored names
+exactly, independently of destination presets. An included `custom` identity may
+have been renamed; if absent, it is not retained or recreated. This follows the
+owner's explicit replace-all decision and supersedes the original protected-Custom
+wording in issue #42. An unknown selected preset falls back to the first imported
+preset in the app's normal ordering (`position`, name, id).
 After confirmation, all SQL replacement writes execute in one transaction;
 any row failure rolls back deletions and inserts. DataStore preferences apply
 only after SQL commits. SQL and DataStore cannot share a transaction: a later

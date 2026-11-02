@@ -439,17 +439,6 @@ class ChargingRepositoryImpl(
                         queries.setPresetPosition(it.position, it.id)
                         it.powerOptions.forEachIndexed { index, power -> queries.putOption(it.id, index.toLong(), power) }
                     }
-                    if (backup.presets.none { it.id == CUSTOM_ID }) {
-                        val existing = queries.presetById(CUSTOM_ID).executeAsOneOrNull()
-                        if (existing == null) {
-                            val name = generateSequence(0) { it + 1 }
-                                .map { if (it == 0) "Default" else "Default (restored $it)" }
-                                .first { candidate -> backup.presets.none { it.name.equals(candidate, ignoreCase = true) } }
-                            putPreset(ChargingPreset(CUSTOM_ID, name, ChargingSettings.DEFAULT))
-                        } else {
-                            queries.putOption(CUSTOM_ID, 0, existing.charging_power)
-                        }
-                    }
                     backup.sessions.forEach {
                         queries.importBackupSession(it.id, it.batteryCapacity, it.startPercent, it.targetPercent,
                             it.efficiency, it.presetId, it.presetName,
@@ -462,7 +451,8 @@ class ChargingRepositoryImpl(
                 try {
                     dataStore.edit {
                         it[SessionPreferences.selectedPreset] = backup.preferences.selectedPresetId
-                            .takeIf { id -> backup.presets.any { preset -> preset.id == id } } ?: CUSTOM_ID
+                            .takeIf { id -> backup.presets.any { preset -> preset.id == id } }
+                            ?: queries.allPresets().executeAsList().first().id
                         it[SessionPreferences.startPercent] = backup.preferences.startPercent
                         it[SessionPreferences.notifyAt80] = backup.preferences.notifyAt80
                         it.remove(SessionPreferences.draftPreset)

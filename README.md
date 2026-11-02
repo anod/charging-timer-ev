@@ -211,6 +211,8 @@ before uninstalling; save the file somewhere that survives app removal.
 The app suggests `ev-charging-timer-YYYY-MM-DD.json`. Restore shows the export
 date, app version and preset/session counts before replacing local presets,
 history and simple preferences. Stop any running timer first. No timer resumes,
+and the preset set, order and stored names come exactly from the file (a deleted
+Default preset is not recreated). An invalid selection falls back to the first preset,
 and imported history does not reopen a completion summary or alert.
 The file is **plain text and not encrypted**; choose a trusted location.
 The app never uploads it. Cancel leaves data unchanged; invalid files are

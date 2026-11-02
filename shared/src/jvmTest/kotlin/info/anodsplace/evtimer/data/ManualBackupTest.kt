@@ -72,43 +72,6 @@ class ManualBackupTest {
                     target.repo.saveSession(ChargingSession())
                 }
 
-                @Test
-                fun legacyNamesRemainExportableAndRoundTripWithoutRenamingOrTruncation() = runTest {
-                    fixture { source ->
-                        source.repo.observeSettings().first()
-                        val names = listOf("a".repeat(33), "Default", "Home", "hOME", "  Legacy  ")
-                        names.forEachIndexed { index, name ->
-                            val id = "legacy-$index"
-                            source.database.storageQueries.putPreset(id, name, 60.0, 7.0, 80.0)
-                            source.database.storageQueries.putOption(id, 0, 7.0)
-                        }
-
-                        @Test
-                        fun missingCustomAndCollidingDefaultNamesRemainRestorableAndExportable() = runTest {
-                            val names = listOf("Default", "Default (restored)", "Default (restored) (restored)")
-                            val presets = names.mapIndexed { index, name ->
-                                BackupPreset("import-$index", name, 60.0, 7.0, 80.0, listOf(7.0), index.toLong())
-                            }
-                            val input = sample.copy(preferences = BackupPreferences("import-0", 20f), presets = presets, sessions = emptyList())
-                            for (destinationHasCustom in listOf(false, true)) fixture { f ->
-                                f.repo.savePreset(ChargingPreset("existing", "Existing", ChargingSettings.DEFAULT))
-                                if (!destinationHasCustom) f.repo.deletePreset("custom")
-                                f.repo.restoreBackup(input)
-                                val exported = BackupFormat.decode(BackupFormat.encode(f.repo.exportBackup("test")))
-                                assertEquals(presets, exported.presets.filter { it.id.startsWith("import-") })
-                                assertFalse(exported.presets.any { it.id == "existing" })
-                            }
-                        }
-                        val exported = source.repo.exportBackup("test")
-                        fixture { target ->
-                            target.repo.restoreBackup(sample)
-                            target.repo.restoreBackup(BackupFormat.decode(BackupFormat.encode(exported)))
-                            assertEquals(exported, target.repo.exportBackup("test"))
-                            assertEquals(names, target.repo.observePresets().first()
-                                .filter { it.id.startsWith("legacy-") }.sortedBy { it.id }.map { it.name })
-                        }
-                    }
-                }
                 target.repo.restoreBackup(BackupFormat.decode(BackupFormat.encode(exported)))
                 assertEquals(exported, target.repo.exportBackup("test"))
                 assertEquals(1, target.database.storageQueries.allPresets().executeAsList().count { it.id == "custom" })
@@ -151,38 +114,15 @@ class ManualBackupTest {
             assertNull(f.database.storageQueries.activeSession().executeAsOneOrNull())
         }
 
-        @Test
-        @OptIn(ExperimentalCoroutinesApi::class)
-        fun restoredUnreviewedHistoryDoesNotReopenEndScreenOnRestart() = runTest {
-            Dispatchers.setMain(StandardTestDispatcher(testScheduler))
-            try {
-                fixture { f ->
-                    f.repo.restoreBackup(sample.copy(sessions = sample.sessions.map { it.copy(reviewed = false) }))
-                    val restarted = f.repository()
-                    val scope = CoroutineScope(Dispatchers.Default + Job())
-                    val navigation = NavigationViewModel(ChargingServiceImpl(restarted, scope, f.clock), restarted)
-                    try {
-                        assertEquals(listOf(Destination.Config), navigation.backStack.first { it.isNotEmpty() })
-                        assertNull(navigation.summary.value)
-                        assertFalse(restarted.observeHistory().first().last().reviewed)
-                    } finally {
-                        navigation.viewModelScope.cancel()
-                        scope.coroutineContext[Job]!!.cancelAndJoin()
-                    }
-                }
-            } finally {
-                Dispatchers.resetMain()
-            }
-        }
     }
 
     @Test
-    fun unknownSelectionFallsBackToCustomAndOldDraftIsCleared() = runTest {
+    fun unknownSelectionFallsBackToFirstPresetAndOldDraftIsCleared() = runTest {
         fixture { f ->
             f.repo.restoreBackup(sample)
             f.repo.restoreBackup(sample.copy(preferences = BackupPreferences("missing", 30f)))
             val config = f.repo.observeConfiguration().first()
-            assertEquals("custom", config.selectedId)
+            assertEquals("home", config.selectedId)
             assertEquals(30f, config.settings.startPercent)
             assertFalse(config.isEdited)
             assertNull(f.store.data.first()[SessionPreferences.draftPreset])
@@ -289,22 +229,97 @@ class ManualBackupTest {
                 f.repo.restoreBackup(sample.copy(sessions = sample.sessions.dropLast(1) + last))
             }
 
-            @Test
-            fun preferencesFailureAfterCommitIsExplicitlyReportedAsPartialRestore() = runTest {
-                fixture { f ->
-                    f.repo.observeSettings().first()
-                    val before = f.store.data.first()
-                    f.failPreferenceWrites = true
-                    val error = assertFailsWith<BackupException> { f.repo.restoreBackup(sample) }
-                    assertEquals(BackupError.PREFERENCES, error.error)
-                    assertEquals(sample.sessions.map { it.id }, f.database.storageQueries.backupSessions().executeAsList().map { it.id })
-                    assertEquals(before, f.store.data.first())
-                    assertNull(f.database.storageQueries.latestSession().executeAsOneOrNull())
-                }
-            }
             assertEquals(before, f.repo.exportBackup("test"))
             assertEquals(prefs, f.store.data.first())
             assertEquals(current, f.repo.observeSession().first())
+        }
+    }
+
+    @Test
+    fun legacyNamesRemainExportableAndRoundTripWithoutRenamingOrTruncation() = runTest {
+        fixture { source ->
+            source.repo.observeSettings().first()
+            val names = listOf("a".repeat(33), "Default", "Home", "hOME", "  Legacy  ")
+            names.forEachIndexed { index, name ->
+                val id = "legacy-$index"
+                source.database.storageQueries.putPreset(id, name, 60.0, 7.0, 80.0)
+                source.database.storageQueries.putOption(id, 0, 7.0)
+            }
+            val exported = source.repo.exportBackup("test")
+            for (populated in listOf(false, true)) fixture { target ->
+                if (populated) target.repo.restoreBackup(sample)
+                target.repo.restoreBackup(BackupFormat.decode(BackupFormat.encode(exported)))
+                assertEquals(exported, target.repo.exportBackup("test"))
+                assertEquals(names, target.repo.observePresets().first()
+                    .filter { it.id.startsWith("legacy-") }.sortedBy { it.id }.map { it.name })
+            }
+        }
+    }
+
+    @Test
+    fun deletedOrRenamedCustomRestoresExactlyIntoEmptyAndPopulatedDatabases() = runTest {
+        val renamed = sample.presets.map { if (it.id == "custom") it.copy(name = "Renamed") else it }
+        val deleted = listOf(
+            BackupPreset("not-custom", "Default", 60.0, 7.0, 80.0, listOf(7.0), 2),
+            BackupPreset("first", "First", 70.0, 11.0, 90.0, listOf(11.0, 7.0), -1)
+        )
+        for (presets in listOf(renamed, deleted)) {
+            val input = sample.copy(preferences = BackupPreferences("missing", 20f), presets = presets, sessions = emptyList())
+            for (populated in listOf(false, true)) fixture { target ->
+                if (populated) {
+                    target.repo.restoreBackup(sample)
+                    target.repo.savePreset(ChargingPreset("existing", "Existing", ChargingSettings.DEFAULT))
+                }
+                target.repo.restoreBackup(BackupFormat.decode(BackupFormat.encode(input)))
+                val expected = presets.sortedBy { it.position }
+                assertEquals(expected, target.repo.exportBackup("test").presets)
+                assertEquals(expected.first().id, target.repo.observeConfiguration().first().selectedId)
+                val exported = target.repository().exportBackup("test")
+                assertEquals(expected, exported.presets)
+                assertEquals(expected.first().id, exported.preferences.selectedPresetId)
+                fixture { roundTrip ->
+                    roundTrip.repo.restoreBackup(BackupFormat.decode(BackupFormat.encode(exported)))
+                    assertEquals(exported, roundTrip.repo.exportBackup("test"))
+                }
+            }
+        }
+    }
+
+    @Test
+    @OptIn(ExperimentalCoroutinesApi::class)
+    fun restoredUnreviewedHistoryDoesNotReopenEndScreenOnRestart() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        try {
+            fixture { f ->
+                f.repo.restoreBackup(sample.copy(sessions = sample.sessions.map { it.copy(reviewed = false) }))
+                val restarted = f.repository()
+                val scope = CoroutineScope(Dispatchers.Default + Job())
+                val navigation = NavigationViewModel(ChargingServiceImpl(restarted, scope, f.clock), restarted)
+                try {
+                    assertEquals(listOf(Destination.Config), navigation.backStack.first { it.isNotEmpty() })
+                    assertNull(navigation.summary.value)
+                    assertFalse(restarted.observeHistory().first().last().reviewed)
+                } finally {
+                    navigation.viewModelScope.cancel()
+                    scope.coroutineContext[Job]!!.cancelAndJoin()
+                }
+            }
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
+    fun preferencesFailureAfterCommitIsExplicitlyReportedAsPartialRestore() = runTest {
+        fixture { f ->
+            f.repo.observeSettings().first()
+            val before = f.store.data.first()
+            f.failPreferenceWrites = true
+            val error = assertFailsWith<BackupException> { f.repo.restoreBackup(sample) }
+            assertEquals(BackupError.PREFERENCES, error.error)
+            assertEquals(sample.sessions.map { it.id }, f.database.storageQueries.backupSessions().executeAsList().map { it.id })
+            assertEquals(before, f.store.data.first())
+            assertNull(f.database.storageQueries.latestSession().executeAsOneOrNull())
         }
     }
 
