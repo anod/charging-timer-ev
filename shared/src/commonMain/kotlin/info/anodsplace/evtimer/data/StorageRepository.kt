@@ -375,13 +375,13 @@ class ChargingRepositoryImpl(
             require(queries.history().executeAsList().any { it.id == id }) { "Unknown completed session: $id" }
             queries.reviewSession(actualPercent?.toDouble(), reviewed, id)
         }
+    }
 
-        override suspend fun deleteSession(id: Long) {
-            transaction {
-                require(queries.history().executeAsList().any { it.id == id }) { "Unknown completed session: $id" }
-                queries.detachHistorySession(id)
-                queries.deleteHistorySession(id)
-            }
+    override suspend fun deleteSession(id: Long) {
+        transaction {
+            require(queries.history().executeAsList().any { it.id == id }) { "Unknown completed session: $id" }
+            queries.detachHistorySession(id)
+            queries.deleteHistorySession(id)
         }
     }
 
