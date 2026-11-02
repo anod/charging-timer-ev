@@ -1,5 +1,17 @@
 <resources>
     <string name="app_title">Charging Timer for EV</string>
+    <string name="summary_title">Charge summary</string>
+    <string name="summary_percent">%1$s% → %2$s%</string>
+    <string name="summary_energy">Energy added</string>
+    <string name="summary_average">Average power</string>
+    <string name="summary_speeds">Charging speeds</string>
+    <string name="summary_done">Done</string>
+    <string name="summary_share">Share</string>
+    <string name="summary_copied">Summary copied</string>
+    <string name="summary_share_failed">Could not share summary</string>
+    <string name="summary_unknown">Unknown</string>
+    <string name="summary_interrupted">Interrupted by restore · end time unknown</string>
+    <string name="summary_share_text">⚡ Charged %1$s% → %2$s% · %3$s kWh · %4$s · avg %5$s kW</string>
     <string name="default_preset">Default</string>
     <string name="preset_name_too_long">Preset name must be at most %1$d Unicode code points</string>
     <string name="preset_name_exists">A preset with this name already exists</string>

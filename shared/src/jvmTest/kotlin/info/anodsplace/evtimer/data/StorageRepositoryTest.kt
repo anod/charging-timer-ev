@@ -483,6 +483,23 @@ class StorageRepositoryTest {
     }
 
     @Test
+    fun earlyStopSummaryAndReviewPersistAcrossRepositoryRestart() = runTest {
+        fixture { f ->
+            val snapshot = ChargingSessionSnapshot.from(ChargingSettings(60f, 12f, 20f, 80f), f.now - 3_600_000L)
+            f.repo.saveSession(ChargingSession(true, snapshot))
+            f.repo.saveSession(ChargingSession(false, snapshot))
+            val entry = f.repository().observeHistory().first().single()
+            assertFalse(entry.reviewed)
+            assertEquals(f.now, entry.endedAt)
+            assertEquals(40f, entry.endPercent)
+            assertEquals(12f, entry.summary().energyKwh)
+            assertEquals(12f, entry.summary().averageKw)
+            f.repo.reviewSession(entry.id, null, true)
+            assertTrue(f.repository().observeHistory().first().single().reviewed)
+        }
+    }
+
+    @Test
     fun stoppingRetainsSnapshotAndHistoryCanBeReviewed() = runTest {
         fixture { f ->
             val snapshot = ChargingSessionSnapshot.from(ChargingSettings.DEFAULT, 123L)
@@ -490,8 +507,11 @@ class StorageRepositoryTest {
             f.repo.saveSession(ChargingSession(false, snapshot))
             assertEquals(ChargingSession(false, snapshot), f.repo.observeSession().first())
             val entry = f.repo.observeHistory().first().single()
-            assertEquals(f.now, entry.endedAt)
-            assertEquals(ChargingCalculator.percentAt(snapshot, f.now), entry.endPercent)
+            val targetTime = snapshot.startTime + kotlin.math.ceil(
+                ChargingCalculator.minutesToReach(snapshot, snapshot.startTime, snapshot.targetPercent) * 60_000.0
+            ).toLong()
+            assertEquals(targetTime, entry.endedAt)
+            assertEquals(snapshot.targetPercent, entry.endPercent)
             assertEquals(snapshot, entry.snapshot)
             assertFalse(entry.reviewed)
             f.repo.reviewSession(entry.id, 62f, true)

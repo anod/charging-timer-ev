@@ -3,6 +3,10 @@ package info.anodsplace.evtimer.ui
 import androidx.lifecycle.viewModelScope
 import info.anodsplace.evtimer.data.ChargingService
 import info.anodsplace.evtimer.data.ChargingStatus
+import info.anodsplace.evtimer.data.ChargingHistoryEntry
+import info.anodsplace.evtimer.data.ChargingSessionSnapshot
+import info.anodsplace.evtimer.data.ChargingSettings
+import info.anodsplace.evtimer.data.TestHistoryRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancel
@@ -23,7 +27,7 @@ class NavigationViewModelTest {
     @Test
     fun loadingNeverSeedsConfigBeforeRestoringActiveRunning() = withNavigation { navigation, service ->
         service.status.value = ChargingStatus()
-        val coldStart = NavigationViewModel(service)
+        val coldStart = NavigationViewModel(service, TestHistoryRepository())
         try {
             runCurrent()
             assertEquals(emptyList(), coldStart.backStack.value)
@@ -77,7 +81,7 @@ class NavigationViewModelTest {
     @Test
     fun futureDestinationsPopInOrderAndStoppingClearsStaleScreens() = withNavigation(active = true) { navigation, service ->
         runCurrent()
-        val futureScreens = listOf(Destination.EndSummary, Destination.History, Destination.Settings, Destination.PresetEditor)
+        val futureScreens = listOf(Destination.History, Destination.Settings, Destination.PresetEditor)
         futureScreens.forEach(navigation::navigate)
         futureScreens.reversed().forEach {
             assertEquals(it, navigation.backStack.value.last())
@@ -95,12 +99,69 @@ class NavigationViewModelTest {
     ) = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val service = NavigationTestService(active)
-        val navigation = NavigationViewModel(service)
+        val navigation = NavigationViewModel(service, TestHistoryRepository())
         try {
+            runCurrent()
             block(navigation, service)
         } finally {
             navigation.viewModelScope.cancel()
             Dispatchers.resetMain()
+        }
+
+        @Test
+        fun unreviewedSummarySurvivesRelaunchUntilDoneOrBack() = runTest {
+            Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+            val entry = ChargingHistoryEntry(
+                1L, ChargingSessionSnapshot.from(ChargingSettings(), 1L), 60_001L, 21f, null, false
+            )
+            val history = TestHistoryRepository(listOf(entry))
+            val service = NavigationTestService(false)
+            var navigation = NavigationViewModel(service, history)
+            try {
+                runCurrent()
+                assertEquals(listOf(Destination.Config, Destination.EndSummary), navigation.backStack.value)
+                assertEquals(entry, navigation.summary.value)
+                assertFalse(history.entries.value.single().reviewed)
+                navigation.viewModelScope.cancel()
+                navigation = NavigationViewModel(service, history)
+                runCurrent()
+                assertEquals(Destination.EndSummary, navigation.backStack.value.last())
+                assertTrue(navigation.onBack())
+                runCurrent()
+                assertTrue(history.entries.value.single().reviewed)
+                assertEquals(listOf(Destination.Config), navigation.backStack.value)
+                navigation.viewModelScope.cancel()
+                navigation = NavigationViewModel(service, history)
+                runCurrent()
+                assertEquals(listOf(Destination.Config), navigation.backStack.value)
+            } finally {
+                navigation.viewModelScope.cancel()
+                Dispatchers.resetMain()
+            }
+        }
+
+        @Test
+        fun activeTimerWinsUntilSavedStopThenSummaryOpens() = runTest {
+            Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+            val history = TestHistoryRepository()
+            val service = NavigationTestService(true)
+            val navigation = NavigationViewModel(service, history)
+            try {
+                runCurrent()
+                history.entries.value = listOf(ChargingHistoryEntry(
+                    1L, ChargingSessionSnapshot.from(ChargingSettings(), 1L), 60_001L, null, null, false,
+                    interrupted = true
+                ))
+                runCurrent()
+                assertEquals(Destination.Running, navigation.backStack.value.last())
+                service.stop()
+                runCurrent()
+                assertEquals(Destination.EndSummary, navigation.backStack.value.last())
+                assertTrue(requireNotNull(navigation.summary.value).interrupted)
+            } finally {
+                navigation.viewModelScope.cancel()
+                Dispatchers.resetMain()
+            }
         }
     }
 }

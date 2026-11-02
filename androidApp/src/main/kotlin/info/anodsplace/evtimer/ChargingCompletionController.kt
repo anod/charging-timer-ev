@@ -6,6 +6,8 @@ import android.content.Context
 import android.content.Intent
 import info.anodsplace.evtimer.data.ChargingService
 import info.anodsplace.evtimer.data.ChargingRepository
+import info.anodsplace.evtimer.data.ChargingHistoryRepository
+import info.anodsplace.evtimer.data.reachedTarget
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.combine
@@ -14,7 +16,8 @@ class ChargingCompletionController(
     context: Context,
     chargingService: ChargingService,
     repository: ChargingRepository,
-    scope: CoroutineScope
+    scope: CoroutineScope,
+    history: ChargingHistoryRepository
 ) {
     init {
         val alarmManager = context.getSystemService(AlarmManager::class.java)
@@ -31,13 +34,19 @@ class ChargingCompletionController(
         scope.launch {
             var scheduledEta = 0L
             var scheduledMilestone = 0L
-            combine(chargingService.status, repository.observeNotifyAt80()) { status, notifyAt80 ->
-                status to notifyAt80
-            }.collect { (status, notifyAt80) ->
+            var notifiedSession: Long? = null
+            combine(chargingService.status, repository.observeNotifyAt80(), history.observeHistory()) { status, notifyAt80, entries ->
+                Triple(status, notifyAt80, entries.firstOrNull())
+            }.collect { (status, notifyAt80, latest) ->
                 if (status.isLoading) return@collect
                 if (!status.isRunning) {
                     alarmManager.cancel(operation)
-                    notifier.cancel()
+                    if (latest != null && !latest.reviewed && latest.reachedTarget) {
+                        if (notifiedSession != latest.id) {
+                            notifier.post()
+                            notifiedSession = latest.id
+                        }
+                    } else notifier.cancel()
                     scheduledEta = 0L
                 } else if (status.estimatedEndTime > System.currentTimeMillis() &&
                     status.estimatedEndTime != scheduledEta

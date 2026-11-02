@@ -18,6 +18,9 @@ import androidx.navigation3.ui.NavDisplay
 import info.anodsplace.evtimer.data.ConfigurationViewModel
 import info.anodsplace.evtimer.data.RunningViewModel
 import info.anodsplace.evtimer.data.SettingsViewModel
+import info.anodsplace.evtimer.data.ShareService
+import info.anodsplace.evtimer.data.summary
+import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 
 @Composable
@@ -77,6 +80,18 @@ fun ChargingTimerApp(
                                         onOpenLicenses = { navigation.navigate(Destination.Licenses) },
                                         modifier = modifier.windowInsetsPadding(WindowInsets.systemBars)
                                     )
+                                }
+                                Destination.EndSummary -> {
+                                    val entry by navigation.summary.collectAsState()
+                                    entry?.let {
+                                        val shareService = koinInject<ShareService>()
+                                        EndSummaryScreen(
+                                            summary = it.summary(),
+                                            onShare = shareService::share,
+                                            onDone = { navigation.onBack() },
+                                            modifier = modifier.windowInsetsPadding(WindowInsets.systemBars)
+                                        )
+                                    }
                                 }
                                 Destination.Licenses -> LicensesScreen(
                                     onBack = { navigation.onBack() },

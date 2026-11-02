@@ -14,6 +14,7 @@ import info.anodsplace.evtimer.data.LocalStorageRestoreState
 import info.anodsplace.evtimer.data.StorageRestoreState
 
 actual val platformModule: Module = module {
+    single { info.anodsplace.evtimer.data.ShareService() }
     single<StorageRestoreState> { LocalStorageRestoreState }
     single<SqlDriver> {
         val os = System.getProperty("os.name").lowercase()

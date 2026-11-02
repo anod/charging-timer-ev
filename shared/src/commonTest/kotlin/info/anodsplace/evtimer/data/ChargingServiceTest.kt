@@ -197,7 +197,7 @@ class ChargingServiceTest {
     }
 
     @Test
-    fun completedSessionKeepsTargetAndOriginalEta() = runTest {
+    fun restoredCompletedSessionIsSavedAsStoppedOnce() = runTest {
         val repo = FakeChargingRepository()
         val clock = FakeClock()
         val start = clock.milliseconds - 181 * 60_000L
@@ -205,11 +205,34 @@ class ChargingServiceTest {
         val service = ChargingServiceImpl(repo, backgroundScope, clock)
         runCurrent()
         val status = service.status.value
-        assertTrue(status.isRunning)
-        assertEquals(0, status.calculation.timeRemainingMinutes)
-        assertEquals(80f, status.currentPercent)
-        assertEquals(80f, status.targetPercent)
-        assertEquals(start + 180 * 60_000L, status.estimatedEndTime)
+        assertFalse(status.isRunning)
+        assertFalse(repo.session.value.isRunning)
+        assertEquals(start, repo.session.value.startTime)
+        assertEquals(2, repo.writes)
+        service.refresh()
+        runCurrent()
+        assertEquals(2, repo.writes)
+    }
+
+    @Test
+    fun tickerSavesCompletionAtTargetWithoutStopInput() = runTest {
+        val epoch = 1_800_000_000_000L
+        val clock = object : Clock {
+            override fun now() = Instant.fromEpochMilliseconds(epoch + testScheduler.currentTime)
+        }
+        val repo = FakeChargingRepository()
+        repo.settings.value = ChargingSettings(60f, 360f, 79f, 80f)
+        val service = ChargingServiceImpl(repo, backgroundScope, clock)
+        runCurrent()
+        service.start()
+        runCurrent()
+        advanceTimeBy(5_999L)
+        runCurrent()
+        assertTrue(service.status.value.isRunning)
+        advanceTimeBy(1L)
+        runCurrent()
+        assertFalse(service.status.value.isRunning)
+        assertEquals(2, repo.writes)
     }
 
     @Test

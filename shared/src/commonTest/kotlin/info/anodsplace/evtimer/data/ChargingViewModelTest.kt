@@ -58,7 +58,7 @@ class ChargingViewModelTest {
         val service = ChargingServiceImpl(repository, backgroundScope, clock)
         val running = RunningViewModel(repository, service, ClockTimeFormatter { "ETA:$it" })
         val config = ConfigurationViewModel(repository, service, repository)
-        val navigation = NavigationViewModel(service)
+        val navigation = NavigationViewModel(service, TestHistoryRepository())
         try {
             runCurrent()
             service.start()

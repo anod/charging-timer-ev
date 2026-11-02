@@ -18,6 +18,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlin.time.Clock
+import kotlin.math.ceil
 
 data class ChargingPreset(val id: String, val name: String, val settings: ChargingSettings)
 
@@ -314,8 +315,14 @@ class ChargingRepositoryImpl(
         transaction {
             val active = queries.activeSession().executeAsOneOrNull()
             if (!session.isRunning || (active != null && active.id != session.startTime)) {
-                val now = clock.now().toEpochMilliseconds()
-                queries.finishSession(now, active?.let { ChargingCalculator.percentAt(snapshot(it), now).toDouble() })
+                if (active != null) {
+                    val saved = snapshot(active)
+                    val targetTime = saved.startTime + ceil(
+                        ChargingCalculator.minutesToReach(saved, saved.startTime, saved.targetPercent) * 60_000.0
+                    ).toLong()
+                    val end = minOf(clock.now().toEpochMilliseconds(), targetTime).coerceAtLeast(saved.startTime)
+                    queries.finishSession(end, ChargingCalculator.percentAt(saved, end).toDouble())
+                }
             }
             if (session.snapshot != null) putSession(session) else queries.setCurrentSession(null)
         }
