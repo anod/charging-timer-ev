@@ -25,6 +25,46 @@ import kotlin.time.Instant
 @OptIn(ExperimentalCoroutinesApi::class)
 class ChargingViewModelTest {
     @Test
+    fun completedPresentationSurvivesStoppedStatusAndSettingsDuringSummaryHandoff() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val repository = ViewModelTestRepository(ChargingSettings(60f, 150f, 75f, 80f))
+        val snapshot = ChargingSessionSnapshot.from(repository.observeSettings().value, 100_000L)
+        val service = ViewModelTestService().apply {
+            status.value = ChargingStatus(
+                isLoading = false, isRunning = true, startTime = snapshot.startTime,
+                snapshot = snapshot, estimatedEndTime = 172_000L, evaluatedAt = 172_000L,
+                calculation = ChargingCalculation(0, 80f, 150f), elapsedMinutes = 1
+            )
+        }
+        val viewModel = RunningViewModel(repository, service, ClockTimeFormatter { "ETA:$it" })
+        try {
+            runCurrent()
+            val completed = viewModel.viewState
+            assertTrue(completed.isFinished)
+            assertEquals(80f, completed.calculation.estimatedPercent)
+            service.status.value = ChargingStatus(isLoading = false, startTime = snapshot.startTime)
+            repository.saveSettings(ChargingSettings(100f, 7f, 20f, 90f))
+            runCurrent()
+            assertFalse(service.status.value.isRunning)
+            assertEquals(completed, viewModel.viewState)
+            assertEquals(1, viewModel.viewState.elapsedMinutes)
+            assertEquals(0, viewModel.viewState.calculation.timeRemainingMinutes)
+            assertEquals(80f, viewModel.viewState.calculation.estimatedPercent)
+            service.status.value = ChargingStatus(
+                isLoading = false, isRunning = true, startTime = 200_000L,
+                snapshot = snapshot.copy(segments = listOf(PowerSegment(200_000L, 150f))),
+                estimatedEndTime = 272_000L, calculation = ChargingCalculation(2, 75f, 150f)
+            )
+            runCurrent()
+            assertEquals(200_000L, viewModel.viewState.startTime)
+            assertEquals(75f, viewModel.viewState.calculation.estimatedPercent)
+        } finally {
+            viewModel.viewModelScope.cancel()
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
     fun powerRemovalUpdatesSelectionAndRejectsMissingAndLastOptions() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val initial = ChargingSettings.DEFAULT.copy(availablePowers = listOf(7f, 11f))
@@ -82,7 +122,7 @@ class ChargingViewModelTest {
             assertEquals(Destination.Config, navigation.backStack.value.last())
             service.stop()
             runCurrent()
-            assertEquals(config.viewState.settings, running.viewState.settings)
+            assertEquals(before.settings, running.viewState.settings)
         } finally {
             running.viewModelScope.cancel()
             config.viewModelScope.cancel()
@@ -132,7 +172,7 @@ class ChargingViewModelTest {
     }
 
     @Test
-    fun runningScreenSettingsComeFromSnapshotUntilStopped() = runTest {
+    fun runningScreenSettingsComeFromSnapshotThroughStopHandoff() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val repository = ViewModelTestRepository()
         val snapshot = ChargingSessionSnapshot.from(ChargingSettings(60f, 12f, 20f, 80f), 123L)
@@ -158,11 +198,10 @@ class ChargingViewModelTest {
             assertEquals(100f, repository.savedSettings.last().batteryCapacity)
             assertEquals(40f, repository.savedSettings.last().startPercent)
             assertEquals(90f, repository.savedSettings.last().maxPercent)
+            val beforeStop = viewModel.viewState
             service.status.value = ChargingStatus(isLoading = false)
             runCurrent()
-            assertEquals(100f, viewModel.viewState.settings.batteryCapacity)
-            assertEquals(22f, viewModel.viewState.settings.chargingPower)
-            assertEquals(90f, viewModel.viewState.settings.maxPercent)
+            assertEquals(beforeStop, viewModel.viewState)
         } finally {
             config.viewModelScope.cancel()
             viewModel.viewModelScope.cancel()
@@ -225,7 +264,7 @@ class ChargingViewModelTest {
     }
 
     @Test
-    fun formatsEtaUpdatesAndClearsItWhenStopped() = runTest {
+    fun formatsEtaUpdatesAndPreservesItDuringStopHandoff() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val repository = ViewModelTestRepository()
         val service = ViewModelTestService()
@@ -254,7 +293,7 @@ class ChargingViewModelTest {
 
             service.status.value = ChargingStatus(isLoading = false)
             runCurrent()
-            assertEquals("", viewModel.viewState.estimatedEndTimeText)
+            assertEquals("4:05 PM", viewModel.viewState.estimatedEndTimeText)
             assertEquals(listOf(60_000L, 120_000L), formattedTimes)
         } finally {
             viewModel.viewModelScope.cancel()
@@ -296,8 +335,8 @@ class ChargingViewModelTest {
 
             service.status.value = ChargingStatus(isLoading = false)
             runCurrent()
-            assertEquals(null, viewModel.viewState.milestoneEstimate)
-            assertEquals("", viewModel.viewState.milestoneEtaText)
+            assertEquals(estimate.copy(minutesRemaining = 0, reached = true), viewModel.viewState.milestoneEstimate)
+            assertEquals("ETA:12345", viewModel.viewState.milestoneEtaText)
         } finally {
             viewModel.viewModelScope.cancel()
             Dispatchers.resetMain()
