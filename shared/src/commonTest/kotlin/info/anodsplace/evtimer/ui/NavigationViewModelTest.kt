@@ -143,6 +143,30 @@ class NavigationViewModelTest {
     }
 
     @Test
+    fun reviewingNewestLegacySessionDoesNotOpenOlderUnreviewedSessions() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val snapshot = ChargingSessionSnapshot.from(ChargingSettings(), 1L)
+        val entries = listOf(3L, 2L, 1L).map {
+            ChargingHistoryEntry(it, snapshot, it * 60_000L, 21f, null, false)
+        }
+        val history = TestHistoryRepository(entries)
+        val navigation = NavigationViewModel(NavigationTestService(false), history)
+        try {
+            runCurrent()
+            assertEquals(3L, navigation.summary.value?.id)
+            assertEquals(Destination.EndSummary, navigation.backStack.value.last())
+            navigation.onBack()
+            runCurrent()
+            assertEquals(listOf(Destination.Config), navigation.backStack.value)
+            assertEquals(null, navigation.summary.value)
+            assertEquals(listOf(true, false, false), history.entries.value.map { it.reviewed })
+        } finally {
+            navigation.viewModelScope.cancel()
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
     fun activeTimerWinsUntilSavedStopThenSummaryOpens() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val history = TestHistoryRepository()

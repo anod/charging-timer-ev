@@ -30,7 +30,7 @@ class NavigationViewModel(
             combine(service.status, history.observeHistory()) { status, entries -> status to entries }
                 .collect { (status, entries) ->
                     if (status.isLoading) return@collect
-                    val pending = entries.firstOrNull { !it.reviewed }.takeUnless { status.isRunning }
+                    val pending = entries.firstOrNull()?.takeIf { !it.reviewed && !status.isRunning }
                     mutableSummary.value = pending
                     if (status.isRunning != wasRunning || pending?.id != pendingId || mutableBackStack.value.isEmpty()) {
                         wasRunning = status.isRunning
