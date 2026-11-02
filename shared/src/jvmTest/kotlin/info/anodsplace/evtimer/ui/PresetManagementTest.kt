@@ -146,7 +146,8 @@ class PresetManagementTest {
         }
         val firstBounds = onNodeWithTag("preset-custom").fetchSemanticsNode().boundsInRoot
         val rowPitch = onNodeWithTag("preset-home").fetchSemanticsNode().boundsInRoot.top - firstBounds.top
-        assertTrue(rowPitch > firstBounds.height, "Segmented rows must include a gutter")
+        assertEquals(firstBounds.height / 56f, rowPitch - firstBounds.height, 0.1f,
+            "Rows are separated only by a 1dp divider")
         onNodeWithContentDescription("Drag to reorder Default", useUnmergedTree = true).performTouchInput {
             down(center)
             moveBy(Offset(0f, rowPitch * 1.5f), delayMillis = 200)
@@ -205,14 +206,14 @@ class PresetManagementTest {
     }
 
     @Test
-    fun segmentedRowDragUsesPitchIncludingGutter() {
+    fun dividedRowDragUsesPitchIncludingDivider() {
         val drag = PresetDragState(listOf("a", "b", "c"))
         drag.start("a")
-        drag.drag(29f, 58f)
+        drag.drag(28.5f, 57f)
         assertEquals(listOf("a", "b", "c"), drag.order)
-        drag.drag(1f, 58f)
+        drag.drag(1f, 57f)
         assertEquals(listOf("b", "a", "c"), drag.order)
-        drag.drag(58f, 58f)
+        drag.drag(57f, 57f)
         assertEquals(listOf("b", "c", "a"), drag.finish())
     }
 

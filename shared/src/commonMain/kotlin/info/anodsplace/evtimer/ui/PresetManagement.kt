@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
@@ -35,7 +34,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
@@ -116,7 +114,7 @@ internal fun PresetManagement(
     var deletingId by rememberSaveable { mutableStateOf<String?>(null) }
     val dragState = remember(presets) { PresetDragState(presets.map { it.id }) }
     val commitOrder by rememberUpdatedState(onReorder)
-    val rowPitch = with(LocalDensity.current) { 58.dp.toPx() }
+    val rowPitch = with(LocalDensity.current) { 57.dp.toPx() }
     val moveUp = stringResource(Res.string.move_up)
     val moveDown = stringResource(Res.string.move_down)
     val rename = stringResource(Res.string.rename_preset)
@@ -131,11 +129,10 @@ internal fun PresetManagement(
                     Modifier.fillMaxWidth().height(56.dp)
                         .zIndex(if (dragging) 1f else 0f)
                         .offset { IntOffset(0, if (dragging) dragState.offset.roundToInt() else 0) }
-                        .shadow(if (dragging) 4.dp else 0.dp, RoundedCornerShape(4.dp))
-                        .clip(RoundedCornerShape(4.dp))
-                        .background(
-                            tonalCardContainerColor()
-                        )
+                        .then(if (dragging) Modifier
+                            .shadow(8.dp, MaterialTheme.shapes.medium)
+                            .background(tonalCardContainerColor().copy(alpha = 1f), MaterialTheme.shapes.medium)
+                        else Modifier)
                         .testTag("preset-$id")
                         .semantics(mergeDescendants = true) {
                             customActions = buildList {
@@ -178,6 +175,7 @@ internal fun PresetManagement(
                         Icon(DeletePresetIcon, stringResource(Res.string.delete_named_preset, preset.name))
                     }
                 }
+                if (index < dragState.order.lastIndex) SettingsDivider(inset = 48.dp)
             }
         }
     }

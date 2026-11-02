@@ -10,13 +10,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -26,11 +27,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Dp
 import info.anodsplace.evtimer.APP_VERSION
 import info.anodsplace.evtimer.data.ChargingPreset
 import info.anodsplace.evtimer.generated.resources.*
@@ -58,8 +59,10 @@ fun SettingsScreen(
             SettingsSection(stringResource(Res.string.settings_charging)) {
                 SettingsRow(stringResource(Res.string.settings_presets), Res.drawable.ic_presets,
                     stringResource(Res.string.settings_presets_summary), onOpenPresets)
+                SettingsDivider()
                 SettingsRow(stringResource(Res.string.history_title), Res.drawable.ic_history,
                     stringResource(Res.string.settings_history_summary), onOpenHistory)
+                SettingsDivider()
                 ListItem(
                     headlineContent = { Text(stringResource(Res.string.notify_at_80)) },
                     supportingContent = { Text(stringResource(Res.string.settings_notify_summary)) },
@@ -68,7 +71,7 @@ fun SettingsScreen(
                         Switch(checked = notifyAt80 == true, onCheckedChange = null, enabled = notifyAt80 != null)
                     },
                     colors = settingsRowColors(),
-                    modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(4.dp)).toggleable(
+                    modifier = Modifier.fillMaxWidth().toggleable(
                         value = notifyAt80 == true, enabled = notifyAt80 != null,
                         role = Role.Switch, onValueChange = onNotifyAt80Change
                     )
@@ -80,12 +83,15 @@ fun SettingsScreen(
                     supportingContent = { Text(stringResource(Res.string.settings_version, APP_VERSION)) },
                     leadingContent = { SettingsIcon(Res.drawable.ic_info) },
                     colors = settingsRowColors(),
-                    modifier = Modifier.clip(RoundedCornerShape(4.dp))
+                    modifier = Modifier.fillMaxWidth()
                 )
+                SettingsDivider()
                 SettingsRow(stringResource(Res.string.settings_source), Res.drawable.ic_code,
                     onClick = { uriHandler.openUri("https://github.com/anod/charging-timer-ev") })
+                SettingsDivider()
                 SettingsRow(stringResource(Res.string.settings_privacy), Res.drawable.ic_privacy,
                     onClick = { uriHandler.openUri("https://github.com/anod/charging-timer-ev/blob/main/docs/privacy.md") })
+                SettingsDivider()
                 SettingsRow(stringResource(Res.string.settings_oss_licenses), Res.drawable.ic_document,
                     onClick = onOpenLicenses)
             }
@@ -95,7 +101,7 @@ fun SettingsScreen(
 
 @Composable
 private fun settingsRowColors() = ListItemDefaults.colors(
-    containerColor = tonalCardContainerColor()
+    containerColor = Color.Transparent
 )
 
 @Composable
@@ -120,7 +126,7 @@ internal fun SettingsRow(
         supportingContent = supportingText?.let { { Text(it) } },
         leadingContent = { SettingsIcon(icon) },
         colors = settingsRowColors(),
-        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(4.dp))
+        modifier = Modifier.fillMaxWidth()
             .clickable(role = Role.Button, onClick = onClick)
     )
 }
@@ -180,7 +186,15 @@ internal fun SettingsPage(modifier: Modifier, content: @Composable ColumnScope.(
 
 @Composable
 internal fun SettingsGroup(content: @Composable () -> Unit) {
-    Surface(shape = RoundedCornerShape(28.dp), color = Color.Transparent, border = tonalCardBorder()) {
-        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) { content() }
+    Card(colors = tonalCardColors(), border = tonalCardBorder()) {
+        content()
     }
+}
+
+@Composable
+internal fun SettingsDivider(inset: Dp = 72.dp) {
+    HorizontalDivider(
+        modifier = Modifier.padding(start = inset),
+        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)
+    )
 }
