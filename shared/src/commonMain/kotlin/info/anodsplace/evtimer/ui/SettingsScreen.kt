@@ -47,7 +47,8 @@ fun SettingsScreen(
     onOpenLicenses: () -> Unit,
     onOpenPresets: () -> Unit,
     modifier: Modifier = Modifier,
-    onOpenHistory: () -> Unit = {}
+    onOpenHistory: () -> Unit = {},
+    backupContent: @Composable () -> Unit = {}
 ) {
     val uriHandler = LocalUriHandler.current
     SettingsPage(modifier) {
@@ -77,6 +78,7 @@ fun SettingsScreen(
                     )
                 )
             }
+            backupContent()
             SettingsSection(stringResource(Res.string.settings_about)) {
                 ListItem(
                     headlineContent = { Text(stringResource(Res.string.app_title)) },

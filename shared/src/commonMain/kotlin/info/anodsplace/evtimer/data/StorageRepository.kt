@@ -56,7 +56,7 @@ class ChargingRepositoryImpl(
     private val database: ChargingDatabase,
     private val clock: Clock,
     private val restoreState: StorageRestoreState
-) : ChargingRepository, PresetRepository, ChargingHistoryRepository {
+) : ChargingRepository, PresetRepository, ChargingHistoryRepository, ManualBackupRepository {
     private val queries = database.storageQueries
     private val mutex = Mutex()
     private var initialized = false
@@ -374,6 +374,103 @@ class ChargingRepositoryImpl(
         transaction {
             require(queries.history().executeAsList().any { it.id == id }) { "Unknown completed session: $id" }
             queries.reviewSession(actualPercent?.toDouble(), reviewed, id)
+        }
+
+        override suspend fun exportBackup(appVersion: String): ManualBackup {
+            initialize()
+            return withContext(Dispatchers.Default) {
+                mutex.withLock {
+                    val prefs = dataStore.data.first()
+                    database.transactionWithResult {
+                        ManualBackup(
+                            BackupFormat.FORMAT, BackupFormat.VERSION, clock.now().toString(), appVersion,
+                            BackupPreferences(
+                                prefs[SessionPreferences.selectedPreset] ?: CUSTOM_ID,
+                                SessionPreferences.readSettings(prefs).startPercent,
+                                prefs[SessionPreferences.notifyAt80] ?: true,
+                                prefs[SessionPreferences.draftValues]?.let(::decodePresetDraft)?.let {
+                                    BackupDraft(
+                                        requireNotNull(prefs[SessionPreferences.draftPreset]),
+                                        it.batteryCapacity, it.chargingPower, it.maxPercent, it.availablePowers
+                                    )
+                                }
+                            ),
+                            queries.allPresets().executeAsList().map {
+                                BackupPreset(it.id, it.name, it.battery_capacity, it.charging_power,
+                                    it.target_percent, queries.options(it.id).executeAsList().map { option -> option.power_kw },
+                                    it.position)
+                            },
+                            queries.backupSessions().executeAsList().map {
+                                BackupSession(it.id, it.battery_capacity, it.start_percent, it.target_percent,
+                                    it.efficiency, queries.segments(it.id).executeAsList().map { segment ->
+                                        BackupSegment(segment.started_at, segment.power_kw)
+                                    }, it.preset_id, it.preset_name, it.ended_at, it.end_percent,
+                                    it.actual_percent, it.reviewed, it.interrupted, it.preset_edited)
+                            }
+                        )
+                    }
+                }
+            }
+        }
+
+        override suspend fun restoreBackup(backup: ManualBackup) {
+            BackupFormat.validate(backup)
+            initialize()
+            withContext(Dispatchers.Default) {
+                mutex.withLock {
+                    if (queries.activeSession().executeAsOneOrNull() != null) {
+                        throw BackupException(BackupError.SESSION_RUNNING, "Stop the current session first")
+                    }
+                    val now = clock.now().toEpochMilliseconds()
+                    val newest = backup.sessions.maxWithOrNull(
+                        compareBy<BackupSession> { it.endedAt ?: maxOf(now, it.segments.last().startedAt) }.thenBy { it.id }
+                    )?.id
+                    database.transaction {
+                        queries.setCurrentSession(null)
+                        // Explicit child deletes also work with drivers that disable foreign-key enforcement.
+                        queries.allSegments().executeAsList().map { it.session_id }.distinct().forEach(queries::clearSegments)
+                        queries.clearBackupSessions()
+                        queries.allOptions().executeAsList().map { it.preset_id }.distinct().forEach(queries::clearOptions)
+                        queries.clearBackupPresets()
+                        backup.presets.forEach {
+                            queries.putPreset(it.id, it.name, it.batteryCapacity, it.chargingPower, it.targetPercent)
+                            queries.setPresetPosition(it.position, it.id)
+                            it.powerOptions.forEachIndexed { index, power -> queries.putOption(it.id, index.toLong(), power) }
+                        }
+                        if (backup.presets.none { it.id == CUSTOM_ID }) {
+                            val existing = queries.presetById(CUSTOM_ID).executeAsOneOrNull()
+                            if (existing == null) {
+                                val name = generateSequence("Default") { "$it (restored)" }
+                                    .first { candidate -> backup.presets.none { it.name.equals(candidate, ignoreCase = true) } }
+                                putPreset(ChargingPreset(CUSTOM_ID, name, ChargingSettings.DEFAULT))
+                            } else {
+                                queries.putOption(CUSTOM_ID, 0, existing.charging_power)
+                            }
+                        }
+                        backup.sessions.forEach {
+                            queries.importBackupSession(it.id, it.batteryCapacity, it.startPercent, it.targetPercent,
+                                it.efficiency, it.presetId, it.presetName,
+                                it.endedAt ?: maxOf(now, it.segments.last().startedAt),
+                                if (it.endedAt == null) null else it.endPercent, it.actualPercent,
+                                it.reviewed || it.id == newest, it.interrupted || it.endedAt == null, it.presetEdited)
+                            it.segments.forEach { segment -> queries.putSegment(it.id, segment.startedAt, segment.powerKw) }
+                        }
+                    }
+                    dataStore.edit {
+                        it[SessionPreferences.selectedPreset] = backup.preferences.selectedPresetId
+                            .takeIf { id -> backup.presets.any { preset -> preset.id == id } } ?: CUSTOM_ID
+                        it[SessionPreferences.startPercent] = backup.preferences.startPercent
+                        it[SessionPreferences.notifyAt80] = backup.preferences.notifyAt80
+                        it.remove(SessionPreferences.draftPreset)
+                        it.remove(SessionPreferences.draftValues)
+                        backup.preferences.draft?.let { draft ->
+                            it[SessionPreferences.draftPreset] = draft.presetId
+                            it[SessionPreferences.draftValues] = draft.settings(backup.preferences.startPercent).encodeDraft()
+                        }
+                        SessionPreferences.clearStructuredData(it)
+                    }
+                }
+            }
         }
     }
 

@@ -74,6 +74,7 @@ fun ChargingTimerApp(
                                         onOpenPresets = { navigation.navigate(Destination.Presets) },
                                         onBack = { navigation.onBack() },
                                         onOpenLicenses = { navigation.navigate(Destination.Licenses) },
+                                        backupContent = { BackupSettings(viewModel) },
                                         onOpenHistory = { navigation.navigate(Destination.History) },
                                         modifier = modifier.windowInsetsPadding(WindowInsets.systemBars)
                                     )

@@ -135,3 +135,17 @@ SELECT count(*) FROM storage_migration WHERE id = 1;
 
 markMigrated:
 INSERT OR IGNORE INTO storage_migration(id) VALUES (1);
+
+backupSessions:
+SELECT * FROM charge_session WHERE is_running = 0 AND ended_at IS NOT NULL ORDER BY ended_at DESC, id DESC;
+
+clearBackupSessions:
+DELETE FROM charge_session;
+
+clearBackupPresets:
+DELETE FROM preset WHERE id != 'custom';
+
+importBackupSession:
+INSERT INTO charge_session(id, battery_capacity, start_percent, target_percent, efficiency,
+preset_id, preset_name, ended_at, end_percent, actual_percent, reviewed, is_running, interrupted, preset_edited)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?);

@@ -35,6 +35,7 @@ val commonModule = module {
         bind<ChargingRepository>()
         bind<PresetRepository>()
         bind<ChargingHistoryRepository>()
+        bind<info.anodsplace.evtimer.data.ManualBackupRepository>()
     }
     singleOf(::ChargingServiceImpl) {
         bind<ChargingService>()

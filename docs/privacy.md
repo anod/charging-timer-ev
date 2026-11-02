@@ -22,6 +22,13 @@ automatically resume charging notifications.
 You can delete local data by clearing the app's storage in Android settings or
 uninstalling the app.
 
+Manual backup files are created only when you request an export in Settings and
+are saved where you choose using Android's system document picker. They contain
+presets, charging history and simple preferences as plain text JSON, **not
+encrypted**. The app never uploads them. Anyone with access to the file can read
+it, so choose a trusted location and delete files you no longer need. Restore
+reads only the document you choose and asks before replacing local data.
+
 ## Notifications and background operation
 
 Notification permission lets the app show charging estimates, remaining time,

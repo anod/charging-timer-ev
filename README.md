@@ -203,6 +203,20 @@ The [privacy policy](docs/privacy.md) is published from `docs` using GitHub Page
 
 ### Backup & restore
 
+On Android, Settings > **Backup & restore** also offers **Export backup** and
+**Restore from backup** using the system document picker. Use a manual backup
+with sideloaded or GitHub/CI APKs, before switching signing keys (which requires
+uninstalling), or to move between devices without a Google account. Export
+before uninstalling; save the file somewhere that survives app removal.
+The app suggests `ev-charging-timer-YYYY-MM-DD.json`. Restore shows the export
+date, app version and preset/session counts before replacing local presets,
+history and simple preferences. Stop any running timer first. No timer resumes,
+and imported history does not reopen a completion summary or alert.
+The file is **plain text and not encrypted**; choose a trusted location.
+The app never uploads it. Cancel leaves data unchanged; invalid files are
+rejected before writing. See [the versioned JSON format](docs/backup-format.md).
+Desktop and iOS do not yet offer manual file pickers.
+
 Android Auto Backup and Google's device-to-device migration can include presets,
 power options, charging history, unsaved preset edits and simple preferences, subject to the user's
 backup settings and transport availability. Both modes explicitly allow only
