@@ -105,13 +105,18 @@ Running state. No schema or backup-rule changes are required.
 Android only posts a new completion alert for history created during the process lifetime;
 cold-opening an already-stopped summary preserves, but never re-alerts, an existing notification.
 
-Settings follows the device's Pixel Settings reference: a compact title/circular Back
-button, tonal background, segmented rounded Material 3 preference groups, aligned
-icon containers, supporting text and an accessible full-row 80% switch.
+Settings combines the device's Pixel Settings organization (compact title/circular
+Back button, segmented rounded preference groups, aligned icon containers) with
+the app's approved Tonal glass waves, shared surface colors and subtle borders.
+Dynamic text-bearing surfaces remain opaque; static palettes retain the existing
+0.9 alpha policy. Supporting text and the full-row 80% switch remain accessible.
 The Presets row opens dedicated management
 with the existing rename, drag/accessibility reorder, deletion and last-preset safeguard;
-Back returns to Settings. About retains the app/version, source, privacy and licenses.
-The shared headers on other destinations are unchanged.
+Back returns to Settings. Preset rows share the segmented tonal grouping; drag pitch
+includes the 2dp gutters. About retains the app/version, source, privacy and licenses.
+Settings, Presets, History and Licenses share the compact toolbar; History keeps its
+existing waves/cards, and Licenses uses the same waves background. Configuration,
+Running and Summary are unchanged.
 
 The Charging history row in Settings opens a compact, newest-first list of ended sessions:
 local start date/time, saved preset, start/end percentages, battery energy, duration and

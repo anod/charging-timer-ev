@@ -2,13 +2,13 @@ package info.anodsplace.evtimer.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.size
@@ -27,7 +27,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
@@ -49,8 +49,8 @@ fun SettingsScreen(
     onOpenHistory: () -> Unit = {}
 ) {
     val uriHandler = LocalUriHandler.current
-    Column(modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceContainer)) {
-        SettingsToolbar(stringResource(Res.string.settings_title), onBack)
+    SettingsPage(modifier) {
+        SettingsHeader(stringResource(Res.string.settings_title), onBack)
         Column(
             modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -95,8 +95,7 @@ fun SettingsScreen(
 
 @Composable
 private fun settingsRowColors() = ListItemDefaults.colors(
-    containerColor = if (MaterialTheme.colorScheme.surface.luminance() < 0.5f)
-        MaterialTheme.colorScheme.surfaceContainerHigh else MaterialTheme.colorScheme.surface
+    containerColor = tonalCardContainerColor()
 )
 
 @Composable
@@ -131,23 +130,21 @@ private fun SettingsSection(title: String, content: @Composable () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(title, Modifier.padding(start = 8.dp, top = 8.dp, bottom = 4.dp),
             style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-        Surface(shape = RoundedCornerShape(28.dp), color = MaterialTheme.colorScheme.surfaceContainer) {
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) { content() }
-        }
+        SettingsGroup(content)
     }
 }
 
 @Composable
-private fun SettingsToolbar(title: String, onBack: () -> Unit) {
+internal fun SettingsHeader(title: String, onBack: () -> Unit) {
     Row(
         Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        IconButton(onClick = onBack, modifier = Modifier.background(
-            MaterialTheme.colorScheme.surfaceContainerHigh, CircleShape
-        )) {
-            Icon(painterResource(Res.drawable.ic_back), stringResource(Res.string.settings_back))
+        Surface(shape = CircleShape, color = tonalCardContainerColor(), border = tonalCardBorder()) {
+            IconButton(onClick = onBack) {
+                Icon(painterResource(Res.drawable.ic_back), stringResource(Res.string.settings_back))
+            }
         }
         Text(title, style = MaterialTheme.typography.headlineSmall)
     }
@@ -163,13 +160,13 @@ fun PresetManagementScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Column(modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceContainer)) {
-        SettingsToolbar(stringResource(Res.string.settings_presets), onBack)
+    SettingsPage(modifier) {
+        SettingsHeader(stringResource(Res.string.settings_presets), onBack)
         Column(
             Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Text(stringResource(Res.string.settings_presets_help),
+            Text(stringResource(Res.string.settings_presets_help), Modifier.padding(horizontal = 8.dp),
                 style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             PresetManagement(presets, onRename, onDelete, onMove, onReorder, showTitle = false)
         }
@@ -177,14 +174,16 @@ fun PresetManagementScreen(
 }
 
 @Composable
-internal fun SettingsHeader(title: String, onBack: () -> Unit) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        IconButton(onClick = onBack) {
-            Icon(painterResource(Res.drawable.ic_back), stringResource(Res.string.settings_back))
-        }
-        Text(title, style = MaterialTheme.typography.headlineMedium)
+internal fun SettingsPage(modifier: Modifier, content: @Composable ColumnScope.() -> Unit) {
+    Box(modifier.fillMaxSize()) {
+        ChargingWavesBackground(Modifier.fillMaxSize())
+        Column(Modifier.fillMaxSize(), content = content)
+    }
+}
+
+@Composable
+internal fun SettingsGroup(content: @Composable () -> Unit) {
+    Surface(shape = RoundedCornerShape(28.dp), color = Color.Transparent, border = tonalCardBorder()) {
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) { content() }
     }
 }

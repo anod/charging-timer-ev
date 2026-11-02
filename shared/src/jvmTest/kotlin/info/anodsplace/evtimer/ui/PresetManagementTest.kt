@@ -144,10 +144,12 @@ class PresetManagementTest {
                 Column { PresetManagement(presets, { _, _ -> }, {}, { _, _ -> }, { orders += it }) }
             }
         }
-        val rowHeight = onNodeWithTag("preset-custom").fetchSemanticsNode().boundsInRoot.height
+        val firstBounds = onNodeWithTag("preset-custom").fetchSemanticsNode().boundsInRoot
+        val rowPitch = onNodeWithTag("preset-home").fetchSemanticsNode().boundsInRoot.top - firstBounds.top
+        assertTrue(rowPitch > firstBounds.height, "Segmented rows must include a gutter")
         onNodeWithContentDescription("Drag to reorder Default", useUnmergedTree = true).performTouchInput {
             down(center)
-            moveBy(Offset(0f, rowHeight * 1.5f), delayMillis = 200)
+            moveBy(Offset(0f, rowPitch * 1.5f), delayMillis = 200)
         }
         runOnIdle { assertEquals(emptyList(), orders) }
         assertTrue(
@@ -180,10 +182,11 @@ class PresetManagementTest {
                 }
             }
         }
-        val rowHeight = onNodeWithTag("preset-custom").fetchSemanticsNode().boundsInRoot.height
+        val rowPitch = onNodeWithTag("preset-home").fetchSemanticsNode().boundsInRoot.top -
+            onNodeWithTag("preset-custom").fetchSemanticsNode().boundsInRoot.top
         onNodeWithContentDescription("Drag to reorder Default", useUnmergedTree = true).performTouchInput {
             down(center)
-            moveBy(Offset(0f, rowHeight * 1.5f), delayMillis = 200)
+            moveBy(Offset(0f, rowPitch * 1.5f), delayMillis = 200)
         }
         assertTrue(
             onNodeWithTag("preset-home").fetchSemanticsNode().boundsInRoot.top <
@@ -199,6 +202,18 @@ class PresetManagementTest {
         val firstTop = onNodeWithTag("preset-custom").fetchSemanticsNode().boundsInRoot.top
         val lastTop = onNodeWithTag("preset-home").fetchSemanticsNode().boundsInRoot.top
         assertTrue(firstTop < lastTop, "Cancelled row top=$firstTop must precede Home top=$lastTop")
+    }
+
+    @Test
+    fun segmentedRowDragUsesPitchIncludingGutter() {
+        val drag = PresetDragState(listOf("a", "b", "c"))
+        drag.start("a")
+        drag.drag(29f, 58f)
+        assertEquals(listOf("a", "b", "c"), drag.order)
+        drag.drag(1f, 58f)
+        assertEquals(listOf("b", "a", "c"), drag.order)
+        drag.drag(58f, 58f)
+        assertEquals(listOf("b", "c", "a"), drag.finish())
     }
 
     @Test

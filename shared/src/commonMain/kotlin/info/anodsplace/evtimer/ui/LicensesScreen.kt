@@ -1,7 +1,5 @@
 package info.anodsplace.evtimer.ui
 
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -16,7 +14,7 @@ fun LicensesScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
     val libraries by produceLibraries {
         Res.readBytes("files/aboutlibraries.json").decodeToString()
     }
-    Column(modifier.fillMaxSize()) {
+    SettingsPage(modifier) {
         SettingsHeader(stringResource(Res.string.settings_oss_licenses), onBack)
         LibrariesContainer(
             libraries, Modifier.weight(1f),
