@@ -379,9 +379,14 @@ class ChargingRepositoryImpl(
 
     override suspend fun deleteSession(id: Long) {
         transaction {
-            require(queries.history().executeAsList().any { it.id == id }) { "Unknown completed session: $id" }
+            val entries = queries.history().executeAsList()
+            require(entries.any { it.id == id }) { "Unknown completed session: $id" }
             queries.detachHistorySession(id)
             queries.deleteHistorySession(id)
+            if (entries.first().id == id) {
+                // Deletion must not turn a superseded session into a pending completion on relaunch.
+                entries.getOrNull(1)?.let { queries.reviewSession(it.actual_percent, true, it.id) }
+            }
         }
     }
 

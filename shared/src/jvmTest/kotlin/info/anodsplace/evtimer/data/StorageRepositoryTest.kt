@@ -24,6 +24,44 @@ import kotlin.time.Instant
 
 class StorageRepositoryTest {
     @Test
+    fun deletingNewestReviewsOnlyItsSuccessorWithoutChangingActualPercent() = runTest {
+        fixture { f ->
+            val settings = ChargingSettings.DEFAULT
+            for (id in listOf(1_000L, 2_000L, 3_000L)) {
+                val snapshot = ChargingSessionSnapshot.from(settings, id)
+                f.repo.saveSession(ChargingSession(true, snapshot))
+                f.now = id + 60_000L
+                f.repo.saveSession(ChargingSession(false, snapshot))
+            }
+            f.repo.reviewSession(3_000L, null, true)
+            f.repo.reviewSession(2_000L, 25f, false)
+            val before = f.repo.observeHistory().first()
+            assertEquals(listOf(true, false, false), before.map { it.reviewed })
+            f.repo.deleteSession(3_000L)
+            val after = f.repository().observeHistory().first()
+            assertEquals(listOf(before[1].copy(reviewed = true), before[2]), after)
+            assertEquals(25f, after.first().actualPercent)
+        }
+    }
+
+    @Test
+    fun deletingNonNewestDoesNotChangeReviewedFlagsOrActualPercent() = runTest {
+        fixture { f ->
+            for (id in listOf(1_000L, 2_000L, 3_000L)) {
+                val snapshot = ChargingSessionSnapshot.from(ChargingSettings.DEFAULT, id)
+                f.repo.saveSession(ChargingSession(true, snapshot))
+                f.now = id + 60_000L
+                f.repo.saveSession(ChargingSession(false, snapshot))
+            }
+            f.repo.reviewSession(3_000L, 35f, true)
+            val before = f.repo.observeHistory().first()
+            f.repo.deleteSession(2_000L)
+            assertEquals(listOf(before[0], before[2]), f.repository().observeHistory().first())
+            assertEquals(3_000L, f.repo.observeSession().first().startTime)
+        }
+    }
+
+    @Test
     fun historyOrdersEndedSessionsAndAggregatesSavedSegmentsWithoutTheActiveTimer() = runTest {
         fixture { f ->
             val settings = ChargingSettings(60f, 6f, 20f, 80f)

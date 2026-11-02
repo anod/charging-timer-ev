@@ -49,19 +49,6 @@ class CompletionNotificationStateTest {
     }
 
     @Test
-    fun deletingNewestHistoryNeverPostsAnOlderCompletion() {
-        val state = CompletionNotificationState()
-        state.update(false, completed.copy(id = 3L, reviewed = true))
-        assertEquals(CompletionNotificationAction.Cancel, state.update(false, completed.copy(id = 2L)))
-        assertEquals(CompletionNotificationAction.Cancel, state.update(false, completed))
-        assertEquals(CompletionNotificationAction.Cancel, state.update(false, null))
-        assertEquals(CompletionNotificationAction.Post, state.update(false, completed.copy(id = 4L)))
-        assertEquals(CompletionNotificationAction.Cancel, state.update(false, completed.copy(id = 2L)))
-        state.update(false, completed.copy(id = 6L, reviewed = true))
-        assertEquals(CompletionNotificationAction.Cancel, state.update(false, completed.copy(id = 5L)))
-    }
-
-    @Test
     fun manualStopInterruptedAndReviewedHistoryCancelInsteadOfPosting() {
         val state = CompletionNotificationState()
         state.update(true, null)

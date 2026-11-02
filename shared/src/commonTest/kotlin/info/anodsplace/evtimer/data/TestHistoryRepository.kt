@@ -6,7 +6,10 @@ class TestHistoryRepository(entries: List<ChargingHistoryEntry> = emptyList()) :
     val entries = MutableStateFlow(entries)
     override fun observeHistory() = entries
     override suspend fun deleteSession(id: Long) {
-        entries.value = entries.value.filterNot { it.id == id }
+        val newest = entries.value.firstOrNull()?.id == id
+        entries.value = entries.value.filterNot { it.id == id }.mapIndexed { index, entry ->
+            if (newest && index == 0) entry.copy(reviewed = true) else entry
+        }
     }
     override suspend fun reviewSession(id: Long, actualPercent: Float?, reviewed: Boolean) {
         entries.value = entries.value.map {

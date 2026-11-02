@@ -112,7 +112,10 @@ changing its review status. Back/Done returns to history. Restored interrupted s
 remain visible with unknown end values rather than fabricated charging estimates.
 Delete asks for confirmation, removes the session and its power segments, and cannot
 delete a running timer. History uses the existing backed-up database; there is no new
-schema, migration or persisted preference. Monthly totals are not included.
+schema, migration or persisted preference. Deleting the newest row marks only its
+successor reviewed, preserving any actual percentage, so a superseded legacy session
+cannot reopen as a new completion or re-alert after restart. Viewing a past summary
+never changes review status. Monthly totals are not included.
 
 * [/shared](./shared/src) is for code that will be shared across your Compose Multiplatform applications.
   It contains several subfolders:

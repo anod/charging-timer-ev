@@ -49,7 +49,7 @@ class NavigationViewModelTest {
             history.deleteSession(newest.id)
             runCurrent()
             assertEquals(Destination.History, navigation.backStack.value.last())
-            assertFalse(history.entries.value.single().reviewed)
+            assertTrue(history.entries.value.single().reviewed)
         } finally {
             navigation.viewModelScope.cancel()
             Dispatchers.resetMain()
@@ -74,10 +74,17 @@ class NavigationViewModelTest {
             navigation.onBack()
             runCurrent()
             assertEquals(Destination.History, navigation.backStack.value.last())
-            assertFalse(history.entries.value.single().reviewed)
+            assertTrue(history.entries.value.single().reviewed)
             navigation.onBack()
             runCurrent()
             assertEquals(listOf(Destination.Config), navigation.backStack.value)
+            val cold = NavigationViewModel(NavigationTestService(false), history)
+            try {
+                runCurrent()
+                assertEquals(listOf(Destination.Config), cold.backStack.value)
+            } finally {
+                cold.viewModelScope.cancel()
+            }
         } finally {
             navigation.viewModelScope.cancel()
             Dispatchers.resetMain()
