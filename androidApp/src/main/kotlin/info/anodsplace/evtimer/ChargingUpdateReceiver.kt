@@ -5,35 +5,33 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.util.Log
-import info.anodsplace.evtimer.data.ChargingService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.TimeoutCancellationException
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
-import org.koin.core.component.KoinComponent
-import org.koin.core.component.inject
 
-class ChargingUpdateReceiver : BroadcastReceiver(), KoinComponent {
-    private val chargingService: ChargingService by inject()
-
+class ChargingUpdateReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action != Intent.ACTION_MY_PACKAGE_REPLACED) return
+        if (intent.action != Intent.ACTION_BOOT_COMPLETED &&
+            intent.action != Intent.ACTION_MY_PACKAGE_REPLACED
+        ) return
         val pendingResult = goAsync()
         CoroutineScope(Dispatchers.Main).launch {
             try {
-                val status = withTimeout(8_000L) { chargingService.status.first { !it.isLoading } }
-                val controller = (context.applicationContext as MainApplication).chargingSessionController
-                if (status.isRunning && !controller.isDismissed(status.startTime)) {
+                val application = context.applicationContext as MainApplication
+                val status = withTimeout(8_000L) { application.chargingCompletionController.restore() }
+                if (status.isRunning && status.estimatedEndTime > System.currentTimeMillis() &&
+                    !application.chargingSessionController.isDismissed(status.startTime)
+                ) {
                     context.startForegroundService(Intent(context, ChargingForegroundService::class.java))
                 }
             } catch (error: TimeoutCancellationException) {
-                Log.e("ChargingUpdate", "Timed out loading the session after update", error)
+                Log.e("ChargingRestore", "Timed out restoring charging after ${intent.action}", error)
             } catch (error: ForegroundServiceStartNotAllowedException) {
-                Log.e("ChargingUpdate", "System blocked charging service restart after update", error)
+                Log.e("ChargingRestore", "System blocked charging service restart after ${intent.action}", error)
             } catch (error: SecurityException) {
-                Log.e("ChargingUpdate", "Permission denied restarting charging service after update", error)
+                Log.e("ChargingRestore", "Permission denied restoring charging after ${intent.action}", error)
             } finally {
                 pendingResult.finish()
             }

@@ -30,6 +30,13 @@ timer running with a visible ongoing notification while the app is in the
 background. These permissions do not give the app access to your vehicle,
 location, contacts, or other apps' notifications.
 
+After a device restart or app update, the app restores a running timer's
+notification (unless you dismissed it) and its future completion and optional
+80% reminders. If the completion estimate has already passed, it shows the
+completion notification instead; this may repeat after another restart or update.
+The receive-boot permission enables this recovery on the same installation;
+timers restored from a backup or device transfer remain interrupted.
+
 The app does not currently request exact-alarm permission. Timer and notification
 features are local; they do not upload charging information.
 
