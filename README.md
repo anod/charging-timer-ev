@@ -105,8 +105,10 @@ Running state. No schema or backup-rule changes are required.
 Android only posts a new completion alert for history created during the process lifetime;
 cold-opening an already-stopped summary preserves, but never re-alerts, an existing notification.
 
-Settings uses grouped Material 3 preference rows with aligned leading icons, supporting
-text and an accessible full-row 80% switch. The Presets row opens dedicated management
+Settings follows the device's Pixel Settings reference: a compact title/circular Back
+button, tonal background, segmented rounded Material 3 preference groups, aligned
+icon containers, supporting text and an accessible full-row 80% switch.
+The Presets row opens dedicated management
 with the existing rename, drag/accessibility reorder, deletion and last-preset safeguard;
 Back returns to Settings. About retains the app/version, source, privacy and licenses.
 The shared headers on other destinations are unchanged.

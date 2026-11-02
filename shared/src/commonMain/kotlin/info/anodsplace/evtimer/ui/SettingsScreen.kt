@@ -2,11 +2,15 @@ package info.anodsplace.evtimer.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
@@ -22,6 +26,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
@@ -43,21 +49,12 @@ fun SettingsScreen(
     onOpenHistory: () -> Unit = {}
 ) {
     val uriHandler = LocalUriHandler.current
-    Column(modifier.fillMaxSize()) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp)) {
-            IconButton(onClick = onBack) {
-                Icon(painterResource(Res.drawable.ic_back), stringResource(Res.string.settings_back))
-            }
-        }
+    Column(modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceContainer)) {
+        SettingsToolbar(stringResource(Res.string.settings_title), onBack)
         Column(
             modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Text(
-                stringResource(Res.string.settings_title),
-                Modifier.padding(start = 8.dp, top = 8.dp, bottom = 16.dp),
-                style = MaterialTheme.typography.headlineLarge
-            )
             SettingsSection(stringResource(Res.string.settings_charging)) {
                 SettingsRow(stringResource(Res.string.settings_presets), Res.drawable.ic_presets,
                     stringResource(Res.string.settings_presets_summary), onOpenPresets)
@@ -71,7 +68,7 @@ fun SettingsScreen(
                         Switch(checked = notifyAt80 == true, onCheckedChange = null, enabled = notifyAt80 != null)
                     },
                     colors = settingsRowColors(),
-                    modifier = Modifier.fillMaxWidth().toggleable(
+                    modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(4.dp)).toggleable(
                         value = notifyAt80 == true, enabled = notifyAt80 != null,
                         role = Role.Switch, onValueChange = onNotifyAt80Change
                     )
@@ -82,7 +79,8 @@ fun SettingsScreen(
                     headlineContent = { Text(stringResource(Res.string.app_title)) },
                     supportingContent = { Text(stringResource(Res.string.settings_version, APP_VERSION)) },
                     leadingContent = { SettingsIcon(Res.drawable.ic_info) },
-                    colors = settingsRowColors()
+                    colors = settingsRowColors(),
+                    modifier = Modifier.clip(RoundedCornerShape(4.dp))
                 )
                 SettingsRow(stringResource(Res.string.settings_source), Res.drawable.ic_code,
                     onClick = { uriHandler.openUri("https://github.com/anod/charging-timer-ev") })
@@ -96,12 +94,19 @@ fun SettingsScreen(
 }
 
 @Composable
-private fun settingsRowColors() = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
+private fun settingsRowColors() = ListItemDefaults.colors(
+    containerColor = if (MaterialTheme.colorScheme.surface.luminance() < 0.5f)
+        MaterialTheme.colorScheme.surfaceContainerHigh else MaterialTheme.colorScheme.surface
+)
 
 @Composable
 private fun SettingsIcon(icon: DrawableResource) {
-    Icon(painterResource(icon), contentDescription = null, modifier = Modifier.size(24.dp),
-        tint = MaterialTheme.colorScheme.onSurfaceVariant)
+    Surface(shape = CircleShape, color = MaterialTheme.colorScheme.secondaryContainer) {
+        Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) {
+            Icon(painterResource(icon), contentDescription = null, modifier = Modifier.size(24.dp),
+                tint = MaterialTheme.colorScheme.onSecondaryContainer)
+        }
+    }
 }
 
 @Composable
@@ -116,18 +121,35 @@ internal fun SettingsRow(
         supportingContent = supportingText?.let { { Text(it) } },
         leadingContent = { SettingsIcon(icon) },
         colors = settingsRowColors(),
-        modifier = Modifier.fillMaxWidth().clickable(role = Role.Button, onClick = onClick)
+        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(4.dp))
+            .clickable(role = Role.Button, onClick = onClick)
     )
 }
 
 @Composable
 private fun SettingsSection(title: String, content: @Composable () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(title, Modifier.padding(start = 16.dp, top = 8.dp),
+        Text(title, Modifier.padding(start = 8.dp, top = 8.dp, bottom = 4.dp),
             style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-        Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainerLow) {
-            Column { content() }
+        Surface(shape = RoundedCornerShape(28.dp), color = MaterialTheme.colorScheme.surfaceContainer) {
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) { content() }
         }
+    }
+}
+
+@Composable
+private fun SettingsToolbar(title: String, onBack: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        IconButton(onClick = onBack, modifier = Modifier.background(
+            MaterialTheme.colorScheme.surfaceContainerHigh, CircleShape
+        )) {
+            Icon(painterResource(Res.drawable.ic_back), stringResource(Res.string.settings_back))
+        }
+        Text(title, style = MaterialTheme.typography.headlineSmall)
     }
 }
 
@@ -141,8 +163,8 @@ fun PresetManagementScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Column(modifier.fillMaxSize()) {
-        SettingsHeader(stringResource(Res.string.settings_presets), onBack)
+    Column(modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceContainer)) {
+        SettingsToolbar(stringResource(Res.string.settings_presets), onBack)
         Column(
             Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
