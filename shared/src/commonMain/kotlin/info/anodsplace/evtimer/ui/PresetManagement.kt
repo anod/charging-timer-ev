@@ -107,7 +107,8 @@ internal fun PresetManagement(
     onRename: (String, String) -> Unit,
     onDelete: (String) -> Unit,
     onMove: (String, Int) -> Unit,
-    onReorder: (List<String>) -> Unit
+    onReorder: (List<String>) -> Unit,
+    showTitle: Boolean = true
 ) {
     var renamingId by rememberSaveable { mutableStateOf<String?>(null) }
     var deletingId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -117,7 +118,7 @@ internal fun PresetManagement(
     val moveUp = stringResource(Res.string.move_up)
     val moveDown = stringResource(Res.string.move_down)
     val rename = stringResource(Res.string.rename_preset)
-    Text(stringResource(Res.string.settings_presets), style = MaterialTheme.typography.titleLarge)
+    if (showTitle) Text(stringResource(Res.string.settings_presets), style = MaterialTheme.typography.titleLarge)
     Column {
         dragState.order.forEachIndexed { index, id ->
             key(id) {

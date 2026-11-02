@@ -8,6 +8,7 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.assertIsOff
@@ -83,6 +84,14 @@ class DesktopNavigationTest {
         onNodeWithContentDescription("Charging history").assertDoesNotExist()
         onNodeWithText("Charging history").assertDoesNotExist()
         onNodeWithContentDescription("Settings").performClick()
+        onNodeWithText("Keep at least one preset.").assertDoesNotExist()
+        onNodeWithText("Presets").performClick()
+        onNodeWithText("Keep at least one preset.").assertExists()
+        runOnIdle {
+            assertEquals(listOf(Destination.Config, Destination.Settings, Destination.Presets), navigation.backStack.value)
+        }
+        onNodeWithContentDescription("Back").performClick()
+        onNodeWithText("Keep at least one preset.").assertDoesNotExist()
         onNodeWithText("Charging history").performClick()
         onNodeWithText("No past sessions yet").assertExists()
         runOnIdle {
@@ -90,7 +99,7 @@ class DesktopNavigationTest {
         }
         onNodeWithContentDescription("Back").performClick()
         onNodeWithText("Notify at 80%").assertExists()
-        onNodeWithText("Notify at 80%").assertIsOn().performClick()
+        onNodeWithText("Notify at 80%").performScrollTo().assertIsOn().performClick()
         onNodeWithText("Notify at 80%").assertIsOff()
         onNodeWithText("About").assertExists()
         onNodeWithText("Source code").assertExists()
@@ -101,7 +110,7 @@ class DesktopNavigationTest {
         onNodeWithText("Notify at 80%").assertDoesNotExist()
         onNodeWithContentDescription("Settings").performClick()
         onNodeWithText("Notify at 80%").assertIsOff()
-        onNodeWithText("Open-source licenses").performClick()
+        onNodeWithText("Open-source licenses").performScrollTo().performClick()
         onNodeWithContentDescription("Back").performClick()
         onNodeWithText("About").assertExists()
         onNodeWithText("Notify at 80%").assertIsOff()

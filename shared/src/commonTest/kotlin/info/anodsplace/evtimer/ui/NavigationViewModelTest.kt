@@ -35,6 +35,10 @@ class NavigationViewModelTest {
             runCurrent()
             val before = history.entries.value
             navigation.navigate(Destination.Settings)
+            navigation.navigate(Destination.Presets)
+            assertEquals(listOf(Destination.Config, Destination.Settings, Destination.Presets), navigation.backStack.value)
+            assertTrue(navigation.onBack())
+            assertEquals(listOf(Destination.Config, Destination.Settings), navigation.backStack.value)
             navigation.navigate(Destination.History)
             repeat(2) {
                 navigation.openHistorySummary(old)
