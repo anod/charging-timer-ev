@@ -74,7 +74,7 @@ fun EndSummaryScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Text(stringResource(Res.string.summary_title), style = MaterialTheme.typography.headlineMedium)
-            Card(Modifier.fillMaxWidth()) {
+            Card(Modifier.fillMaxWidth(), colors = tonalCardColors(), border = tonalCardBorder()) {
                 Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(
                         stringResource(
@@ -103,7 +103,7 @@ fun EndSummaryScreen(
                 }
             }
             if (summary.segments.isNotEmpty()) {
-                Card(Modifier.fillMaxWidth()) {
+                Card(Modifier.fillMaxWidth(), colors = tonalCardColors(), border = tonalCardBorder()) {
                     Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(stringResource(Res.string.summary_speeds), style = MaterialTheme.typography.titleMedium)
                         summary.segments.forEach {
