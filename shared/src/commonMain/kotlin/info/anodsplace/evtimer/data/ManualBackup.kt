@@ -163,12 +163,10 @@ object BackupFormat {
         valid(backup.appVersion.isNotBlank(), "appVersion")
         valid(backup.presets.isNotEmpty(), "presets must not be empty")
         valid(backup.presets.map { it.id }.distinct().size == backup.presets.size, "duplicate preset ids")
-        val names = mutableListOf<String>()
         backup.presets.forEach {
             valid(it.id.isNotBlank(), "preset id")
-            val name = normalizeAndValidatePresetName(it.name, names)
-            valid(name.isValid && name.name == it.name, "preset name")
-            names += name.name
+            // Backup restores existing names, including those grandfathered by putPreset.
+            valid(it.name.isNotBlank(), "preset name")
             valid(positive(it.batteryCapacity) && positive(it.chargingPower), "preset capacity/power")
             valid(percent(it.targetPercent), "preset target")
             valid(it.powerOptions.isNotEmpty() && it.powerOptions.all(::positive), "preset power options")

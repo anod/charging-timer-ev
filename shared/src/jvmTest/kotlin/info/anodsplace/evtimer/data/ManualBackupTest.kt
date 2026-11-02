@@ -71,6 +71,27 @@ class ManualBackupTest {
                         ChargingSessionSnapshot.from(ChargingSettings.DEFAULT, 999)))
                     target.repo.saveSession(ChargingSession())
                 }
+
+                @Test
+                fun legacyNamesRemainExportableAndRoundTripWithoutRenamingOrTruncation() = runTest {
+                    fixture { source ->
+                        source.repo.observeSettings().first()
+                        val names = listOf("a".repeat(33), "Default", "Home", "hOME", "  Legacy  ")
+                        names.forEachIndexed { index, name ->
+                            val id = "legacy-$index"
+                            source.database.storageQueries.putPreset(id, name, 60.0, 7.0, 80.0)
+                            source.database.storageQueries.putOption(id, 0, 7.0)
+                        }
+                        val exported = source.repo.exportBackup("test")
+                        fixture { target ->
+                            target.repo.restoreBackup(sample)
+                            target.repo.restoreBackup(BackupFormat.decode(BackupFormat.encode(exported)))
+                            assertEquals(exported, target.repo.exportBackup("test"))
+                            assertEquals(names, target.repo.observePresets().first()
+                                .filter { it.id.startsWith("legacy-") }.sortedBy { it.id }.map { it.name })
+                        }
+                    }
+                }
                 target.repo.restoreBackup(BackupFormat.decode(BackupFormat.encode(exported)))
                 assertEquals(exported, target.repo.exportBackup("test"))
                 assertEquals(1, target.database.storageQueries.allPresets().executeAsList().count { it.id == "custom" })
@@ -192,8 +213,6 @@ class ManualBackupTest {
                 sample.copy(presets = emptyList()),
                 sample.copy(presets = sample.presets + preset),
                 sample.copy(presets = listOf(preset.copy(name = " "))),
-                sample.copy(presets = listOf(preset.copy(name = "x".repeat(33)))),
-                sample.copy(presets = sample.presets.map { it.copy(name = "Same") }),
                 sample.copy(presets = listOf(preset.copy(batteryCapacity = 0.0))),
                 sample.copy(presets = listOf(preset.copy(chargingPower = Double.NaN))),
                 sample.copy(presets = listOf(preset.copy(chargingPower = Double.MAX_VALUE))),

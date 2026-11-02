@@ -96,12 +96,16 @@ running session.
 The reader limits input to **16 MiB**, including for providers with unknown or
 incorrect document sizes. It validates the complete document before import:
 required fields/types, format/version, timestamp, unique preset/session IDs,
-current preset naming rules (trimmed, non-empty, case-insensitively unique,
-at most 32 Unicode code points), non-empty positive power options and ordered
+nonblank stored names, non-empty positive power options and ordered
 segments, finite positive capacity/power, percentages in `[0,100]`, and
 efficiency in `(0,1]`. Numeric values must also be representable by the app's
 Float-based calculator. An end timestamp cannot precede the last segment.
 Emoji, including joined sequences, are preserved without normalization.
+Names are restored as existing stored names, using the same grandfathering rule
+as storage updates: legacy overlong, padded or case-colliding names are preserved
+verbatim rather than making an old installation impossible to back up. The
+current create/rename policy (trimmed, case-insensitively unique, at most 32
+Unicode code points) still applies to new names entered in the UI.
 
 Restore is disabled while charging and checked again under the repository mutex.
 After confirmation, all SQL replacement writes execute in one transaction;
