@@ -1,6 +1,9 @@
 # Manual backup format
 
 Android Settings > Backup & restore can export or restore a UTF-8 JSON document.
+The Android-only section reuses Settings' tonal group and transparent icon rows,
+with an inset divider between Export and Restore. History and preset-management
+navigation remain in the Charging group; no animated background runs in Settings.
 It is a logical export, not a SQLite database copy. It works independently of
 database schema versions, journaling, Google accounts, installation source and
 signing keys. The file is plain text, not encrypted. Store it somewhere private.

@@ -2,11 +2,8 @@ package info.anodsplace.evtimer.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Card
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -20,6 +17,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import info.anodsplace.evtimer.data.BackupError
 import info.anodsplace.evtimer.data.BackupMessage
+import info.anodsplace.evtimer.data.BackupState
 import info.anodsplace.evtimer.data.SettingsViewModel
 import info.anodsplace.evtimer.data.rememberBackupPicker
 import info.anodsplace.evtimer.generated.resources.*
@@ -31,19 +29,35 @@ fun BackupSettings(viewModel: SettingsViewModel) {
         ?: return
     val state by viewModel.backup.collectAsState()
     val session by viewModel.session.collectAsState()
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        HorizontalDivider()
-        Text(stringResource(Res.string.backup_title), style = MaterialTheme.typography.titleLarge)
-        TextButton(onClick = { picker.export(viewModel.backupFileName()) }, enabled = !state.busy) {
-            Text(stringResource(Res.string.backup_export))
-        }
-        TextButton(onClick = picker::restore, enabled = !state.busy && session?.isRunning == false) {
-            Text(stringResource(Res.string.backup_restore))
-        }
-        if (session?.isRunning == true) {
-            Text(stringResource(Res.string.backup_stop_first), style = MaterialTheme.typography.bodySmall)
-        }
-        if (state.busy) Text(stringResource(Res.string.backup_working), style = MaterialTheme.typography.bodySmall)
+    BackupSettingsContent(
+        state, session?.isRunning,
+        onExport = { picker.export(viewModel.backupFileName()) },
+        onRestore = picker::restore,
+        onConfirm = viewModel::confirmRestore,
+        onDismiss = viewModel::dismissBackup
+    )
+}
+
+@Composable
+internal fun BackupSettingsContent(
+    state: BackupState,
+    isRunning: Boolean?,
+    onExport: () -> Unit,
+    onRestore: () -> Unit,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    SettingsSection(stringResource(Res.string.backup_title)) {
+        SettingsRow(
+            stringResource(Res.string.backup_export), Res.drawable.ic_backup_export,
+            onClick = onExport, enabled = !state.busy
+        )
+        SettingsDivider()
+        SettingsRow(
+            stringResource(Res.string.backup_restore), Res.drawable.ic_backup_restore,
+            supportingText = if (isRunning == true) stringResource(Res.string.backup_stop_first) else null,
+            onClick = onRestore, enabled = !state.busy && isRunning == false
+        )
         val message = when {
             state.error != null -> when (state.error) {
                 BackupError.NEWER_VERSION -> Res.string.backup_newer_version
@@ -56,18 +70,21 @@ fun BackupSettings(viewModel: SettingsViewModel) {
             }
             state.message == BackupMessage.EXPORTED -> Res.string.backup_exported
             state.message == BackupMessage.RESTORED -> Res.string.backup_restored
+            state.busy -> Res.string.backup_working
             else -> null
         }
         if (message != null) {
-            Card(Modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Polite }) {
-                Text(stringResource(message), Modifier.padding(12.dp),
-                    color = if (state.error != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface)
-            }
+            SettingsDivider()
+            Text(stringResource(message),
+                Modifier.padding(start = 72.dp, end = 16.dp, top = 12.dp, bottom = 16.dp)
+                    .semantics { liveRegion = LiveRegionMode.Polite },
+                style = MaterialTheme.typography.bodyMedium,
+                color = if (state.error != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface)
         }
     }
     state.pending?.let { pending ->
         AlertDialog(
-            onDismissRequest = viewModel::dismissBackup,
+            onDismissRequest = onDismiss,
             title = { Text(stringResource(Res.string.backup_confirm_title)) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -77,12 +94,12 @@ fun BackupSettings(viewModel: SettingsViewModel) {
                 }
             },
             confirmButton = {
-                TextButton(onClick = viewModel::confirmRestore, enabled = !state.busy && session?.isRunning == false) {
+                TextButton(onClick = onConfirm, enabled = !state.busy && isRunning == false) {
                     Text(stringResource(Res.string.backup_restore))
                 }
             },
             dismissButton = {
-                TextButton(onClick = viewModel::dismissBackup, enabled = !state.busy) {
+                TextButton(onClick = onDismiss, enabled = !state.busy) {
                     Text(stringResource(Res.string.cancel))
                 }
             }

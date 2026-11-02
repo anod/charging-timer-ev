@@ -121,7 +121,8 @@ internal fun SettingsRow(
     title: String,
     icon: DrawableResource,
     supportingText: String? = null,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    enabled: Boolean = true
 ) {
     ListItem(
         headlineContent = { Text(title) },
@@ -129,12 +130,12 @@ internal fun SettingsRow(
         leadingContent = { SettingsIcon(icon) },
         colors = settingsRowColors(),
         modifier = Modifier.fillMaxWidth()
-            .clickable(role = Role.Button, onClick = onClick)
+            .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
     )
 }
 
 @Composable
-private fun SettingsSection(title: String, content: @Composable () -> Unit) {
+internal fun SettingsSection(title: String, content: @Composable () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(title, Modifier.padding(start = 8.dp, top = 8.dp, bottom = 4.dp),
             style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
