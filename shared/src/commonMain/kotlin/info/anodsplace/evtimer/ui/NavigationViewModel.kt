@@ -30,6 +30,10 @@ class NavigationViewModel(
             combine(service.status, history.observeHistory()) { status, entries -> status to entries }
                 .collect { (status, entries) ->
                     if (status.isLoading) return@collect
+                    // Status and history invalidate independently after the same storage transaction.
+                    if (wasRunning == true && !status.isRunning && status.startTime > 0L &&
+                        entries.none { it.id == status.startTime }
+                    ) return@collect
                     val pending = entries.firstOrNull()?.takeIf { !it.reviewed && !status.isRunning }
                     mutableSummary.value = pending
                     if (status.isRunning != wasRunning || pending?.id != pendingId || mutableBackStack.value.isEmpty()) {

@@ -189,6 +189,43 @@ class NavigationViewModelTest {
             Dispatchers.resetMain()
         }
     }
+
+    @Test
+    fun stopGoesDirectlyFromRunningToSummaryInEitherHistoryEmissionOrder() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        try {
+            for (historyFirst in listOf(false, true)) {
+                val old = ChargingHistoryEntry(
+                    1L, ChargingSessionSnapshot.from(ChargingSettings(), 1L), 60_001L, 21f, null, true
+                )
+                val ended = ChargingHistoryEntry(
+                    100_000L, ChargingSessionSnapshot.from(ChargingSettings(), 100_000L),
+                    160_000L, 21f, null, false
+                )
+                val history = TestHistoryRepository(listOf(old))
+                val service = NavigationTestService(true).apply {
+                    status.value = ChargingStatus(isLoading = false, isRunning = true, startTime = ended.id)
+                }
+                val navigation = NavigationViewModel(service, history)
+                try {
+                    runCurrent()
+                    assertEquals(listOf(Destination.Config, Destination.Running), navigation.backStack.value)
+                    if (historyFirst) history.entries.value = listOf(ended, old)
+                    else service.status.value = ChargingStatus(isLoading = false, startTime = ended.id)
+                    runCurrent()
+                    assertEquals(listOf(Destination.Config, Destination.Running), navigation.backStack.value)
+                    if (historyFirst) service.status.value = ChargingStatus(isLoading = false, startTime = ended.id)
+                    else history.entries.value = listOf(ended, old)
+                    runCurrent()
+                    assertEquals(listOf(Destination.Config, Destination.EndSummary), navigation.backStack.value)
+                } finally {
+                    navigation.viewModelScope.cancel()
+                }
+            }
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
 }
 
 private class NavigationTestService(active: Boolean) : ChargingService {
