@@ -82,6 +82,23 @@ class ManualBackupTest {
                             source.database.storageQueries.putPreset(id, name, 60.0, 7.0, 80.0)
                             source.database.storageQueries.putOption(id, 0, 7.0)
                         }
+
+                        @Test
+                        fun missingCustomAndCollidingDefaultNamesRemainRestorableAndExportable() = runTest {
+                            val names = listOf("Default", "Default (restored)", "Default (restored) (restored)")
+                            val presets = names.mapIndexed { index, name ->
+                                BackupPreset("import-$index", name, 60.0, 7.0, 80.0, listOf(7.0), index.toLong())
+                            }
+                            val input = sample.copy(preferences = BackupPreferences("import-0", 20f), presets = presets, sessions = emptyList())
+                            for (destinationHasCustom in listOf(false, true)) fixture { f ->
+                                f.repo.savePreset(ChargingPreset("existing", "Existing", ChargingSettings.DEFAULT))
+                                if (!destinationHasCustom) f.repo.deletePreset("custom")
+                                f.repo.restoreBackup(input)
+                                val exported = BackupFormat.decode(BackupFormat.encode(f.repo.exportBackup("test")))
+                                assertEquals(presets, exported.presets.filter { it.id.startsWith("import-") })
+                                assertFalse(exported.presets.any { it.id == "existing" })
+                            }
+                        }
                         val exported = source.repo.exportBackup("test")
                         fixture { target ->
                             target.repo.restoreBackup(sample)

@@ -442,7 +442,8 @@ class ChargingRepositoryImpl(
                     if (backup.presets.none { it.id == CUSTOM_ID }) {
                         val existing = queries.presetById(CUSTOM_ID).executeAsOneOrNull()
                         if (existing == null) {
-                            val name = generateSequence("Default") { "$it (restored)" }
+                            val name = generateSequence(0) { it + 1 }
+                                .map { if (it == 0) "Default" else "Default (restored $it)" }
                                 .first { candidate -> backup.presets.none { it.name.equals(candidate, ignoreCase = true) } }
                             putPreset(ChargingPreset(CUSTOM_ID, name, ChargingSettings.DEFAULT))
                         } else {
