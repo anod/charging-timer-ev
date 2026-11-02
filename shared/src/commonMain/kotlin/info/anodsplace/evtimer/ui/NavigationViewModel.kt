@@ -35,7 +35,9 @@ class NavigationViewModel(
                         entries.none { it.id == status.startTime }
                     ) return@collect
                     val pending = entries.firstOrNull()?.takeIf { !it.reviewed && !status.isRunning }
-                    mutableSummary.value = pending
+                    // Keep the outgoing entry available until its navigation exit animation finishes.
+                    val displayed = pending ?: entries.firstOrNull { it.id == mutableSummary.value?.id }
+                    if (displayed != null) mutableSummary.value = displayed
                     if (status.isRunning != wasRunning || pending?.id != pendingId || mutableBackStack.value.isEmpty()) {
                         wasRunning = status.isRunning
                         pendingId = pending?.id

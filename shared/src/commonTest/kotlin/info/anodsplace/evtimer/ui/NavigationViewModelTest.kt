@@ -158,8 +158,44 @@ class NavigationViewModelTest {
             navigation.onBack()
             runCurrent()
             assertEquals(listOf(Destination.Config), navigation.backStack.value)
-            assertEquals(null, navigation.summary.value)
+            assertEquals(entries.first().copy(reviewed = true), navigation.summary.value)
             assertEquals(listOf(true, false, false), history.entries.value.map { it.reviewed })
+        } finally {
+            navigation.viewModelScope.cancel()
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
+    fun doneRetainsOutgoingSummaryAndNewPendingSessionReplacesIt() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val entry = ChargingHistoryEntry(
+            1L, ChargingSessionSnapshot.from(ChargingSettings(), 1L), 60_001L, 21f, null, false
+        )
+        val history = TestHistoryRepository(listOf(entry))
+        val service = NavigationTestService(false)
+        val navigation = NavigationViewModel(service, history)
+        try {
+            runCurrent()
+            assertTrue(navigation.onBack())
+            runCurrent()
+            assertEquals(listOf(Destination.Config), navigation.backStack.value)
+            assertEquals(entry.copy(reviewed = true), navigation.summary.value)
+
+            service.start()
+            runCurrent()
+            assertEquals(listOf(Destination.Config, Destination.Running), navigation.backStack.value)
+            assertEquals(entry.copy(reviewed = true), navigation.summary.value)
+            val next = entry.copy(
+                id = 100_000L,
+                snapshot = ChargingSessionSnapshot.from(ChargingSettings(), 100_000L),
+                endedAt = 160_000L
+            )
+            history.entries.value = listOf(next, entry.copy(reviewed = true))
+            service.stop()
+            runCurrent()
+            assertEquals(listOf(Destination.Config, Destination.EndSummary), navigation.backStack.value)
+            assertEquals(next, navigation.summary.value)
         } finally {
             navigation.viewModelScope.cancel()
             Dispatchers.resetMain()
