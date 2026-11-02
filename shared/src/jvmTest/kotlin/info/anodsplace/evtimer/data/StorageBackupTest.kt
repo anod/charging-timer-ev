@@ -12,6 +12,39 @@ import kotlin.test.assertTrue
 
 class StorageBackupTest {
     @Test
+    fun v3BackupMigratesAlphabeticalOrderAndRetainsValuesAndOptions() {
+        val file = Files.createTempFile("evtimer-v3-restore", ".db").toFile()
+        try {
+            File("src/commonMain/sqldelight/databases/3.db").copyTo(file, overwrite = true)
+            DriverManager.getConnection("jdbc:sqlite:${file.path}").use { connection ->
+                connection.createStatement().use {
+                    it.execute("PRAGMA user_version=3")
+                    it.execute("INSERT INTO preset VALUES('custom','Default',83,11,100)")
+                    it.execute("INSERT INTO preset VALUES('work','Work',60,7,80)")
+                    it.execute("INSERT INTO preset VALUES('home','Home',75,22,90)")
+                    it.execute("INSERT INTO power_option VALUES('home',0,22)")
+                }
+            }
+            JdbcSqliteDriver("jdbc:sqlite:${file.path}", schema = ChargingDatabase.Schema).use { driver ->
+                val queries = ChargingDatabase(driver).storageQueries
+                assertEquals(listOf("custom", "home", "work"), queries.allPresets().executeAsList().map { it.id })
+                assertEquals(75.0, queries.presetById("home").executeAsOne().battery_capacity)
+                assertEquals(22.0, queries.options("home").executeAsOne().power_kw)
+                queries.setPresetPosition(1, "work")
+                queries.setPresetPosition(2, "home")
+                queries.putPreset("work", "Renamed", 61.0, 7.0, 80.0)
+            }
+            JdbcSqliteDriver("jdbc:sqlite:${file.path}", schema = ChargingDatabase.Schema).use { driver ->
+                val queries = ChargingDatabase(driver).storageQueries
+                assertEquals(listOf("custom", "work", "home"), queries.allPresets().executeAsList().map { it.id })
+                assertEquals("Renamed", queries.presetById("work").executeAsOne().name)
+            }
+        } finally {
+            check(file.delete())
+        }
+    }
+
+    @Test
     fun unsupportedJournalModeDoesNotPreventStartup() {
         JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY, schema = ChargingDatabase.Schema).use {
             configureBackupJournal(it)

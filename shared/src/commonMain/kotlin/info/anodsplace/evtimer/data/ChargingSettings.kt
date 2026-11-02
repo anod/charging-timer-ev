@@ -21,4 +21,14 @@ data class ChargingSettings(
         chargingPower = power,
         availablePowers = (availablePowers + power).distinct().sorted()
     )
+
+    fun withRemovedPower(power: Float): ChargingSettings {
+        require(power in availablePowers) { "Unknown power option" }
+        val remaining = availablePowers.filterNot { it == power }
+        require(remaining.isNotEmpty()) { "At least one power option is required" }
+        return copy(
+            availablePowers = remaining,
+            chargingPower = if (chargingPower == power) remaining.first() else chargingPower
+        )
+    }
 }

@@ -65,8 +65,14 @@ fun ChargingTimerApp(
                                 Destination.Settings -> {
                                     val viewModel = koinViewModel<SettingsViewModel>()
                                     val notifyAt80 by viewModel.notifyAt80.collectAsState()
+                                    val presets by viewModel.presets.collectAsState()
                                     SettingsScreen(
                                         notifyAt80, viewModel::setNotifyAt80,
+                                        presets = presets,
+                                        onRenamePreset = viewModel::renamePreset,
+                                        onDeletePreset = viewModel::deletePreset,
+                                        onMovePreset = viewModel::movePreset,
+                                        onReorderPresets = viewModel::reorderPresets,
                                         onBack = { navigation.onBack() },
                                         onOpenLicenses = { navigation.navigate(Destination.Licenses) },
                                         modifier = modifier.windowInsetsPadding(WindowInsets.systemBars)

@@ -24,6 +24,129 @@ import kotlin.time.Instant
 
 class StorageRepositoryTest {
     @Test
+    fun defaultRenameMoveEditAndDeletionPersistThroughRestartAndRestore() = runTest {
+        fixture { f ->
+            f.repo.savePreset(ChargingPreset("home", "Home", ChargingSettings.DEFAULT.copy(maxPercent = 80f)))
+            f.repo.renamePreset("custom", "  Garage \uD83C\uDFE0  ")
+            f.repo.reorderPresets(listOf("home", "custom"))
+            f.repo.selectPreset("custom")
+            f.repo.saveSettings(ChargingSettings.DEFAULT.withRemovedPower(11f).copy(startPercent = 25f))
+            var restarted = f.repository()
+            assertEquals(listOf("home", "custom"), restarted.observePresets().first().map { it.id })
+            assertEquals("Garage \uD83C\uDFE0", restarted.observeConfiguration().first().selected.name)
+            assertTrue(restarted.observeConfiguration().first().isEdited)
+            assertEquals(3.6f, restarted.observeSettings().first().chargingPower)
+            restarted.updateSelectedPreset()
+            assertFalse(restarted.observeConfiguration().first().isEdited)
+            assertEquals(listOf(3.6f, 7f, 22f), restarted.observeConfiguration().first().selected.settings.availablePowers)
+            restarted.deletePreset("custom")
+            val restore = object : StorageRestoreState {
+                override val requiresInterruption = true
+                override fun markReady() = Unit
+            }
+            restarted = ChargingRepositoryImpl(f.store, f.database, f.clock, restore)
+            val configuration = restarted.observeConfiguration().first()
+            assertEquals(listOf("home"), configuration.presets.map { it.id })
+            assertEquals("home", configuration.selectedId)
+            assertEquals(25f, configuration.settings.startPercent)
+            assertFalse(configuration.isEdited)
+            assertFailsWith<IllegalArgumentException> { restarted.deletePreset("home") }
+            assertFailsWith<IllegalArgumentException> { restarted.renamePreset("missing", "Name") }
+            restarted.saveAsPreset("Default")
+            assertEquals("Default", f.repository().observeConfiguration().first().selected.name)
+            assertFalse(f.repository().observePresets().first().any { it.id == "custom" })
+        }
+    }
+
+    @Test
+    fun renamingDoesNotDiscardWorkingDraftOrChangeChargingValues() = runTest {
+        fixture { f ->
+            val original = f.repo.observeConfiguration().first().selected
+            f.repo.saveSettings(original.settings.withAddedPower(50f))
+            f.repo.renamePreset(original.id, "New name")
+            val restarted = f.repository().observeConfiguration().first()
+            assertEquals(original.settings, restarted.selected.settings)
+            assertEquals("New name", restarted.selected.name)
+            assertTrue(restarted.isEdited)
+            assertEquals(50f, restarted.settings.chargingPower)
+            assertFailsWith<IllegalArgumentException> { f.repo.deletePreset(original.id) }
+            assertEquals(restarted, f.repo.observeConfiguration().first())
+        }
+    }
+
+    @Test
+    fun presetCrudOrderingAndPowerOptionsSurviveRestart() = runTest {
+        fixture { f ->
+            val custom = f.repo.observePresets().first().single()
+            val home = ChargingPreset("home", "\uD83C\uDFE0 Home", ChargingSettings.DEFAULT)
+            val work = ChargingPreset("work", "Work", ChargingSettings.DEFAULT.copy(maxPercent = 80f))
+            f.repo.savePreset(work)
+            f.repo.savePreset(home)
+            assertEquals(listOf("custom", "work", "home"), f.repo.observePresets().first().map { it.id })
+            f.repo.reorderPresets(listOf("custom", "home", "work"))
+            var restarted = f.repository()
+            assertEquals(listOf("custom", "home", "work"), restarted.observePresets().first().map { it.id })
+            val edited = home.copy(name = "\u26A1 Garage", settings = home.settings.withAddedPower(50f)
+                .withRemovedPower(11f).copy(batteryCapacity = 60f, maxPercent = 90f))
+            restarted.savePreset(edited)
+            restarted = f.repository()
+            assertEquals(listOf(custom, edited, work), restarted.observePresets().first())
+            restarted.selectPreset(home.id)
+            restarted.saveSettings(edited.settings.copy(startPercent = 25f, maxPercent = 95f))
+            assertTrue(restarted.observeConfiguration().first().isEdited)
+            restarted.reorderPresets(listOf("custom", "work", "home"))
+            assertTrue(restarted.observeConfiguration().first().isEdited)
+            assertEquals(95f, restarted.observeSettings().first().maxPercent)
+            restarted.deletePreset(home.id)
+            restarted = f.repository()
+            val configuration = restarted.observeConfiguration().first()
+            assertEquals("custom", configuration.selectedId)
+            assertFalse(configuration.isEdited)
+            assertEquals(custom.settings.copy(startPercent = 25f), configuration.settings)
+            assertEquals(listOf("custom", "work"), configuration.presets.map { it.id })
+            assertTrue(f.database.storageQueries.options(home.id).executeAsList().isEmpty())
+        }
+    }
+
+    @Test
+    fun invalidOrdersAndNamesAreRejectedWithoutChangingStorage() = runTest {
+        fixture { f ->
+            f.repo.savePreset(ChargingPreset("home", "Home", ChargingSettings.DEFAULT))
+            val before = f.repo.observePresets().first()
+            for (order in listOf(
+                listOf("custom"), listOf("custom", "unknown"),
+                listOf("custom", "home", "home"), emptyList()
+            )) {
+                assertFailsWith<IllegalArgumentException> { f.repo.reorderPresets(order) }
+                assertEquals(before, f.repo.observePresets().first())
+            }
+            assertFailsWith<IllegalArgumentException> {
+                f.repo.savePreset(before.last().copy(name = "dEfAuLt"))
+            }
+            assertFailsWith<IllegalArgumentException> {
+                f.repo.savePreset(before.last().copy(name = "x".repeat(33)))
+            }
+            assertEquals(before, f.repository().observePresets().first())
+        }
+    }
+
+    @Test
+    fun editingBuiltInPowerOptionsPersistsWithoutChangingNamedPresets() = runTest {
+        fixture { f ->
+            f.repo.saveAsPreset("Home")
+            val home = f.repo.observeConfiguration().first().selected
+            f.repo.selectPreset("custom")
+            val custom = f.repo.observePresets().first().first()
+            val updated = custom.copy(settings = custom.settings.withAddedPower(50f).withRemovedPower(50f))
+            f.repo.savePreset(updated)
+            val restarted = f.repository()
+            assertEquals(updated, restarted.observePresets().first().first())
+            assertEquals(home, restarted.observePresets().first().last())
+            assertEquals(updated.settings, restarted.observeSettings().first())
+        }
+    }
+
+    @Test
     fun notifyAt80DefaultsOnAndPersistsIndependentlyOfPresets() = runTest {
         fixture { f ->
             assertTrue(f.repo.observeNotifyAt80().first())
@@ -39,7 +162,7 @@ class StorageRepositoryTest {
     }
 
     @Test
-    fun earlierUnreleasedV3DefaultNameIsNormalizedWithoutChangingSnapshotsOrValues() = runTest {
+    fun renamedDefaultSurvivesRestartWithoutChangingSnapshotsOrValues() = runTest {
         fixture { f ->
             f.repo.observeSettings().first()
             f.database.storageQueries.putPreset("custom", "Custom", 60.0, 7.0, 80.0)
@@ -47,7 +170,7 @@ class StorageRepositoryTest {
                 .copy(presetId = "custom", presetName = "Custom")
             f.repo.saveSession(ChargingSession(false, original))
             val restarted = f.repository()
-            assertEquals("Default", restarted.observeConfiguration().first().selected.name)
+            assertEquals("Custom", restarted.observeConfiguration().first().selected.name)
             assertEquals(60f, restarted.observeSettings().first().batteryCapacity)
             assertEquals(original, restarted.observeSession().first().snapshot)
         }
@@ -96,7 +219,7 @@ class StorageRepositoryTest {
     }
 
     @Test
-    fun matchingValuesClearDraftAndCustomCannotBeRenamed() = runTest {
+    fun matchingValuesClearDraftAndDefaultCanBeRenamed() = runTest {
         fixture { f ->
             f.repo.saveAsPreset("Home")
             val selected = f.repo.observeConfiguration().first()
@@ -105,11 +228,9 @@ class StorageRepositoryTest {
             assertFalse(f.repo.observeConfiguration().first().isEdited)
             assertNull(f.store.data.first()[SessionPreferences.draftValues])
             assertFalse(f.repository().observeConfiguration().first().isEdited)
-            assertFailsWith<IllegalArgumentException> {
-                f.repo.savePreset(ChargingPreset("custom", "Renamed", ChargingSettings.DEFAULT))
-            }
+            f.repo.renamePreset("custom", "Renamed")
             assertFailsWith<IllegalArgumentException> { f.repo.saveAsPreset("  ") }
-            assertEquals("Default", f.repo.observePresets().first().first().name)
+            assertEquals("Renamed", f.repo.observePresets().first().first().name)
         }
     }
 

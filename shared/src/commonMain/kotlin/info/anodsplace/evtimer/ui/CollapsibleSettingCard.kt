@@ -88,6 +88,7 @@ fun CollapsibleSettingCard(
     expanded: Boolean,
     onExpandedChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
+    headerAction: (@Composable () -> Unit)? = null,
     expandedContent: @Composable () -> Unit
 ) {
     val arrow = if (expanded) "▾" else "▸"
@@ -110,11 +111,6 @@ fun CollapsibleSettingCard(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable {
-                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                            onExpandedChange(false)
-                        }
-                        .semantics { contentDescription = collapseDescription }
                         .padding(bottom = 4.dp)
                 ) {
                     Text(
@@ -122,7 +118,13 @@ fun CollapsibleSettingCard(
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.weight(1f)
+                            .clickable {
+                                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                onExpandedChange(false)
+                            }
+                            .semantics { contentDescription = collapseDescription }
                     )
+                    headerAction?.invoke()
                 }
                 expandedContent()
             }

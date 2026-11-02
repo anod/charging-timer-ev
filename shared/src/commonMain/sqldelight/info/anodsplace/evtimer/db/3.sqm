@@ -1,0 +1,8 @@
+ALTER TABLE preset ADD COLUMN position INTEGER NOT NULL DEFAULT 0;
+
+UPDATE preset SET position = (
+    SELECT count(*) FROM preset AS preceding
+    WHERE (preceding.id = 'custom' AND preset.id != 'custom')
+       OR (preceding.id != 'custom' AND preset.id != 'custom' AND
+           (preceding.name < preset.name OR (preceding.name = preset.name AND preceding.id < preset.id)))
+);

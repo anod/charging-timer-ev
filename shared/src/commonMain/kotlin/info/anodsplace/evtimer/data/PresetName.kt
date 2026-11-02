@@ -25,8 +25,7 @@ fun normalizeAndValidatePresetName(name: String, existingNames: Collection<Strin
     val error = when {
         normalized.isEmpty() -> PresetNameError.EMPTY
         normalized.codePointCount() > MAX_PRESET_NAME_CODE_POINTS -> PresetNameError.TOO_LONG
-        normalized.equals("Default", ignoreCase = true) ||
-            existingNames.any { it.trim().equals(normalized, ignoreCase = true) } -> PresetNameError.ALREADY_EXISTS
+        existingNames.any { it.trim().equals(normalized, ignoreCase = true) } -> PresetNameError.ALREADY_EXISTS
         else -> null
     }
     return PresetNameValidation(normalized, error)

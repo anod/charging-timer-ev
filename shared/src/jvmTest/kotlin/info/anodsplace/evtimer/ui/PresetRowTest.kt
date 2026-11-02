@@ -26,6 +26,20 @@ import kotlin.test.assertTrue
 @OptIn(ExperimentalTestApi::class)
 class PresetRowTest {
     @Test
+    fun renamedDefaultShowsStoredNameAndUsesEditedPresetActions() = runDesktopComposeUiTest {
+        val settings = ChargingSettings.DEFAULT
+        val state = ConfigurationViewState(isLoading = false,
+            settings = settings.withRemovedPower(11f),
+            presets = listOf(ChargingPreset("custom", "Garage", settings)))
+        val events = mutableListOf<ConfigurationViewEvent>()
+        setContent { MaterialTheme { ConfigurationScreen(state, { events += it }) } }
+        onNodeWithText("Default").assertDoesNotExist()
+        onNodeWithText("Garage *").performClick()
+        onNodeWithText("Update preset").performClick()
+        assertEquals(listOf<ConfigurationViewEvent>(ConfigurationViewEvent.UpdatePreset), events)
+    }
+
+    @Test
     fun editingResetAndSelectionKeepSettingsPositionAndActionsUseEditedChip() = runDesktopComposeUiTest {
         val settings = ChargingSettings.DEFAULT.copy(maxPercent = 80f)
         val state = mutableStateOf(ConfigurationViewState(

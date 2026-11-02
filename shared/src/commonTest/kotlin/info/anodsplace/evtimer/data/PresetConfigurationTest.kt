@@ -53,8 +53,7 @@ class PresetConfigurationTest {
             normalizeAndValidatePresetName("home", listOf("  Home  ")).error)
         assertEquals(PresetNameError.ALREADY_EXISTS,
             normalizeAndValidatePresetName("\u00E9T\u00C9", listOf("\u00C9t\u00E9")).error)
-        assertEquals(PresetNameError.ALREADY_EXISTS,
-            normalizeAndValidatePresetName("default", emptyList()).error)
+        assertTrue(normalizeAndValidatePresetName("default", emptyList()).isValid)
         assertFailsWith<IllegalArgumentException> { edited.reduce(PresetEvent.SaveNew("new", "default")) }
     }
 
@@ -94,16 +93,26 @@ class PresetConfigurationTest {
         assertEquals(custom.id, deleted.selectedId)
         assertEquals(custom.settings.copy(startPercent = 25f), deleted.settings)
         assertFalse(deleted.isEdited)
-        assertFailsWith<IllegalArgumentException> { selected.reduce(PresetEvent.Delete(custom.id)) }
+        assertEquals(listOf(home), selected.reduce(PresetEvent.Delete(custom.id)).presets)
         assertFailsWith<IllegalArgumentException> { selected.reduce(PresetEvent.Delete("missing")) }
     }
 
-    @Test fun customEditsAreSavedDirectlyAndCanBeSavedAsNamedPreset() {
+    @Test fun defaultEditsUseTheSameExplicitUpdateAsOtherPresets() {
         val changed = initial.reduce(PresetEvent.Edit(initial.settings.withAddedPower(50f)))
-        assertEquals(changed.settings, changed.selected.settings)
-        assertFalse(changed.isEdited)
+        assertEquals(custom, changed.selected)
+        assertTrue(changed.isEdited)
+        val updated = changed.reduce(PresetEvent.Update)
+        assertEquals(changed.settings, updated.selected.settings)
+        assertFalse(updated.isEdited)
         val saved = changed.reduce(PresetEvent.SaveNew("new", "Weekend"))
         assertEquals(changed.selected, saved.presets.first { it.id == custom.id })
         assertEquals("new", saved.selectedId)
+    }
+
+    @Test fun deletingDefaultSelectsFirstRemainingAndRejectsLastDeletion() {
+        val deleted = initial.reduce(PresetEvent.Delete(custom.id))
+        assertEquals(home.id, deleted.selectedId)
+        assertEquals(home.settings.copy(startPercent = 25f), deleted.settings)
+        assertFailsWith<IllegalArgumentException> { deleted.reduce(PresetEvent.Delete(home.id)) }
     }
 }
