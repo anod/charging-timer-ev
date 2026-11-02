@@ -507,11 +507,8 @@ class StorageRepositoryTest {
             f.repo.saveSession(ChargingSession(false, snapshot))
             assertEquals(ChargingSession(false, snapshot), f.repo.observeSession().first())
             val entry = f.repo.observeHistory().first().single()
-            val targetTime = snapshot.startTime + kotlin.math.ceil(
-                ChargingCalculator.minutesToReach(snapshot, snapshot.startTime, snapshot.targetPercent) * 60_000.0
-            ).toLong()
-            assertEquals(targetTime, entry.endedAt)
-            assertEquals(snapshot.targetPercent, entry.endPercent)
+            assertEquals(f.now, entry.endedAt)
+            assertEquals(ChargingCalculator.percentAt(snapshot, f.now), entry.endPercent)
             assertEquals(snapshot, entry.snapshot)
             assertFalse(entry.reviewed)
             f.repo.reviewSession(entry.id, 62f, true)
@@ -521,6 +518,24 @@ class StorageRepositoryTest {
             f.repo.saveSession(ChargingSession(true, snapshot.copy(segments = listOf(PowerSegment(456L, 11f)))))
             assertEquals(456L, f.repo.observeSession().first().startTime)
             assertEquals(1, f.repo.observeHistory().first().size)
+        }
+    }
+
+    @Test
+    fun lateCompletionRecordsTargetTimeRatherThanTimeAppWoke() = runTest {
+        fixture { f ->
+            val snapshot = ChargingSessionSnapshot.from(
+                ChargingSettings(60f, 12f, 20f, 80f), f.now - 181 * 60_000L
+            )
+            f.repo.saveSession(ChargingSession(true, snapshot))
+            f.repo.saveSession(ChargingSession(false, snapshot))
+            val entry = f.repository().observeHistory().first().single()
+            assertEquals(f.now - 60_000L, entry.endedAt)
+            assertEquals(80f, entry.endPercent)
+            assertFalse(entry.reviewed)
+            assertEquals(180 * 60_000L, entry.summary().durationMillis)
+            assertEquals(36f, entry.summary().energyKwh)
+            assertEquals(12f, entry.summary().averageKw)
         }
     }
 

@@ -29,17 +29,17 @@ class NavigationViewModel(
         viewModelScope.launch {
             combine(service.status, history.observeHistory()) { status, entries -> status to entries }
                 .collect { (status, entries) ->
-                if (status.isLoading) return@collect
-                val pending = entries.firstOrNull { !it.reviewed }.takeUnless { status.isRunning }
-                mutableSummary.value = pending
-                if (status.isRunning != wasRunning || pending?.id != pendingId || mutableBackStack.value.isEmpty()) {
-                    wasRunning = status.isRunning
-                    pendingId = pending?.id
-                    mutableBackStack.value = if (pending != null) {
-                        listOf(Destination.Config, Destination.EndSummary)
-                    } else sessionStack(status.isRunning)
+                    if (status.isLoading) return@collect
+                    val pending = entries.firstOrNull { !it.reviewed }.takeUnless { status.isRunning }
+                    mutableSummary.value = pending
+                    if (status.isRunning != wasRunning || pending?.id != pendingId || mutableBackStack.value.isEmpty()) {
+                        wasRunning = status.isRunning
+                        pendingId = pending?.id
+                        mutableBackStack.value = if (pending != null) {
+                            listOf(Destination.Config, Destination.EndSummary)
+                        } else sessionStack(status.isRunning)
+                    }
                 }
-            }
         }
     }
 
