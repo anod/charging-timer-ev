@@ -89,7 +89,13 @@ setCurrentSession:
 UPDATE storage_migration SET current_session_id = ? WHERE id = 1;
 
 history:
-SELECT * FROM charge_session WHERE ended_at IS NOT NULL ORDER BY ended_at DESC, id DESC;
+SELECT * FROM charge_session WHERE ended_at IS NOT NULL AND is_running = 0 ORDER BY ended_at DESC, id DESC;
+
+detachHistorySession:
+UPDATE storage_migration SET current_session_id = NULL WHERE current_session_id = ?;
+
+deleteHistorySession:
+DELETE FROM charge_session WHERE id = ? AND ended_at IS NOT NULL AND is_running = 0;
 
 segments:
 SELECT * FROM power_segment WHERE session_id = ? ORDER BY started_at;

@@ -20,6 +20,7 @@ class NavigationViewModel(
 ) : ViewModel() {
     private var wasRunning: Boolean? = service.status.value.takeUnless { it.isLoading }?.isRunning
     private var pendingId: Long? = null
+    private var historySummaryId: Long? = null
     private val mutableSummary = MutableStateFlow<ChargingHistoryEntry?>(null)
     val summary = mutableSummary.asStateFlow()
     private val mutableBackStack = MutableStateFlow(if (wasRunning == true) sessionStack(true) else emptyList())
@@ -36,17 +37,33 @@ class NavigationViewModel(
                     ) return@collect
                     val pending = entries.firstOrNull()?.takeIf { !it.reviewed && !status.isRunning }
                     // Keep the outgoing entry available until its navigation exit animation finishes.
-                    val displayed = pending ?: entries.firstOrNull { it.id == mutableSummary.value?.id }
+                    val displayed = if (historySummaryId != null) {
+                        entries.firstOrNull { it.id == historySummaryId }
+                    } else pending ?: entries.firstOrNull { it.id == mutableSummary.value?.id }
                     if (displayed != null) mutableSummary.value = displayed
-                    if (status.isRunning != wasRunning || pending?.id != pendingId || mutableBackStack.value.isEmpty()) {
-                        wasRunning = status.isRunning
-                        pendingId = pending?.id
+                    val runningChanged = status.isRunning != wasRunning
+                    val pendingChanged = pending?.id != pendingId
+                    wasRunning = status.isRunning
+                    pendingId = pending?.id
+                    if (runningChanged ||
+                        (pendingChanged && Destination.History !in mutableBackStack.value) ||
+                        mutableBackStack.value.isEmpty()
+                    ) {
+                        historySummaryId = null
+                        if (pending != null) mutableSummary.value = pending
                         mutableBackStack.value = if (pending != null) {
                             listOf(Destination.Config, Destination.EndSummary)
                         } else sessionStack(status.isRunning)
                     }
                 }
         }
+    }
+
+    fun openHistorySummary(entry: ChargingHistoryEntry) {
+        if (mutableBackStack.value.lastOrNull() != Destination.History) return
+        historySummaryId = entry.id
+        mutableSummary.value = entry
+        navigate(Destination.EndSummary)
     }
 
     fun navigate(destination: Destination) {
@@ -58,11 +75,12 @@ class NavigationViewModel(
     fun onBack(): Boolean {
         val stack = mutableBackStack.value
         if (stack.size <= 1) return false
-        if (stack.last() == Destination.EndSummary) {
+        if (stack.last() == Destination.EndSummary && historySummaryId == null) {
             val entry = mutableSummary.value ?: return false
             viewModelScope.launch { history.reviewSession(entry.id, entry.actualPercent, reviewed = true) }
             return true
         }
+        historySummaryId = null
         mutableBackStack.value = stack.dropLast(1)
         return true
     }

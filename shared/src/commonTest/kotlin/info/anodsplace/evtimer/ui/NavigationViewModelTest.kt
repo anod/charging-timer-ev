@@ -25,6 +25,66 @@ import kotlin.test.assertTrue
 @OptIn(ExperimentalCoroutinesApi::class)
 class NavigationViewModelTest {
     @Test
+    fun historySummaryReturnsToHistoryWithoutReviewingOrReplacingItOnTicks() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val snapshot = ChargingSessionSnapshot.from(ChargingSettings(), 1L)
+        val old = ChargingHistoryEntry(1L, snapshot, 60_001L, 21f, null, false)
+        val newest = old.copy(id = 2L, reviewed = true)
+        val history = TestHistoryRepository(listOf(newest, old))
+        val service = NavigationTestService(true)
+        val navigation = NavigationViewModel(service, history)
+        try {
+            runCurrent()
+            navigation.navigate(Destination.History)
+            navigation.openHistorySummary(old)
+            assertEquals(old, navigation.summary.value)
+            service.status.value = service.status.value.copy(currentPercent = 40f)
+            runCurrent()
+            assertEquals(old, navigation.summary.value)
+            assertEquals(Destination.EndSummary, navigation.backStack.value.last())
+            assertTrue(navigation.onBack())
+            runCurrent()
+            assertEquals(Destination.History, navigation.backStack.value.last())
+            assertEquals(listOf(newest, old), history.entries.value)
+            history.deleteSession(newest.id)
+            runCurrent()
+            assertEquals(Destination.History, navigation.backStack.value.last())
+            assertFalse(history.entries.value.single().reviewed)
+        } finally {
+            navigation.viewModelScope.cancel()
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
+    fun deletingNewestWhileBrowsingDoesNotOpenOlderUnreviewedSummary() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val snapshot = ChargingSessionSnapshot.from(ChargingSettings(), 1L)
+        val old = ChargingHistoryEntry(1L, snapshot, 60_001L, 21f, null, false)
+        val newest = old.copy(id = 2L, reviewed = true)
+        val history = TestHistoryRepository(listOf(newest, old))
+        val navigation = NavigationViewModel(NavigationTestService(false), history)
+        try {
+            runCurrent()
+            navigation.navigate(Destination.History)
+            history.deleteSession(newest.id)
+            runCurrent()
+            assertEquals(Destination.History, navigation.backStack.value.last())
+            navigation.openHistorySummary(old)
+            navigation.onBack()
+            runCurrent()
+            assertEquals(Destination.History, navigation.backStack.value.last())
+            assertFalse(history.entries.value.single().reviewed)
+            navigation.onBack()
+            runCurrent()
+            assertEquals(listOf(Destination.Config), navigation.backStack.value)
+        } finally {
+            navigation.viewModelScope.cancel()
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
     fun loadingNeverSeedsConfigBeforeRestoringActiveRunning() = withNavigation { navigation, service ->
         service.status.value = ChargingStatus()
         val coldStart = NavigationViewModel(service, TestHistoryRepository())

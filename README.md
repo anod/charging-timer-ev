@@ -105,6 +105,15 @@ Running state. No schema or backup-rule changes are required.
 Android only posts a new completion alert for history created during the process lifetime;
 cold-opening an already-stopped summary preserves, but never re-alerts, an existing notification.
 
+The history icon on Configuration opens a compact, newest-first list of ended sessions:
+local start date/time, saved preset, start/end percentages, battery energy, duration and
+average battery-side power. Tap a row to reuse the charge summary and sharing without
+changing its review status. Back/Done returns to history. Restored interrupted sessions
+remain visible with unknown end values rather than fabricated charging estimates.
+Delete asks for confirmation, removes the session and its power segments, and cannot
+delete a running timer. History uses the existing backed-up database; there is no new
+schema, migration or persisted preference. Monthly totals are not included.
+
 * [/shared](./shared/src) is for code that will be shared across your Compose Multiplatform applications.
   It contains several subfolders:
   - [commonMain](./shared/src/commonMain/kotlin) is for code that’s common for all targets.

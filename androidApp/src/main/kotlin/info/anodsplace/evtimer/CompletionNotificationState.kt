@@ -9,6 +9,7 @@ internal class CompletionNotificationState {
     private var initialized = false
     private var initialSessionId: Long? = null
     private var notifiedSessionId: Long? = null
+    private var newestStoppedSessionId: Long? = null
 
     fun update(
         isRunning: Boolean,
@@ -20,6 +21,12 @@ internal class CompletionNotificationState {
             initialized = true
         }
         if (isRunning) return CompletionNotificationAction.Keep
+        if (latest != null) {
+            if (latest.id < maxOf(initialSessionId ?: Long.MIN_VALUE, newestStoppedSessionId ?: Long.MIN_VALUE)) {
+                return CompletionNotificationAction.Cancel
+            }
+            newestStoppedSessionId = latest.id
+        }
         if (latest == null || latest.reviewed || !latest.reachedTarget) {
             return CompletionNotificationAction.Cancel
         }

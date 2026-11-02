@@ -18,6 +18,7 @@ import androidx.navigation3.ui.NavDisplay
 import info.anodsplace.evtimer.data.ConfigurationViewModel
 import info.anodsplace.evtimer.data.RunningViewModel
 import info.anodsplace.evtimer.data.SettingsViewModel
+import info.anodsplace.evtimer.data.HistoryViewModel
 import info.anodsplace.evtimer.data.ShareService
 import info.anodsplace.evtimer.data.summary
 import org.koin.compose.koinInject
@@ -56,7 +57,8 @@ fun ChargingTimerApp(
                                     else ConfigurationScreen(
                                         viewState, viewModel::handleEvent,
                                         modifier.windowInsetsPadding(WindowInsets.systemBars),
-                                        onOpenSettings = { navigation.navigate(Destination.Settings) }
+                                        onOpenSettings = { navigation.navigate(Destination.Settings) },
+                                        onOpenHistory = { navigation.navigate(Destination.History) }
                                     )
                                 }
                                 Destination.Running -> {
@@ -78,6 +80,17 @@ fun ChargingTimerApp(
                                         onReorderPresets = viewModel::reorderPresets,
                                         onBack = { navigation.onBack() },
                                         onOpenLicenses = { navigation.navigate(Destination.Licenses) },
+                                        modifier = modifier.windowInsetsPadding(WindowInsets.systemBars)
+                                    )
+                                }
+                                Destination.History -> {
+                                    val viewModel = koinViewModel<HistoryViewModel>()
+                                    val entries by viewModel.entries.collectAsState()
+                                    HistoryScreen(
+                                        entries = entries,
+                                        onOpenSummary = navigation::openHistorySummary,
+                                        onDelete = viewModel::deleteSession,
+                                        onBack = { navigation.onBack() },
                                         modifier = modifier.windowInsetsPadding(WindowInsets.systemBars)
                                     )
                                 }

@@ -24,6 +24,87 @@ import kotlin.time.Instant
 
 class StorageRepositoryTest {
     @Test
+    fun historyOrdersEndedSessionsAndAggregatesSavedSegmentsWithoutTheActiveTimer() = runTest {
+        fixture { f ->
+            val settings = ChargingSettings(60f, 6f, 20f, 80f)
+            val start = 1_000L
+            val snapshot = ChargingSessionSnapshot.from(settings, start).copy(
+                presetId = "deleted", presetName = "Old home", presetEdited = true,
+                segments = listOf(PowerSegment(start, 6f), PowerSegment(start + 3_600_000L, 12f))
+            )
+            f.repo.saveSession(ChargingSession(true, snapshot))
+            f.now = start + 7_200_000L
+            f.repo.saveSession(ChargingSession(false, snapshot))
+            val first = f.repo.observeHistory().first().single()
+            val summary = first.summary()
+            assertEquals(50f, summary.endPercent)
+            assertEquals(18f, summary.energyKwh)
+            assertEquals(9f, summary.averageKw)
+            assertEquals(7_200_000L, summary.durationMillis)
+            assertEquals(listOf(SummarySegment(6f, 3_600_000L), SummarySegment(12f, 3_600_000L)), summary.segments)
+            assertEquals("Old home", summary.presetName)
+            assertTrue(summary.presetEdited)
+
+            val second = ChargingSessionSnapshot.from(settings, f.now)
+            f.repo.saveSession(ChargingSession(true, second))
+            assertEquals(listOf(first), f.repo.observeHistory().first())
+            f.now += 600_000L
+            f.repo.saveSession(ChargingSession(false, second))
+            // Equal finish timestamps use descending session id as the stable tie-breaker.
+            val third = ChargingSessionSnapshot.from(settings, second.startTime + 1L)
+            f.repo.saveSession(ChargingSession(true, third))
+            f.repo.saveSession(ChargingSession(false, third))
+            assertEquals(listOf(third.startTime, second.startTime, first.id),
+                f.repository().observeHistory().first().map { it.id })
+        }
+    }
+
+    @Test
+    fun deleteCascadesSegmentsDetachesStoppedSnapshotAndSurvivesRestart() = runTest {
+        fixture { f ->
+            val snapshot = ChargingSessionSnapshot.from(ChargingSettings.DEFAULT, 1_000L)
+            f.repo.saveSession(ChargingSession(true, snapshot))
+            assertFailsWith<IllegalArgumentException> { f.repo.deleteSession(snapshot.startTime) }
+            assertTrue(f.repo.observeSession().first().isRunning)
+            assertEquals(1, f.database.storageQueries.segments(snapshot.startTime).executeAsList().size)
+            f.repo.saveSession(ChargingSession(false, snapshot))
+            f.repo.deleteSession(snapshot.startTime)
+            val restarted = f.repository()
+            assertTrue(restarted.observeHistory().first().isEmpty())
+            assertEquals(ChargingSession(), restarted.observeSession().first())
+            assertTrue(f.database.storageQueries.allSegments().executeAsList().isEmpty())
+            assertEquals(1, restarted.observePresets().first().size)
+            assertFailsWith<IllegalArgumentException> { restarted.deleteSession(snapshot.startTime) }
+        }
+    }
+
+    @Test
+    fun deletingPastSessionDoesNotChangeActiveTimerAndRestoredHistoryRemainsDeletable() = runTest {
+        fixture { f ->
+            val past = ChargingSessionSnapshot.from(ChargingSettings.DEFAULT, 1_000L)
+            f.repo.saveSession(ChargingSession(true, past))
+            f.repo.saveSession(ChargingSession(false, past))
+            val active = ChargingSessionSnapshot.from(ChargingSettings.DEFAULT, 2_000L)
+            f.repo.saveSession(ChargingSession(true, active))
+            f.repo.deleteSession(past.startTime)
+            assertEquals(ChargingSession(true, active), f.repository().observeSession().first())
+            assertTrue(f.repo.observeHistory().first().isEmpty())
+            val restored = ChargingRepositoryImpl(f.store, f.database, f.clock, object : StorageRestoreState {
+                override val requiresInterruption = true
+                override fun markReady() = Unit
+            })
+            val entry = restored.observeHistory().first().single()
+            assertTrue(entry.interrupted)
+            assertNull(entry.summary().durationMillis)
+            assertNull(entry.summary().energyKwh)
+            assertNull(entry.summary().averageKw)
+            restored.deleteSession(entry.id)
+            assertTrue(f.repository().observeHistory().first().isEmpty())
+            assertTrue(f.database.storageQueries.allSegments().executeAsList().isEmpty())
+        }
+    }
+
+    @Test
     fun defaultRenameMoveEditAndDeletionPersistThroughRestartAndRestore() = runTest {
         fixture { f ->
             f.repo.savePreset(ChargingPreset("home", "Home", ChargingSettings.DEFAULT.copy(maxPercent = 80f)))

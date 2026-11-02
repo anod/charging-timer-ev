@@ -67,7 +67,8 @@ fun ConfigurationScreen(
     onEvent: (ConfigurationViewEvent) -> Unit,
     modifier: Modifier = Modifier,
     initiallyShowPresetMenu: Boolean = false,
-    onOpenSettings: () -> Unit = {}
+    onOpenSettings: () -> Unit = {},
+    onOpenHistory: () -> Unit = {}
 ) {
     val settings = viewState.settings
     val presets = viewState.presetConfiguration
@@ -183,6 +184,9 @@ fun ConfigurationScreen(
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.weight(1f)
                 )
+                IconButton(onClick = onOpenHistory) {
+                    Icon(painterResource(Res.drawable.ic_history), stringResource(Res.string.history_title))
+                }
                 IconButton(onClick = onOpenSettings) {
                     Icon(painterResource(Res.drawable.ic_settings), stringResource(Res.string.settings_title))
                 }
