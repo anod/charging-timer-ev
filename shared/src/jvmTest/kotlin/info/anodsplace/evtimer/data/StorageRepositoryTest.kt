@@ -483,6 +483,23 @@ class StorageRepositoryTest {
     }
 
     @Test
+    fun earlyStopSummaryAndReviewPersistAcrossRepositoryRestart() = runTest {
+        fixture { f ->
+            val snapshot = ChargingSessionSnapshot.from(ChargingSettings(60f, 12f, 20f, 80f), f.now - 3_600_000L)
+            f.repo.saveSession(ChargingSession(true, snapshot))
+            f.repo.saveSession(ChargingSession(false, snapshot))
+            val entry = f.repository().observeHistory().first().single()
+            assertFalse(entry.reviewed)
+            assertEquals(f.now, entry.endedAt)
+            assertEquals(40f, entry.endPercent)
+            assertEquals(12f, entry.summary().energyKwh)
+            assertEquals(12f, entry.summary().averageKw)
+            f.repo.reviewSession(entry.id, null, true)
+            assertTrue(f.repository().observeHistory().first().single().reviewed)
+        }
+    }
+
+    @Test
     fun stoppingRetainsSnapshotAndHistoryCanBeReviewed() = runTest {
         fixture { f ->
             val snapshot = ChargingSessionSnapshot.from(ChargingSettings.DEFAULT, 123L)
@@ -501,6 +518,24 @@ class StorageRepositoryTest {
             f.repo.saveSession(ChargingSession(true, snapshot.copy(segments = listOf(PowerSegment(456L, 11f)))))
             assertEquals(456L, f.repo.observeSession().first().startTime)
             assertEquals(1, f.repo.observeHistory().first().size)
+        }
+    }
+
+    @Test
+    fun lateCompletionRecordsTargetTimeRatherThanTimeAppWoke() = runTest {
+        fixture { f ->
+            val snapshot = ChargingSessionSnapshot.from(
+                ChargingSettings(60f, 12f, 20f, 80f), f.now - 181 * 60_000L
+            )
+            f.repo.saveSession(ChargingSession(true, snapshot))
+            f.repo.saveSession(ChargingSession(false, snapshot))
+            val entry = f.repository().observeHistory().first().single()
+            assertEquals(f.now - 60_000L, entry.endedAt)
+            assertEquals(80f, entry.endPercent)
+            assertFalse(entry.reviewed)
+            assertEquals(180 * 60_000L, entry.summary().durationMillis)
+            assertEquals(36f, entry.summary().energyKwh)
+            assertEquals(12f, entry.summary().averageKw)
         }
     }
 

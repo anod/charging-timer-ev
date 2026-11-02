@@ -92,10 +92,18 @@ Desktop Escape is handled at the Window, independent of focused controls or clea
 focus. Android focus/traversal is not modified. Its regression test injects Compose key input
 directly (without sending OS-level keys): `.\gradlew.bat :shared:jvmTest --tests '*DesktopNavigationTest*'`.
 
-EndSummary, History, Settings and PresetEditor destinations are declared for the
-subsequent features, but are not exposed until their screens exist. Stop still returns
-to Config; issue #23 will change the stopped destination in `NavigationViewModel` to
-EndSummary. No placeholder screens or new navigation chrome are shown.
+Stop and target completion save an unreviewed session and open a compact charge summary:
+start/end percentages, duration, battery energy added, average battery-side power,
+charging-speed segments and the session's preset name. Completion ends at the original
+target-crossing time, even if the app wakes later. Done or Back marks the session reviewed;
+otherwise the latest ended session reopens on the next launch. Older unreviewed history
+does not form a summary chain. Restored interrupted sessions explicitly show
+unknown end values and duration rather than treating time away as charging.
+Share sends plain text through Android's chooser or iOS's activity sheet; desktop copies
+the same text to the clipboard. The summary is calculated from saved history, not live
+Running state. No schema or backup-rule changes are required.
+Android only posts a new completion alert for history created during the process lifetime;
+cold-opening an already-stopped summary preserves, but never re-alerts, an existing notification.
 
 * [/shared](./shared/src) is for code that will be shared across your Compose Multiplatform applications.
   It contains several subfolders:

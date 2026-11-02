@@ -61,8 +61,10 @@ class RunningViewModel(
     init {
         viewState = RunningViewState()
         viewModelScope.launch {
+            var lastRunningState: RunningViewState? = null
             combine(repository.observeSettings(), service.status) { settings, status ->
                 if (status.isLoading) return@combine RunningViewState()
+                if (!status.isRunning) lastRunningState?.let { return@combine it }
                 val sessionSettings = status.snapshot?.let {
                     settings.copy(
                         batteryCapacity = it.batteryCapacity,
@@ -91,7 +93,7 @@ class RunningViewModel(
                     timeProgress = status.snapshot?.let {
                         timeProgress(it, status.evaluatedAt, status.estimatedEndTime)
                     }
-                )
+                ).also { if (status.isRunning) lastRunningState = it }
             }.collect { viewState = it }
         }
     }

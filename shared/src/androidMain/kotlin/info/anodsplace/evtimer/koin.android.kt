@@ -15,6 +15,7 @@ import android.database.sqlite.SQLiteException
 import android.util.Log
 
 actual val platformModule: Module = module {
+    single { info.anodsplace.evtimer.data.ShareService(get()) }
     single<StorageRestoreState> { AndroidStorageRestoreState(get()) }
     single<SqlDriver> {
         get<StorageRestoreState>()

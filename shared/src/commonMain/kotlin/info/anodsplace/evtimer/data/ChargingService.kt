@@ -119,6 +119,16 @@ class ChargingServiceImpl(
             } else null,
             evaluatedAt = now
         )
+        if (session.isRunning && now >= estimatedEndTime) {
+            scope.launch {
+                sessionMutex.withLock {
+                    val current = repository.observeSession().first()
+                    if (current.isRunning && current.snapshot == session.snapshot) {
+                        repository.saveSession(current.copy(isRunning = false))
+                    }
+                }
+            }
+        }
     }
 
     private fun nextTickDelay(): Long {

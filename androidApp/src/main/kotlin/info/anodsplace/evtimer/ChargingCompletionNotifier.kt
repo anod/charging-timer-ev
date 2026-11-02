@@ -48,6 +48,7 @@ class ChargingCompletionNotifier(private val context: Context) {
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
             .setContentIntent(openApp)
             .setAutoCancel(true)
+            .setOnlyAlertOnce(true)
             .build()
     }
 

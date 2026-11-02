@@ -22,6 +22,8 @@ import info.anodsplace.evtimer.data.ChargingPreset
 import info.anodsplace.evtimer.data.PresetConfiguration
 import info.anodsplace.evtimer.data.PresetRepository
 import info.anodsplace.evtimer.data.ClockTimeFormatter
+import info.anodsplace.evtimer.data.ChargingHistoryRepository
+import info.anodsplace.evtimer.data.TestHistoryRepository
 import info.anodsplace.evtimer.uiModule
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
@@ -49,6 +51,7 @@ class DesktopNavigationTest {
                     single<PresetRepository> { repository }
                     single<ChargingService> { service }
                     single<ClockTimeFormatter> { ClockTimeFormatter { "" } }
+                    single<ChargingHistoryRepository> { TestHistoryRepository() }
                 })
             }) {
                 navigation = koinViewModel()
