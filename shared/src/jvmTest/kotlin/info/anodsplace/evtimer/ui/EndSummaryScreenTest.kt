@@ -3,6 +3,7 @@ package info.anodsplace.evtimer.ui
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import info.anodsplace.evtimer.data.ChargingSummary
@@ -26,6 +27,7 @@ class EndSummaryScreenTest {
             }
         }
         onNodeWithText("20% → 80%").assertExists()
+        onNodeWithTag("charging-waves").assertDoesNotExist()
         onNodeWithText("Charging speeds").assertExists()
         onNodeWithText("Share").performClick()
         runOnIdle { assertEquals("⚡ Charged 20% → 80% · 36 kWh · 3h 16m · avg 11 kW · Home", shared) }

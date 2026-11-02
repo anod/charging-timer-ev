@@ -7,6 +7,7 @@ import androidx.compose.ui.focus.FocusManager
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -67,6 +68,7 @@ class DesktopNavigationTest {
             onAllNodes(hasText("Charging in Progress")).fetchSemanticsNodes().isNotEmpty()
         }
         onNodeWithText("Charging in Progress").assertExists()
+        onNodeWithTag("charging-waves").assertExists()
         // The test scene has no Window callback. Invoke the same handler with pure Compose
         // events, before focus dispatch, just as the desktop Window does.
         fun escape(expectsPop: Boolean = true) = runOnIdle {
@@ -79,13 +81,16 @@ class DesktopNavigationTest {
         }
         escape()
         onNodeWithText("Start Timer").assertExists()
+        onNodeWithTag("charging-waves").assertDoesNotExist()
         assertTrue(service.status.value.isRunning)
         onNodeWithText("Notify at 80%").assertDoesNotExist()
         onNodeWithContentDescription("Charging history").assertDoesNotExist()
         onNodeWithText("Charging history").assertDoesNotExist()
         onNodeWithContentDescription("Settings").performClick()
+        onNodeWithTag("charging-waves").assertDoesNotExist()
         onNodeWithText("Keep at least one preset.").assertDoesNotExist()
         onNodeWithText("Presets").performClick()
+        onNodeWithTag("charging-waves").assertDoesNotExist()
         onNodeWithText("Keep at least one preset.").assertExists()
         runOnIdle {
             assertEquals(listOf(Destination.Config, Destination.Settings, Destination.Presets), navigation.backStack.value)
@@ -94,6 +99,7 @@ class DesktopNavigationTest {
         onNodeWithText("Keep at least one preset.").assertDoesNotExist()
         onNodeWithText("Charging history").performClick()
         onNodeWithText("No past sessions yet").assertExists()
+        onNodeWithTag("charging-waves").assertDoesNotExist()
         runOnIdle {
             assertEquals(listOf(Destination.Config, Destination.Settings, Destination.History), navigation.backStack.value)
         }
@@ -111,6 +117,7 @@ class DesktopNavigationTest {
         onNodeWithContentDescription("Settings").performClick()
         onNodeWithText("Notify at 80%").assertIsOff()
         onNodeWithText("Open-source licenses").performScrollTo().performClick()
+        onNodeWithTag("charging-waves").assertDoesNotExist()
         onNodeWithContentDescription("Back").performClick()
         onNodeWithText("About").assertExists()
         onNodeWithText("Notify at 80%").assertIsOff()

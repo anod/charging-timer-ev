@@ -175,10 +175,7 @@ fun PresetManagementScreen(
 
 @Composable
 internal fun SettingsPage(modifier: Modifier, content: @Composable ColumnScope.() -> Unit) {
-    Box(modifier.fillMaxSize()) {
-        ChargingWavesBackground(Modifier.fillMaxSize())
-        Column(Modifier.fillMaxSize(), content = content)
-    }
+    Column(modifier.fillMaxSize(), content = content)
 }
 
 @Composable

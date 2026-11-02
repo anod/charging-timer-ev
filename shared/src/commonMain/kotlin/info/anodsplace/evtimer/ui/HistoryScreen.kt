@@ -86,7 +86,6 @@ fun HistoryScreen(
         )
     }
     Box(modifier.fillMaxSize()) {
-        ChargingWavesBackground(Modifier.fillMaxSize())
         Column(Modifier.fillMaxSize()) {
             SettingsHeader(stringResource(Res.string.history_title), onBack)
             when {

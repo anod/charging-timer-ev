@@ -107,7 +107,7 @@ cold-opening an already-stopped summary preserves, but never re-alerts, an exist
 
 Settings combines the device's Pixel Settings organization (compact title/circular
 Back button, segmented rounded preference groups, aligned icon containers) with
-the app's approved Tonal glass waves, shared surface colors and subtle borders.
+the app's approved Tonal glass shared surface colors and subtle borders.
 Dynamic text-bearing surfaces remain opaque; static palettes retain the existing
 0.9 alpha policy. Supporting text and the full-row 80% switch remain accessible.
 The Presets row opens dedicated management
@@ -115,8 +115,9 @@ with the existing rename, drag/accessibility reorder, deletion and last-preset s
 Back returns to Settings. Preset rows share the segmented tonal grouping; drag pitch
 includes the 2dp gutters. About retains the app/version, source, privacy and licenses.
 Settings, Presets, History and Licenses share the compact toolbar; History keeps its
-existing waves/cards, and Licenses uses the same waves background. Configuration,
-Running and Summary are unchanged.
+existing cards. Animated waves appear **only while viewing the Running screen**.
+Every non-running destination (including live/past summaries and Licenses) uses the
+same plain page background as Configuration; tonal surfaces and borders are retained.
 
 The Charging history row in Settings opens a compact, newest-first list of ended sessions:
 local start date/time, saved preset, start/end percentages, battery energy, duration and
