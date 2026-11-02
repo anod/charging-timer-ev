@@ -23,6 +23,8 @@ import info.anodsplace.evtimer.data.ChargingStatus
 import info.anodsplace.evtimer.data.ChargingPreset
 import info.anodsplace.evtimer.data.PresetConfiguration
 import info.anodsplace.evtimer.data.PresetRepository
+import info.anodsplace.evtimer.data.ManualBackupRepository
+import info.anodsplace.evtimer.data.ManualBackup
 import info.anodsplace.evtimer.data.ClockTimeFormatter
 import info.anodsplace.evtimer.data.ChargingHistoryRepository
 import info.anodsplace.evtimer.data.TestHistoryRepository
@@ -51,6 +53,7 @@ class DesktopNavigationTest {
                 modules(uiModule, module {
                     single<ChargingRepository> { repository }
                     single<PresetRepository> { repository }
+                    single<ManualBackupRepository> { repository }
                     single<ChargingService> { service }
                     single<ClockTimeFormatter> { ClockTimeFormatter { "" } }
                     single<ChargingHistoryRepository> { TestHistoryRepository() }
@@ -108,6 +111,7 @@ class DesktopNavigationTest {
         onNodeWithText("Notify at 80%").performScrollTo().assertIsOn().performClick()
         onNodeWithText("Notify at 80%").assertIsOff()
         onNodeWithText("About").assertExists()
+        onNodeWithText("Backup & restore").assertDoesNotExist()
         onNodeWithText("Source code").assertExists()
         onNodeWithText("Privacy policy").assertExists()
         onNodeWithText("Open-source licenses").assertExists()
@@ -150,7 +154,9 @@ private class DesktopTestService : ChargingService {
     override fun refresh() = Unit
 }
 
-private class DesktopTestRepository : ChargingRepository, PresetRepository {
+private class DesktopTestRepository : ChargingRepository, PresetRepository, ManualBackupRepository {
+    override suspend fun exportBackup(appVersion: String): ManualBackup = error("No desktop document picker")
+    override suspend fun restoreBackup(backup: ManualBackup): Unit = error("No desktop document picker")
     private val notifyAt80 = MutableStateFlow(true)
     override fun observeNotifyAt80() = notifyAt80
     override suspend fun setNotifyAt80(enabled: Boolean) { notifyAt80.value = enabled }

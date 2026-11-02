@@ -12,6 +12,7 @@ import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlin.time.Instant
+import kotlin.text.CharacterCodingException
 
 enum class BackupError { INVALID_JSON, INVALID_DATA, NEWER_VERSION, TOO_LARGE, SESSION_RUNNING, PREFERENCES, IO }
 
@@ -108,6 +109,8 @@ object BackupFormat {
             json.decodeFromJsonElement(ManualBackup.serializer(), document)
         } catch (error: SerializationException) {
             throw BackupException(BackupError.INVALID_JSON, "Malformed or incomplete backup JSON", error)
+        } catch (error: CharacterCodingException) {
+            throw BackupException(BackupError.INVALID_JSON, "Backup is not valid UTF-8", error)
         } catch (error: IllegalArgumentException) {
             if (error is BackupException) throw error
             throw BackupException(BackupError.INVALID_JSON, "Invalid UTF-8 or JSON document", error)

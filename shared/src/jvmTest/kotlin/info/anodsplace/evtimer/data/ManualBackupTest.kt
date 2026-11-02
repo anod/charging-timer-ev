@@ -239,7 +239,9 @@ class ManualBackupTest {
     fun failureOnLastSegmentRollsBackDeletesInsertsAndPreferences() = runTest {
         fixture { f ->
             f.repo.restoreBackup(sample)
+            f.repo.saveSession(ChargingSession(false, ChargingSessionSnapshot.from(ChargingSettings.DEFAULT, 1000)))
             val before = f.repo.exportBackup("test")
+            val current = f.repo.observeSession().first()
             val prefs = f.store.data.first()
             f.driver.execute(null, """
                 CREATE TRIGGER reject_last_backup_row BEFORE INSERT ON power_segment
@@ -266,6 +268,7 @@ class ManualBackupTest {
             }
             assertEquals(before, f.repo.exportBackup("test"))
             assertEquals(prefs, f.store.data.first())
+            assertEquals(current, f.repo.observeSession().first())
         }
     }
 
