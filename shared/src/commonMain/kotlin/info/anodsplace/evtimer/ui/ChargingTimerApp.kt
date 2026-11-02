@@ -18,6 +18,7 @@ import androidx.navigation3.ui.NavDisplay
 import info.anodsplace.evtimer.data.ConfigurationViewModel
 import info.anodsplace.evtimer.data.RunningViewModel
 import info.anodsplace.evtimer.data.SettingsViewModel
+import info.anodsplace.evtimer.data.HistoryViewModel
 import info.anodsplace.evtimer.data.ShareService
 import info.anodsplace.evtimer.data.summary
 import org.koin.compose.koinInject
@@ -68,16 +69,33 @@ fun ChargingTimerApp(
                                 Destination.Settings -> {
                                     val viewModel = koinViewModel<SettingsViewModel>()
                                     val notifyAt80 by viewModel.notifyAt80.collectAsState()
-                                    val presets by viewModel.presets.collectAsState()
                                     SettingsScreen(
                                         notifyAt80, viewModel::setNotifyAt80,
-                                        presets = presets,
-                                        onRenamePreset = viewModel::renamePreset,
-                                        onDeletePreset = viewModel::deletePreset,
-                                        onMovePreset = viewModel::movePreset,
-                                        onReorderPresets = viewModel::reorderPresets,
+                                        onOpenPresets = { navigation.navigate(Destination.Presets) },
                                         onBack = { navigation.onBack() },
                                         onOpenLicenses = { navigation.navigate(Destination.Licenses) },
+                                        onOpenHistory = { navigation.navigate(Destination.History) },
+                                        modifier = modifier.windowInsetsPadding(WindowInsets.systemBars)
+                                    )
+                                }
+                                Destination.Presets -> {
+                                    val viewModel = koinViewModel<SettingsViewModel>()
+                                    val presets by viewModel.presets.collectAsState()
+                                    PresetManagementScreen(
+                                        presets, viewModel::renamePreset, viewModel::deletePreset,
+                                        viewModel::movePreset, viewModel::reorderPresets,
+                                        onBack = { navigation.onBack() },
+                                        modifier = modifier.windowInsetsPadding(WindowInsets.systemBars)
+                                    )
+                                }
+                                Destination.History -> {
+                                    val viewModel = koinViewModel<HistoryViewModel>()
+                                    val entries by viewModel.entries.collectAsState()
+                                    HistoryScreen(
+                                        entries = entries,
+                                        onOpenSummary = navigation::openHistorySummary,
+                                        onDelete = viewModel::deleteSession,
+                                        onBack = { navigation.onBack() },
                                         modifier = modifier.windowInsetsPadding(WindowInsets.systemBars)
                                     )
                                 }

@@ -107,18 +107,19 @@ internal fun PresetManagement(
     onRename: (String, String) -> Unit,
     onDelete: (String) -> Unit,
     onMove: (String, Int) -> Unit,
-    onReorder: (List<String>) -> Unit
+    onReorder: (List<String>) -> Unit,
+    showTitle: Boolean = true
 ) {
     var renamingId by rememberSaveable { mutableStateOf<String?>(null) }
     var deletingId by rememberSaveable { mutableStateOf<String?>(null) }
     val dragState = remember(presets) { PresetDragState(presets.map { it.id }) }
     val commitOrder by rememberUpdatedState(onReorder)
-    val rowHeight = with(LocalDensity.current) { 56.dp.toPx() }
+    val rowPitch = with(LocalDensity.current) { 57.dp.toPx() }
     val moveUp = stringResource(Res.string.move_up)
     val moveDown = stringResource(Res.string.move_down)
     val rename = stringResource(Res.string.rename_preset)
-    Text(stringResource(Res.string.settings_presets), style = MaterialTheme.typography.titleLarge)
-    Column {
+    if (showTitle) Text(stringResource(Res.string.settings_presets), style = MaterialTheme.typography.titleLarge)
+    SettingsGroup {
         dragState.order.forEachIndexed { index, id ->
             key(id) {
                 val preset = presets.first { it.id == id }
@@ -128,12 +129,10 @@ internal fun PresetManagement(
                     Modifier.fillMaxWidth().height(56.dp)
                         .zIndex(if (dragging) 1f else 0f)
                         .offset { IntOffset(0, if (dragging) dragState.offset.roundToInt() else 0) }
-                        .shadow(if (dragging) 4.dp else 0.dp, MaterialTheme.shapes.small)
-                        .background(
-                            if (dragging) MaterialTheme.colorScheme.surfaceContainerHigh
-                            else MaterialTheme.colorScheme.surface,
-                            MaterialTheme.shapes.small
-                        )
+                        .then(if (dragging) Modifier
+                            .shadow(8.dp, MaterialTheme.shapes.medium)
+                            .background(tonalCardContainerColor().copy(alpha = 1f), MaterialTheme.shapes.medium)
+                        else Modifier)
                         .testTag("preset-$id")
                         .semantics(mergeDescendants = true) {
                             customActions = buildList {
@@ -146,7 +145,7 @@ internal fun PresetManagement(
                     Box(
                         Modifier.size(48.dp)
                             .semantics { contentDescription = reorderDescription }
-                            .pointerInput(dragState, id, rowHeight) {
+                            .pointerInput(dragState, id, rowPitch) {
                                 try {
                                     if (presets.size > 1) detectDragGestures(
                                         onDragStart = { dragState.start(id) },
@@ -154,7 +153,7 @@ internal fun PresetManagement(
                                         onDragEnd = { dragState.finish()?.let(commitOrder) },
                                         onDrag = { change, amount ->
                                             change.consume()
-                                            dragState.drag(amount.y, rowHeight)
+                                            dragState.drag(amount.y, rowPitch)
                                         }
                                     )
                                 } finally {
@@ -176,11 +175,13 @@ internal fun PresetManagement(
                         Icon(DeletePresetIcon, stringResource(Res.string.delete_named_preset, preset.name))
                     }
                 }
+                if (index < dragState.order.lastIndex) SettingsDivider(inset = 48.dp)
             }
         }
     }
     if (presets.size == 1) {
-        Text(stringResource(Res.string.last_preset_hint), style = MaterialTheme.typography.bodySmall)
+        Text(stringResource(Res.string.last_preset_hint), Modifier.padding(horizontal = 8.dp),
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
     presets.firstOrNull { it.id == renamingId }?.let { preset ->
         PresetRenameDialog(preset, presets,

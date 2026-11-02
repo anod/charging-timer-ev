@@ -48,6 +48,7 @@ data class ChargingHistoryEntry(
 interface ChargingHistoryRepository {
     fun observeHistory(): Flow<List<ChargingHistoryEntry>>
     suspend fun reviewSession(id: Long, actualPercent: Float?, reviewed: Boolean)
+    suspend fun deleteSession(id: Long)
 }
 
 class ChargingRepositoryImpl(
@@ -373,6 +374,19 @@ class ChargingRepositoryImpl(
         transaction {
             require(queries.history().executeAsList().any { it.id == id }) { "Unknown completed session: $id" }
             queries.reviewSession(actualPercent?.toDouble(), reviewed, id)
+        }
+    }
+
+    override suspend fun deleteSession(id: Long) {
+        transaction {
+            val entries = queries.history().executeAsList()
+            require(entries.any { it.id == id }) { "Unknown completed session: $id" }
+            queries.detachHistorySession(id)
+            queries.deleteHistorySession(id)
+            if (entries.first().id == id) {
+                // Deletion must not turn a superseded session into a pending completion on relaunch.
+                entries.getOrNull(1)?.let { queries.reviewSession(it.actual_percent, true, it.id) }
+            }
         }
     }
 

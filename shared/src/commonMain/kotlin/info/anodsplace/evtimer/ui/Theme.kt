@@ -96,8 +96,12 @@ internal fun tonalSurfaceColor(surface: Color, usesDynamicColor: Boolean): Color
     surface.copy(alpha = if (usesDynamicColor) 1f else 0.9f)
 
 @Composable
+internal fun tonalCardContainerColor() =
+    tonalSurfaceColor(MaterialTheme.colorScheme.surfaceContainer, LocalUsesDynamicColor.current)
+
+@Composable
 internal fun tonalCardColors() = CardDefaults.cardColors(
-    containerColor = tonalSurfaceColor(MaterialTheme.colorScheme.surfaceContainer, LocalUsesDynamicColor.current),
+    containerColor = tonalCardContainerColor(),
     contentColor = MaterialTheme.colorScheme.onSurface
 )
 

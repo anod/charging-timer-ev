@@ -105,6 +105,35 @@ Running state. No schema or backup-rule changes are required.
 Android only posts a new completion alert for history created during the process lifetime;
 cold-opening an already-stopped summary preserves, but never re-alerts, an existing notification.
 
+Settings combines the device's Pixel Settings organization (compact title/circular
+Back button, grouped preferences, aligned icon containers) with
+the app's approved Tonal glass shared surface colors and subtle borders.
+Dynamic text-bearing surfaces remain opaque; static palettes retain the existing
+0.9 alpha policy. Supporting text and the full-row 80% switch remain accessible.
+The Presets row opens dedicated management
+with the existing rename, drag/accessibility reorder, deletion and last-preset safeguard;
+Back returns to Settings. Each Settings/Presets group uses one standard 22dp tonal
+card, with transparent rows and thin inset dividers instead of gaps. Preset drag
+pitch includes the 1dp divider; the dragged row gains an opaque tonal surface and
+elevation. About retains the app/version, source, privacy and licenses.
+Settings, Presets, History and Licenses share the compact toolbar; History keeps its
+existing cards. Animated waves appear **only while viewing the Running screen**.
+Every non-running destination (including live/past summaries and Licenses) uses the
+same plain page background as Configuration; tonal surfaces and borders are retained.
+
+The Charging history row in Settings opens a compact, newest-first list of ended sessions:
+local start date/time, saved preset, start/end percentages, battery energy, duration and
+average battery-side power. Tap a row to reuse the charge summary and sharing without
+changing its review status. Back/Done returns to history; Back from history returns to
+Settings. Configuration keeps only its Settings gear. Restored interrupted sessions
+remain visible with unknown end values rather than fabricated charging estimates.
+Delete asks for confirmation, removes the session and its power segments, and cannot
+delete a running timer. History uses the existing backed-up database; there is no new
+schema, migration or persisted preference. Deleting the newest row marks only its
+successor reviewed, preserving any actual percentage, so a superseded legacy session
+cannot reopen as a new completion or re-alert after restart. Viewing a past summary
+never changes review status. Monthly totals are not included.
+
 * [/shared](./shared/src) is for code that will be shared across your Compose Multiplatform applications.
   It contains several subfolders:
   - [commonMain](./shared/src/commonMain/kotlin) is for code that’s common for all targets.

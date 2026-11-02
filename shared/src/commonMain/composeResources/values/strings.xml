@@ -1,5 +1,14 @@
 <resources>
     <string name="app_title">Charging Timer for EV</string>
+    <string name="history_title">Charging history</string>
+    <string name="history_empty">No past sessions yet</string>
+    <string name="history_no_preset">Session</string>
+    <string name="history_stats">%1$s kWh · %2$s · avg %3$s kW</string>
+    <string name="history_delete">Delete</string>
+    <string name="history_delete_title">Delete session?</string>
+    <string name="history_delete_message">This session and its charging speeds will be permanently deleted.</string>
+    <string name="history_delete_description">Delete %1$s · %2$s</string>
+    <string name="history_delete_failed">Could not delete session</string>
     <string name="summary_title">Charge summary</string>
     <string name="summary_percent">%1$s% → %2$s%</string>
     <string name="summary_energy">Energy added</string>

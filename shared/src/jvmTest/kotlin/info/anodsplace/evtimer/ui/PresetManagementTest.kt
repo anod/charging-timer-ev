@@ -144,10 +144,13 @@ class PresetManagementTest {
                 Column { PresetManagement(presets, { _, _ -> }, {}, { _, _ -> }, { orders += it }) }
             }
         }
-        val rowHeight = onNodeWithTag("preset-custom").fetchSemanticsNode().boundsInRoot.height
+        val firstBounds = onNodeWithTag("preset-custom").fetchSemanticsNode().boundsInRoot
+        val rowPitch = onNodeWithTag("preset-home").fetchSemanticsNode().boundsInRoot.top - firstBounds.top
+        assertEquals(firstBounds.height / 56f, rowPitch - firstBounds.height, 0.1f,
+            "Rows are separated only by a 1dp divider")
         onNodeWithContentDescription("Drag to reorder Default", useUnmergedTree = true).performTouchInput {
             down(center)
-            moveBy(Offset(0f, rowHeight * 1.5f), delayMillis = 200)
+            moveBy(Offset(0f, rowPitch * 1.5f), delayMillis = 200)
         }
         runOnIdle { assertEquals(emptyList(), orders) }
         assertTrue(
@@ -180,10 +183,11 @@ class PresetManagementTest {
                 }
             }
         }
-        val rowHeight = onNodeWithTag("preset-custom").fetchSemanticsNode().boundsInRoot.height
+        val rowPitch = onNodeWithTag("preset-home").fetchSemanticsNode().boundsInRoot.top -
+            onNodeWithTag("preset-custom").fetchSemanticsNode().boundsInRoot.top
         onNodeWithContentDescription("Drag to reorder Default", useUnmergedTree = true).performTouchInput {
             down(center)
-            moveBy(Offset(0f, rowHeight * 1.5f), delayMillis = 200)
+            moveBy(Offset(0f, rowPitch * 1.5f), delayMillis = 200)
         }
         assertTrue(
             onNodeWithTag("preset-home").fetchSemanticsNode().boundsInRoot.top <
@@ -199,6 +203,18 @@ class PresetManagementTest {
         val firstTop = onNodeWithTag("preset-custom").fetchSemanticsNode().boundsInRoot.top
         val lastTop = onNodeWithTag("preset-home").fetchSemanticsNode().boundsInRoot.top
         assertTrue(firstTop < lastTop, "Cancelled row top=$firstTop must precede Home top=$lastTop")
+    }
+
+    @Test
+    fun dividedRowDragUsesPitchIncludingDivider() {
+        val drag = PresetDragState(listOf("a", "b", "c"))
+        drag.start("a")
+        drag.drag(28.5f, 57f)
+        assertEquals(listOf("a", "b", "c"), drag.order)
+        drag.drag(1f, 57f)
+        assertEquals(listOf("b", "a", "c"), drag.order)
+        drag.drag(57f, 57f)
+        assertEquals(listOf("b", "c", "a"), drag.finish())
     }
 
     @Test

@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.clipRect
@@ -52,7 +53,7 @@ fun ChargingWavesBackground(modifier: Modifier = Modifier) {
         scheme.primaryContainer.copy(alpha = 0.14f),
         scheme.primaryContainer.copy(alpha = 0.12f)
     )
-    Box(modifier.fillMaxSize().drawWithCache {
+    Box(modifier.fillMaxSize().testTag("charging-waves").drawWithCache {
         // Three periods cover the canvas while translating one full period in either direction.
         val paths = chargingWaves.map { wave ->
             Path().apply {

@@ -12,6 +12,18 @@ import kotlin.test.assertTrue
 
 class TonalSurfaceContrastTest {
     @Test
+    fun staticPageKeepsTonalRowsAndGuttersDistinct() {
+        for (scheme in listOf(LightColors, DarkColors)) {
+            for (dynamic in listOf(false, true)) {
+                val panel = tonalSurfaceColor(scheme.surfaceContainer, dynamic).compositeOver(scheme.surface)
+                assertTrue(panel != scheme.surface, "Plain page must remain distinct from row surfaces")
+                assertContrast(scheme.onSurfaceVariant, panel)
+                assertContrast(scheme.onSurface, panel)
+            }
+        }
+    }
+
+    @Test
     fun staticTextPassesAaOverEveryWaveCombination() {
         for (scheme in listOf(LightColors, DarkColors)) {
             for (background in waveBackgrounds(scheme)) {

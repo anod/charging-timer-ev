@@ -68,7 +68,6 @@ fun EndSummaryScreen(
     val scope = rememberCoroutineScope()
     val unknown = stringResource(Res.string.summary_unknown)
     Box(modifier.fillMaxSize()) {
-        ChargingWavesBackground(Modifier.fillMaxSize())
         Column(
             Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
