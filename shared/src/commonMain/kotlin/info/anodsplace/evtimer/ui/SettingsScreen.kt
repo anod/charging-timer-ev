@@ -27,6 +27,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.semantics.Role
@@ -125,9 +126,11 @@ internal fun SettingsRow(
     enabled: Boolean = true
 ) {
     ListItem(
-        headlineContent = { Text(title) },
+        headlineContent = { Text(title, Modifier.alpha(if (enabled) 1f else 0.38f)) },
         supportingContent = supportingText?.let { { Text(it) } },
-        leadingContent = { SettingsIcon(icon) },
+        leadingContent = {
+            Box(Modifier.alpha(if (enabled) 1f else 0.38f)) { SettingsIcon(icon) }
+        },
         colors = settingsRowColors(),
         modifier = Modifier.fillMaxWidth()
             .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
