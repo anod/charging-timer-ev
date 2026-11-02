@@ -108,60 +108,61 @@ class NavigationViewModelTest {
             Dispatchers.resetMain()
         }
 
-        @Test
-        fun unreviewedSummarySurvivesRelaunchUntilDoneOrBack() = runTest {
-            Dispatchers.setMain(StandardTestDispatcher(testScheduler))
-            val entry = ChargingHistoryEntry(
-                1L, ChargingSessionSnapshot.from(ChargingSettings(), 1L), 60_001L, 21f, null, false
-            )
-            val history = TestHistoryRepository(listOf(entry))
-            val service = NavigationTestService(false)
-            var navigation = NavigationViewModel(service, history)
-            try {
-                runCurrent()
-                assertEquals(listOf(Destination.Config, Destination.EndSummary), navigation.backStack.value)
-                assertEquals(entry, navigation.summary.value)
-                assertFalse(history.entries.value.single().reviewed)
-                navigation.viewModelScope.cancel()
-                navigation = NavigationViewModel(service, history)
-                runCurrent()
-                assertEquals(Destination.EndSummary, navigation.backStack.value.last())
-                assertTrue(navigation.onBack())
-                runCurrent()
-                assertTrue(history.entries.value.single().reviewed)
-                assertEquals(listOf(Destination.Config), navigation.backStack.value)
-                navigation.viewModelScope.cancel()
-                navigation = NavigationViewModel(service, history)
-                runCurrent()
-                assertEquals(listOf(Destination.Config), navigation.backStack.value)
-            } finally {
-                navigation.viewModelScope.cancel()
-                Dispatchers.resetMain()
-            }
-        }
+    }
 
-        @Test
-        fun activeTimerWinsUntilSavedStopThenSummaryOpens() = runTest {
-            Dispatchers.setMain(StandardTestDispatcher(testScheduler))
-            val history = TestHistoryRepository()
-            val service = NavigationTestService(true)
-            val navigation = NavigationViewModel(service, history)
-            try {
-                runCurrent()
-                history.entries.value = listOf(ChargingHistoryEntry(
-                    1L, ChargingSessionSnapshot.from(ChargingSettings(), 1L), 60_001L, null, null, false,
-                    interrupted = true
-                ))
-                runCurrent()
-                assertEquals(Destination.Running, navigation.backStack.value.last())
-                service.stop()
-                runCurrent()
-                assertEquals(Destination.EndSummary, navigation.backStack.value.last())
-                assertTrue(requireNotNull(navigation.summary.value).interrupted)
-            } finally {
-                navigation.viewModelScope.cancel()
-                Dispatchers.resetMain()
-            }
+    @Test
+    fun unreviewedSummarySurvivesRelaunchUntilDoneOrBack() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val entry = ChargingHistoryEntry(
+            1L, ChargingSessionSnapshot.from(ChargingSettings(), 1L), 60_001L, 21f, null, false
+        )
+        val history = TestHistoryRepository(listOf(entry))
+        val service = NavigationTestService(false)
+        var navigation = NavigationViewModel(service, history)
+        try {
+            runCurrent()
+            assertEquals(listOf(Destination.Config, Destination.EndSummary), navigation.backStack.value)
+            assertEquals(entry, navigation.summary.value)
+            assertFalse(history.entries.value.single().reviewed)
+            navigation.viewModelScope.cancel()
+            navigation = NavigationViewModel(service, history)
+            runCurrent()
+            assertEquals(Destination.EndSummary, navigation.backStack.value.last())
+            assertTrue(navigation.onBack())
+            runCurrent()
+            assertTrue(history.entries.value.single().reviewed)
+            assertEquals(listOf(Destination.Config), navigation.backStack.value)
+            navigation.viewModelScope.cancel()
+            navigation = NavigationViewModel(service, history)
+            runCurrent()
+            assertEquals(listOf(Destination.Config), navigation.backStack.value)
+        } finally {
+            navigation.viewModelScope.cancel()
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
+    fun activeTimerWinsUntilSavedStopThenSummaryOpens() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val history = TestHistoryRepository()
+        val service = NavigationTestService(true)
+        val navigation = NavigationViewModel(service, history)
+        try {
+            runCurrent()
+            history.entries.value = listOf(ChargingHistoryEntry(
+                1L, ChargingSessionSnapshot.from(ChargingSettings(), 1L), 60_001L, null, null, false,
+                interrupted = true
+            ))
+            runCurrent()
+            assertEquals(Destination.Running, navigation.backStack.value.last())
+            service.stop()
+            runCurrent()
+            assertEquals(Destination.EndSummary, navigation.backStack.value.last())
+            assertTrue(requireNotNull(navigation.summary.value).interrupted)
+        } finally {
+            navigation.viewModelScope.cancel()
+            Dispatchers.resetMain()
         }
     }
 }
