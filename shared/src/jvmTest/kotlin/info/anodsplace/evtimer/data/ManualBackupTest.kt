@@ -1,15 +1,24 @@
 package info.anodsplace.evtimer.data
 
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
-import androidx.datastore.preferences.core.edit
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
+import androidx.lifecycle.viewModelScope
+import info.anodsplace.evtimer.ui.Destination
+import info.anodsplace.evtimer.ui.NavigationViewModel
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import info.anodsplace.evtimer.db.ChargingDatabase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.setMain
+import kotlinx.coroutines.test.resetMain
 import java.io.File
 import java.nio.file.Files
 import java.util.Properties
@@ -103,6 +112,30 @@ class ManualBackupTest {
             assertNull(f.database.storageQueries.latestSession().executeAsOneOrNull())
             assertNull(f.database.storageQueries.activeSession().executeAsOneOrNull())
         }
+
+        @Test
+        @OptIn(ExperimentalCoroutinesApi::class)
+        fun restoredUnreviewedHistoryDoesNotReopenEndScreenOnRestart() = runTest {
+            Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+            try {
+                fixture { f ->
+                    f.repo.restoreBackup(sample.copy(sessions = sample.sessions.map { it.copy(reviewed = false) }))
+                    val restarted = f.repository()
+                    val scope = CoroutineScope(Dispatchers.Default + Job())
+                    val navigation = NavigationViewModel(ChargingServiceImpl(restarted, scope, f.clock), restarted)
+                    try {
+                        assertEquals(listOf(Destination.Config), navigation.backStack.first { it.isNotEmpty() })
+                        assertNull(navigation.summary.value)
+                        assertFalse(restarted.observeHistory().first().last().reviewed)
+                    } finally {
+                        navigation.viewModelScope.cancel()
+                        scope.coroutineContext[Job]!!.cancelAndJoin()
+                    }
+                }
+            } finally {
+                Dispatchers.resetMain()
+            }
+        }
     }
 
     @Test
@@ -128,6 +161,7 @@ class ManualBackupTest {
                 "not json".encodeToByteArray() to BackupError.INVALID_JSON,
                 bytes.copyOf(bytes.size / 2) to BackupError.INVALID_JSON,
                 bytes.decodeToString().replace("\"formatVersion\": 1", "\"formatVersion\": \"one\"").encodeToByteArray() to BackupError.INVALID_JSON,
+                bytes.decodeToString().replace("\"batteryCapacity\": 70.0", "\"batteryCapacity\": \"70.0\"").encodeToByteArray() to BackupError.INVALID_JSON,
                 bytes.decodeToString().replace("\"formatVersion\": 1", "\"formatVersion\": 2").encodeToByteArray() to BackupError.NEWER_VERSION,
                 "{}".encodeToByteArray() to BackupError.INVALID_JSON,
                 byteArrayOf(0xc3.toByte(), 0x28) to BackupError.INVALID_JSON,
@@ -216,6 +250,20 @@ class ManualBackupTest {
             assertFailsWith<Exception> {
                 f.repo.restoreBackup(sample.copy(sessions = sample.sessions.dropLast(1) + last))
             }
+
+            @Test
+            fun preferencesFailureAfterCommitIsExplicitlyReportedAsPartialRestore() = runTest {
+                fixture { f ->
+                    f.repo.observeSettings().first()
+                    val before = f.store.data.first()
+                    f.failPreferenceWrites = true
+                    val error = assertFailsWith<BackupException> { f.repo.restoreBackup(sample) }
+                    assertEquals(BackupError.PREFERENCES, error.error)
+                    assertEquals(sample.sessions.map { it.id }, f.database.storageQueries.backupSessions().executeAsList().map { it.id })
+                    assertEquals(before, f.store.data.first())
+                    assertNull(f.database.storageQueries.latestSession().executeAsOneOrNull())
+                }
+            }
             assertEquals(before, f.repo.exportBackup("test"))
             assertEquals(prefs, f.store.data.first())
         }
@@ -289,9 +337,17 @@ class ManualBackupTest {
     private class Fixture {
         val file = Files.createTempFile("evtimer-manual-backup", ".preferences_pb").toFile()
         val job = Job()
-        val store = PreferenceDataStoreFactory.create(
+        private val delegate = PreferenceDataStoreFactory.create(
             scope = CoroutineScope(Dispatchers.IO + job), produceFile = { file }
         )
+        var failPreferenceWrites = false
+        val store = object : DataStore<Preferences> {
+            override val data = delegate.data
+            override suspend fun updateData(transform: suspend (Preferences) -> Preferences): Preferences {
+                if (failPreferenceWrites) throw java.io.IOException("injected preferences write failure")
+                return delegate.updateData(transform)
+            }
+        }
         val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY,
             Properties().apply { setProperty("foreign_keys", "true") }, ChargingDatabase.Schema)
         val database = ChargingDatabase(driver)

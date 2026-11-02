@@ -6,9 +6,14 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlin.time.Instant
 
-enum class BackupError { INVALID_JSON, INVALID_DATA, NEWER_VERSION, TOO_LARGE, SESSION_RUNNING, IO }
+enum class BackupError { INVALID_JSON, INVALID_DATA, NEWER_VERSION, TOO_LARGE, SESSION_RUNNING, PREFERENCES, IO }
 
 class BackupException(val error: BackupError, message: String, cause: Throwable? = null) :
     IllegalArgumentException(message, cause)
@@ -98,6 +103,7 @@ object BackupFormat {
             if (version != null && version > VERSION) {
                 throw BackupException(BackupError.NEWER_VERSION, "This backup needs a newer app version")
             }
+            validateNumberTypes(document)
             // Version 1 is the first released format. Future readers upgrade older DTOs here.
             json.decodeFromJsonElement(ManualBackup.serializer(), document)
         } catch (error: SerializationException) {
@@ -108,6 +114,33 @@ object BackupFormat {
         }
         validate(backup)
         return backup
+    }
+
+    private fun validateNumberTypes(document: JsonObject) {
+        fun number(value: JsonElement) {
+            if (value != JsonNull && (value !is JsonPrimitive || value.isString)) {
+                throw BackupException(BackupError.INVALID_JSON, "A backup number has the wrong JSON type")
+            }
+        }
+        fun fields(element: JsonElement?, names: Set<String>) {
+            val obj = element as? JsonObject ?: return
+            names.forEach { key -> obj[key]?.let(::number) }
+            (obj["powerOptions"] as? JsonArray)?.forEach(::number)
+        }
+        fields(document, setOf("formatVersion"))
+        val preferences = document["preferences"] as? JsonObject
+        fields(preferences, setOf("startPercent"))
+        fields(preferences?.get("draft"), setOf("batteryCapacity", "chargingPower", "targetPercent"))
+        (document["presets"] as? JsonArray)?.forEach {
+            fields(it, setOf("batteryCapacity", "chargingPower", "targetPercent", "position"))
+        }
+        (document["sessions"] as? JsonArray)?.forEach {
+            fields(it, setOf("id", "batteryCapacity", "startPercent", "targetPercent", "efficiency",
+                "endedAt", "endPercent", "actualPercent"))
+            ((it as? JsonObject)?.get("segments") as? JsonArray)?.forEach { segment ->
+                fields(segment, setOf("startedAt", "powerKw"))
+            }
+        }
     }
 
     private fun checkSize(bytes: ByteArray) {

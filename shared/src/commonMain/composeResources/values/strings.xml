@@ -14,6 +14,7 @@
     <string name="backup_invalid_json">Cannot read backup: invalid or incomplete JSON</string>
     <string name="backup_invalid_data">Cannot restore backup: invalid or missing values</string>
     <string name="backup_io_error">Could not complete the backup operation. Check document access and try again.</string>
+    <string name="backup_preferences_error">Presets and history restored, but preferences could not be saved. Try restoring again.</string>
     <string name="app_title">Charging Timer for EV</string>
     <string name="history_title">Charging history</string>
     <string name="history_empty">No past sessions yet</string>

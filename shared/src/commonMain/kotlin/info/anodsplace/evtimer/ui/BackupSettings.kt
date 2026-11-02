@@ -51,6 +51,7 @@ fun BackupSettings(viewModel: SettingsViewModel) {
                 BackupError.SESSION_RUNNING -> Res.string.backup_stop_first
                 BackupError.INVALID_JSON -> Res.string.backup_invalid_json
                 BackupError.INVALID_DATA -> Res.string.backup_invalid_data
+                BackupError.PREFERENCES -> Res.string.backup_preferences_error
                 else -> Res.string.backup_io_error
             }
             state.message == BackupMessage.EXPORTED -> Res.string.backup_exported
