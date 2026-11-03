@@ -9,6 +9,17 @@ const screenshots = path.resolve("build/browser-evidence");
 const mime = { ".wasm": "application/wasm", ".js": "application/javascript",
     ".mjs": "application/javascript", ".html": "text/html", ".json": "application/json" };
 
+async function waitForRecord(page, accept = record => record !== null) {
+    const deadline = Date.now() + 120_000;
+    while (Date.now() < deadline) {
+        const record = await page.evaluate(async () =>
+            globalThis.evTimerStorage ? JSON.parse(await globalThis.evTimerStorage.read()) : null);
+        if (accept(record)) return record;
+        await new Promise(resolve => setTimeout(resolve, 250));
+    }
+    return null;
+}
+
 (async () => {
     fs.mkdirSync(screenshots, { recursive: true });
     const server = http.createServer((request, response) => {
@@ -35,13 +46,7 @@ const mime = { ".wasm": "application/wasm", ".js": "application/javascript",
             page.on("pageerror", error => errors.push(error.message));
             page.on("console", message => console.log(`[${colorScheme}] ${message.type()}: ${message.text()}`));
             await page.goto(origin);
-            let initial = null;
-            const deadline = Date.now() + 120_000;
-            while (initial === null && Date.now() < deadline) {
-                initial = await page.evaluate(async () =>
-                    globalThis.evTimerStorage ? JSON.parse(await globalThis.evTimerStorage.read()) : null);
-                if (initial === null) await new Promise(resolve => setTimeout(resolve, 250));
-            }
+            const initial = await waitForRecord(page);
             await page.screenshot({ path: path.join(screenshots, `startup-${colorScheme}.png`) });
             fs.writeFileSync(path.join(screenshots, `semantics-${colorScheme}.txt`),
                 await page.locator("body").ariaSnapshot());
@@ -81,11 +86,8 @@ const mime = { ".wasm": "application/wasm", ".js": "application/javascript",
             // Merely reading the file must not mutate persisted data.
             assert.equal(await page.evaluate(async () => JSON.parse(await evTimerStorage.read()).revision), initial.revision);
             await page.getByRole("button", { name: "Replace data", exact: true }).click();
-            await page.waitForFunction(async () => {
-                const record = JSON.parse(await evTimerStorage.read());
-                return record.payload.includes("Imported car");
-            });
-            const committed = await page.evaluate(async () => JSON.parse(await evTimerStorage.read()));
+            const committed = await waitForRecord(page, record => record?.payload.includes("Imported car"));
+            assert.notEqual(committed, null, "Confirmed import must commit the selected backup");
             assert.ok(committed.payload.includes('"id":9007199254740993'));
             const restored = JSON.parse(committed.payload);
             assert.equal(restored.backup.preferences.notifyAt80, false);
