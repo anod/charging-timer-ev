@@ -174,6 +174,61 @@ async function clickCanvasButton(page, name) {
             assert.deepEqual(errors, []);
             await context.close();
         }
+        const notificationContext = await browser.newContext({
+            locale: "en-US", viewport: { width: 1100, height: 800 }
+        });
+        await notificationContext.addInitScript(() => {
+            globalThis.notificationTest = { permission: "denied", requests: 0, attempts: 0, fail: true };
+            globalThis.Notification = class {
+                static get permission() { return notificationTest.permission; }
+                static async requestPermission() {
+                    notificationTest.requests++;
+                    return notificationTest.permission;
+                }
+                constructor() {
+                    notificationTest.attempts++;
+                    if (notificationTest.fail) throw new Error("Foreground notification constructor unavailable");
+                }
+            };
+        });
+        const notificationPage = await notificationContext.newPage();
+        await notificationPage.goto(origin);
+        assert.notEqual(await waitForRecord(notificationPage), null);
+        await notificationPage.getByRole("button", { name: "Start Timer", exact: true }).waitFor();
+        assert.equal(await notificationPage.evaluate(() => notificationTest.requests), 0,
+            "Startup must not request notification permission");
+        await clickCanvasButton(notificationPage, "Enable foreground notifications");
+        await notificationPage.getByText(/^A notification could not be delivered or permission was denied/).waitFor();
+        assert.equal(JSON.parse((await waitForRecord(notificationPage)).payload).notificationsEnabled, false);
+        await notificationPage.evaluate(() => { notificationTest.permission = "granted"; });
+        await clickCanvasButton(notificationPage, "Enable foreground notifications");
+        assert.notEqual(await waitForRecord(notificationPage, record =>
+            JSON.parse(record?.payload || "{}").notificationsEnabled === true), null);
+        await notificationPage.getByRole("button", { name: "Disable foreground notifications", exact: true }).waitFor();
+        await clickCanvasButton(notificationPage, "Start Timer");
+        assert.notEqual(await waitForRecord(notificationPage, record =>
+            JSON.parse(record?.payload || "{}").activeSession != null), null);
+        await notificationPage.evaluate(async () => {
+            const record = JSON.parse(await evTimerStorage.read());
+            const state = JSON.parse(record.payload);
+            for (const segment of state.activeSession.segments) segment.startedAt -= 30 * 24 * 3_600_000;
+            await evTimerStorage.write(record.revision, JSON.stringify(state));
+            window.dispatchEvent(new Event("pageshow"));
+        });
+        assert.notEqual(await waitForRecord(notificationPage, record => {
+            const state = JSON.parse(record?.payload || "{}");
+            return state.activeSession === null && state.completionNotificationAttempted === true;
+        }), null, "Completion and its notification claim must persist even when notification construction fails");
+        await notificationPage.getByText(/^A notification could not be delivered or permission was denied/).waitFor();
+        assert.equal(await notificationPage.evaluate(() => notificationTest.requests), 2);
+        assert.equal(await notificationPage.evaluate(() => notificationTest.attempts), 1);
+        await notificationPage.screenshot({ path: path.join(screenshots, "notification-failure.png") });
+        await notificationPage.reload();
+        await notificationPage.getByRole("button", { name: "Start Timer", exact: true }).waitFor();
+        assert.equal(await notificationPage.evaluate(() => notificationTest.requests), 0);
+        assert.equal(await notificationPage.evaluate(() => notificationTest.attempts), 0,
+            "Reload must not re-attempt an already-claimed notification");
+        await notificationContext.close();
         console.log("Real Chromium: shared timer UI, durable start/reload, epoch catch-up/completion, backup roundtrip, IndexedDB conflicts and light/dark screenshots passed");
     } finally {
         await browser.close();
