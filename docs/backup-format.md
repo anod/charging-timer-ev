@@ -161,15 +161,13 @@ The portable `:storage` module owns the existing v2 codec and settings model.
 and DataStore implementation. No native migration or backup-rule change is needed.
 The browser does not use a SQLDelight worker or pretend synchronous browser I/O.
 `BrowserStorage` exposes suspending load/update/import/export operations over
-`BrowserDocumentStore`; a later runtime adapter can map the existing repository
-interfaces onto this API without blocking the browser thread.
+`BrowserDocumentStore`; the timer runtime uses this API without blocking the browser thread.
 
 IndexedDB database `ev-charging-timer`, version 1, store `state`, key `app` holds
 a revision token and an opaque JSON string. The internal envelope contains
 `schemaVersion: 1`, the v2 backup document, and an optional `activeSession`.
 The active session is preserved by load/update but excluded from manual export;
-it prevents restore. This layer never starts or reconciles a timer. Only the
-backup/storage screen is enabled until the timer/runtime stack layer.
+it prevents restore. The next section describes the connected timer runtime.
 
 Preferences, drafts, preset order/options, all history fields, learning consent
 and segment efficiencies commit together in a strict-durability IndexedDB
@@ -204,7 +202,43 @@ IndexedDB is scoped to the site's origin/browser profile. Clearing site data,
 private-browsing teardown, browser eviction or changing hosting origin can lose
 data. It is not Android Auto Backup, cloud sync, or guaranteed archival storage;
 export private backups before moving sites/devices. No service worker, offline
-cache, notifications or deployment is included in this layer.
+cache or deployment is included. Foreground-only notifications are described below.
+
+## Browser timer and foreground notifications (stack layer 3)
+
+The shared module now has a Wasm target. Platform-only storage, ViewModels and
+native app wiring live in `platformMain`; Android/iOS/JVM still use those same
+implementations. Browser configuration and running screens are the existing
+stateless shared composables. `BrowserTimerRuntime` reuses `ChargingCalculator`,
+saved epoch snapshots, per-segment efficiencies and history-derived calibration.
+Presets/drafts and timestamped speed changes commit through `BrowserStorage`.
+Active timers never enter manual backups, and restore remains blocked while active.
+
+Startup, `pageshow`, visibility and focus refreshes read the committed document
+and recalculate from wall-clock timestamps. The visible-page ticker updates the
+display but is not a clock or scheduler. A suspended/closed timer catches up when
+reopened; completion atomically moves the active snapshot into history once,
+with the calculated target-crossing timestamp and capped target percentage.
+Changing the system clock affects estimates; this is not a vehicle telemetry feed.
+
+Notifications require the explicit **Enable foreground notifications** action
+and the browser's permission grant in a secure context. Enabling/disabling and
+per-session at-most-once attempt markers live only in the internal browser
+envelope, not backup v2. Each alert is claimed in IndexedDB before the browser
+constructor runs, avoiding duplicate attempts across tabs/reloads. A failed
+attempt is surfaced but not automatically retried or represented as delivered.
+Delivery itself cannot be guaranteed or acknowledged by the operating system.
+The 80% alert follows the saved preference; a late resume after target completion
+attempts only completion, not a stale milestone. Manual early stops never alert
+completion.
+
+Only visible pages attempt alerts. Denied/revoked permission, missing APIs,
+constructor failures and asynchronous notification errors are shown explicitly.
+iOS Safari may expose permission APIs yet reject foreground notification
+construction; the timer and backup still work. There is deliberately no service
+worker, push, background alarm, offline cache or background/closed-page guarantee.
+Browser history is retained/exportable here; native history/review/learning
+management screens are not wired into the browser in this layer.
 
 ## Database alignment and compatibility
 

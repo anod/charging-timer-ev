@@ -2,7 +2,16 @@
     <string name="web_storage_title">Charging data</string>
     <string name="web_storage_loading">Opening browser storage...</string>
     <string name="web_storage_unavailable">Browser storage could not be opened. No charging data is available.</string>
-    <string name="web_storage_description">Browser storage and backup are ready. The charging timer will be connected in the next web release.</string>
+    <string name="web_storage_description">Charging timers, presets and history are saved in this browser.</string>
+    <string name="web_timer_back">Back to timer</string>
+    <string name="web_foreground_limit">Estimates catch up when you reopen this page. Notifications require permission and a visible page; no alerts are guaranteed while backgrounded or closed.</string>
+    <string name="web_notifications_enable">Enable foreground notifications</string>
+    <string name="web_notifications_disable">Disable foreground notifications</string>
+    <string name="web_notifications_error">A notification could not be delivered or permission was denied. Check browser permissions. Some browsers, including iOS Safari, do not support foreground notifications. The timer still works; alerts are not guaranteed.</string>
+    <string name="web_notification_complete">Charging target reached</string>
+    <string name="web_notification_milestone">Estimated charge reached 80%</string>
+    <string name="web_notification_body">Open the charging timer to review the estimate. Check your vehicle for its actual charge.</string>
+    <string name="web_timer_error">Timer storage failed. This action is not confirmed. Close other tabs and reload storage; saved timestamps will catch up. Do not clear site data.</string>
     <string name="web_storage_privacy">Data stays in this browser on this site. Clearing site data or leaving private browsing can erase it. Export a backup and keep the unencrypted file somewhere private.</string>
     <string name="web_storage_counts">Saved presets: %1$d, history entries: %2$d</string>
     <string name="web_backup_export">Export backup</string>

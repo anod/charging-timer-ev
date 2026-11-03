@@ -2,7 +2,9 @@
 
 The app is currently English-only. Shared Compose UI text lives in
 `shared/src/commonMain/composeResources/values/strings.xml`; Android notification and
-Live Update text lives in `androidApp/src/main/res/values/strings.xml`. Notification
+Live Update text lives in `androidApp/src/main/res/values/strings.xml`. Browser
+controls, errors and foreground notification content live in
+`webApp/src/commonMain/composeResources/values/strings.xml`. Notification
 formatting is assembled in Android using resource-backed formatters, while the shared
 notification logic only decides which formatted parts are needed.
 
@@ -18,5 +20,6 @@ The reserved-name validation continues to reserve the stored English name, so ne
 translation nor UI display changes preset data, history snapshots, or backups.
 
 CI runs `scripts/check_hardcoded_ui_strings.py` to catch common hardcoded text patterns in
-shared Compose UI, shared notification formatting, and Android app code. Developer
+shared Compose UI (including `platformMain`), browser UI, shared notification
+formatting, and Android app code. Developer
 messages, logs, preference keys, and Compose previews remain outside the check.

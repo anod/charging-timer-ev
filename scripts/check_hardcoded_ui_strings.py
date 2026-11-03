@@ -9,6 +9,8 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE_PATHS = (
     ROOT / "shared/src/commonMain/kotlin/info/anodsplace/evtimer/ui",
+    ROOT / "shared/src/platformMain/kotlin/info/anodsplace/evtimer/ui",
+    ROOT / "webApp/src/wasmJsMain/kotlin",
     ROOT / "shared/src/commonMain/kotlin/info/anodsplace/evtimer/data/ChargingNotificationText.kt",
     ROOT / "androidApp/src/main/kotlin",
 )

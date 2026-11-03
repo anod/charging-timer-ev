@@ -78,6 +78,32 @@ async function clickCanvasButton(page, name) {
             await page.waitForSelector("canvas");
             // Compose's first frame and asynchronously loaded text resources must finish.
             await page.waitForTimeout(3000);
+            await clickCanvasButton(page, "Start Timer");
+            const started = await waitForRecord(page, record => JSON.parse(record?.payload || "{}").activeSession != null);
+            assert.notEqual(started, null, "Start must commit an active snapshot");
+            const active = JSON.parse(started.payload).activeSession;
+            await page.getByText("Charging in Progress", { exact: true }).waitFor();
+            await page.screenshot({ path: path.join(screenshots, `running-${colorScheme}.png`) });
+            await page.reload();
+            await page.getByText("Charging in Progress", { exact: true }).waitFor();
+            const reloaded = await waitForRecord(page);
+            assert.deepEqual(JSON.parse(reloaded.payload).activeSession, active,
+                "Reload must resume the persisted snapshot rather than restarting the timer");
+            // Simulate a closed/suspended page by advancing wall-clock time without
+            // running any ticks. pageshow must catch up and finish at the target epoch.
+            await page.clock.install();
+            await page.clock.setSystemTime(new Date(active.segments[0].startedAt + 30 * 24 * 3_600_000));
+            await page.evaluate(() => window.dispatchEvent(new Event("pageshow")));
+            const completed = await waitForRecord(page, record => {
+                const state = JSON.parse(record?.payload || "{}");
+                return state.activeSession === null && state.backup?.sessions.length === 1;
+            });
+            assert.notEqual(completed, null, "Resume must complete an elapsed timer");
+            const history = JSON.parse(completed.payload).backup.sessions[0];
+            assert.equal(history.endPercent, active.targetPercent);
+            assert.ok(history.endedAt < active.segments[0].startedAt + 30 * 24 * 3_600_000,
+                "History must use the calculated target time, not the page resume time");
+            await clickCanvasButton(page, "Charging data");
             await page.screenshot({ path: path.join(screenshots, `storage-${colorScheme}.png`) });
 
             // Transparent semantics proxies share the canvas control's bounds but
@@ -110,7 +136,7 @@ async function clickCanvasButton(page, name) {
             });
             await page.getByRole("button", { name: "Replace data", exact: true }).waitFor();
             // Merely reading the file must not mutate persisted data.
-            assert.equal(await page.evaluate(async () => JSON.parse(await evTimerStorage.read()).revision), initial.revision);
+            assert.equal(await page.evaluate(async () => JSON.parse(await evTimerStorage.read()).revision), completed.revision);
             await clickCanvasButton(page, "Replace data");
             const committed = await waitForRecord(page, record => record?.payload.includes("Imported car"));
             assert.notEqual(committed, null, "Confirmed import must commit the selected backup");
@@ -138,7 +164,7 @@ async function clickCanvasButton(page, name) {
             assert.deepEqual(errors, []);
             await context.close();
         }
-        console.log("Real Chromium: Wasm startup, actual backup download/picker/confirmation/v2 restore, IndexedDB reload/two-tab conflict and light/dark screenshots passed");
+        console.log("Real Chromium: shared timer UI, durable start/reload, epoch catch-up/completion, backup roundtrip, IndexedDB conflicts and light/dark screenshots passed");
     } finally {
         await browser.close();
         await new Promise(resolve => server.close(resolve));

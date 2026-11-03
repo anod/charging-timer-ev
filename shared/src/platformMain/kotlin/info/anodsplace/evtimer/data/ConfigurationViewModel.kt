@@ -7,33 +7,6 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.channels.Channel
 
-data class ConfigurationViewState(
-    val isLoading: Boolean = true,
-    val settings: ChargingSettings = ChargingSettings(),
-    val presets: List<ChargingPreset> = listOf(ChargingPreset(ChargingRepositoryImpl.CUSTOM_ID, "Default", ChargingSettings.DEFAULT)),
-    val selectedPresetId: String = ChargingRepositoryImpl.CUSTOM_ID
-) {
-    val presetConfiguration get() = PresetConfiguration(presets, selectedPresetId, settings)
-}
-
-sealed interface ConfigurationViewAction {
-    data object OpenRunning : ConfigurationViewAction
-}
-
-sealed interface ConfigurationViewEvent {
-    data object StartCharging : ConfigurationViewEvent
-    data class UpdateBatteryCapacity(val capacity: Float) : ConfigurationViewEvent
-    data class UpdateChargingPower(val power: Float) : ConfigurationViewEvent
-    data class AddCustomPower(val power: Float) : ConfigurationViewEvent
-    data class RemoveCustomPower(val power: Float) : ConfigurationViewEvent
-    data class UpdateStartPercent(val percent: Float) : ConfigurationViewEvent
-    data class UpdateMaxPercent(val percent: Float) : ConfigurationViewEvent
-    data class SelectPreset(val id: String) : ConfigurationViewEvent
-    data object UpdatePreset : ConfigurationViewEvent
-    data class SaveAsPreset(val name: String) : ConfigurationViewEvent
-    data object ResetPreset : ConfigurationViewEvent
-}
-
 class ConfigurationViewModel(
     private val repository: ChargingRepository,
     private val service: ChargingService,

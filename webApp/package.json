@@ -1,7 +1,7 @@
 {
   "private": true,
   "scripts": {
-    "test": "node --test tests/indexeddb.test.cjs",
+    "test": "node --test tests/indexeddb.test.cjs tests/notifications.test.cjs",
     "test:browser": "node tests/browser.cjs"
   },
   "devDependencies": {

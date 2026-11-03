@@ -49,7 +49,7 @@ jobs:
         run: npm ci --ignore-scripts && npm test
 
       - name: Test portable backup and browser state
-        run: ./gradlew :storage:jvmTest :shared:jvmTest --tests '*ManualBackupTest' --tests '*BrowserStorageTest' --tests '*BackupCompatibilityTest'
+        run: ./gradlew :storage:jvmTest :shared:jvmTest --tests '*ManualBackupTest' --tests '*BrowserStorageTest' --tests '*BackupCompatibilityTest' --tests '*BrowserTimerRuntimeTest' --tests '*BrowserNotificationsTest' --tests '*ChargingCalculatorTest' --tests '*ChargingServiceTest' --tests '*ChargingViewModelTest' --tests '*TimeProgressTest'
 
       - name: Build Wasm web shell
         run: ./gradlew :webApp:wasmJsBrowserDistribution

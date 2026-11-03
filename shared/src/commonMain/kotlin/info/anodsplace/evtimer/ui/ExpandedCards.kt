@@ -1,6 +1,6 @@
 package info.anodsplace.evtimer.ui
 
-import info.anodsplace.evtimer.data.ChargingRepositoryImpl
+import info.anodsplace.evtimer.data.CUSTOM_PRESET_ID
 
 internal data class ExpandedCards(
     val battery: Boolean,
@@ -10,7 +10,7 @@ internal data class ExpandedCards(
 )
 
 internal fun expandedCards(selection: String): ExpandedCards {
-    val isCustom = selection == ChargingRepositoryImpl.CUSTOM_ID
+    val isCustom = selection == CUSTOM_PRESET_ID
     return ExpandedCards(
         battery = false,
         max = false,

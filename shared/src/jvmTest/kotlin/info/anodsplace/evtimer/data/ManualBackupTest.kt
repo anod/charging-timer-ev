@@ -411,7 +411,7 @@ class ManualBackupTest {
 
     @Test
     fun preferenceKeysCannotBeAddedWithoutBackupCoverageOrExclusion() {
-        val source = File("src/commonMain/kotlin/info/anodsplace/evtimer/data/ChargingRepository.kt").readText()
+        val source = File("src/platformMain/kotlin/info/anodsplace/evtimer/data/ChargingRepository.kt").readText()
         val keys = Regex("""(?:boolean|float|long|string)PreferencesKey\("([^"]+)"\)""")
             .findAll(source).map { it.groupValues[1] }.toSet()
         val included = setOf("notify_at_80", "selected_preset", "start_percent", "draft_preset", "draft_values")

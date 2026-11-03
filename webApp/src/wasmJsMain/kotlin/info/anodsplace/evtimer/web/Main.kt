@@ -39,13 +39,12 @@ import kotlin.js.toJsString
 @OptIn(ExperimentalComposeUiApi::class)
 fun main() {
     ComposeViewport(document.body ?: error("Browser document body is unavailable")) {
-        BrowserStorageScreen()
+        BrowserTimerApp()
     }
 }
 
 @Composable
-private fun BrowserStorageScreen() {
-    val storage = remember { BrowserStorage(IndexedDbStore()) }
+internal fun BrowserStorageScreen(storage: BrowserStorage) {
     val scope = rememberCoroutineScope()
     var state by remember { mutableStateOf<BrowserState?>(null) }
     var pending by remember { mutableStateOf<ManualBackup?>(null) }
