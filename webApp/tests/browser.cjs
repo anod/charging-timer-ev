@@ -40,12 +40,27 @@ async function waitForRecord(page, accept = record => record !== null) {
     try {
         const origin = `http://127.0.0.1:${server.address().port}`;
         for (const colorScheme of ["light", "dark"]) {
-            const context = await browser.newContext({ colorScheme, viewport: { width: 1100, height: 800 } });
+            const context = await browser.newContext({
+                colorScheme, locale: "en-US", viewport: { width: 1100, height: 800 }
+            });
+            await context.addInitScript(() => {
+                Intl.Locale = new Proxy(Intl.Locale, {
+                    construct(target, args) {
+                        try {
+                            return Reflect.construct(target, args);
+                        } catch (error) {
+                            console.error("Intl.Locale rejected:", JSON.stringify(args), navigator.languages);
+                            throw error;
+                        }
+                    }
+                });
+            });
             const page = await context.newPage();
             const errors = [];
             page.on("pageerror", error => errors.push(error.message));
             page.on("console", message => console.log(`[${colorScheme}] ${message.type()}: ${message.text()}`));
             await page.goto(origin);
+            console.log("Browser language preferences:", await page.evaluate(() => navigator.languages));
             const initial = await waitForRecord(page);
             await page.screenshot({ path: path.join(screenshots, `startup-${colorScheme}.png`) });
             fs.writeFileSync(path.join(screenshots, `semantics-${colorScheme}.txt`),
