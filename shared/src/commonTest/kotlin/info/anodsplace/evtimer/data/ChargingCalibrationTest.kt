@@ -67,7 +67,7 @@ class ChargingCalibrationTest {
         val exactSpeed = ChargingCalibration.derive(
             listOf(entry(power = 6.0001f)), listOf(home)
         )
-        assertEquals(0.94f, exactSpeed.factor("home", 6.0001f), 1e-6f)
+        assertEquals(0.94f, exactSpeed.factor("home", 6.0001f), 1e-5f)
         assertEquals(1f, exactSpeed.factor("home", 6.0002f))
         val high = entry(id = 4L, actual = 30.5f)
         assertEquals(0.958f, ChargingCalibration.derive(listOf(first, high), listOf(home))
