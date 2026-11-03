@@ -1,0 +1,3 @@
+<resources>
+    <string name="web_storage_unavailable">Web storage is not available yet. Your charging data will not be saved.</string>
+</resources>

@@ -4,6 +4,11 @@ plugins {
     alias(libs.plugins.composeCompiler)
 }
 
+compose.resources {
+    publicResClass = true
+    packageOfResClass = "info.anodsplace.evtimer.web.generated.resources"
+}
+
 kotlin {
     @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
     wasmJs {
@@ -14,7 +19,6 @@ kotlin {
 
     sourceSets {
         wasmJsMain.dependencies {
-            implementation(projects.shared)
             implementation(libs.compose.runtime)
             implementation(libs.compose.foundation)
             implementation(libs.compose.material3)

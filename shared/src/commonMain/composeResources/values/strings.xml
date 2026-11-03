@@ -1,5 +1,4 @@
 <resources>
-    <string name="web_storage_unavailable">Web storage is not available yet. Your charging data will not be saved.</string>
     <string name="unit_percent">%</string>
     <string name="reading_add">Add car reading</string>
     <string name="reading_edit">Edit car reading</string>
