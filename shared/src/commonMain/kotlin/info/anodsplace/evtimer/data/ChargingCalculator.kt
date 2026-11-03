@@ -46,7 +46,8 @@ object ChargingCalculator {
 
         var remaining = energyNeeded
         snapshot.segments.forEachIndexed { index, segment ->
-            val rate = segment.powerKw.toDouble() * snapshot.efficiency / 3_600_000.0
+            val rate = segment.powerKw.toDouble() *
+                (segment.efficiency ?: snapshot.efficiency).toDouble() / 3_600_000.0
             val end = snapshot.segments.getOrNull(index + 1)?.startedAt
             val duration = end?.let { (it - segment.startedAt).toDouble() }
             if (duration == null || remaining <= duration * rate) {
@@ -86,12 +87,24 @@ object ChargingCalculator {
         return percentAt(snapshot, now + offset)
     }
 
+    /** Uncapped nominal energy, independent of the frozen estimate factor. */
+    fun nominalEnergyAt(snapshot: ChargingSessionSnapshot, now: Long): Double {
+        var energy = 0.0
+        snapshot.segments.forEachIndexed { index, segment ->
+            val end = minOf(now, snapshot.segments.getOrNull(index + 1)?.startedAt ?: now)
+            val elapsed = (end - segment.startedAt).coerceAtLeast(0L)
+            energy += elapsed.toDouble() * segment.powerKw / 3_600_000.0
+        }
+        return energy
+    }
+
     private fun energyAt(snapshot: ChargingSessionSnapshot, now: Long): Double {
         var energy = 0.0
         snapshot.segments.forEachIndexed { index, segment ->
             val end = minOf(now, snapshot.segments.getOrNull(index + 1)?.startedAt ?: now)
             val elapsed = (end - segment.startedAt).coerceAtLeast(0L)
-            energy += elapsed.toDouble() * segment.powerKw * snapshot.efficiency / 3_600_000.0
+            energy += elapsed.toDouble() * segment.powerKw *
+                (segment.efficiency ?: snapshot.efficiency) / 3_600_000.0
         }
         return energy
     }

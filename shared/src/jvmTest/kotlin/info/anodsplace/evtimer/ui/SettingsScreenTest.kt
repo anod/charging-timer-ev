@@ -11,13 +11,21 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
-import info.anodsplace.evtimer.data.ChargingPreset
-import info.anodsplace.evtimer.data.ChargingSettings
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import info.anodsplace.evtimer.data.ChargingPreset
+import info.anodsplace.evtimer.data.ChargingSettings
 
 @OptIn(ExperimentalTestApi::class)
 class SettingsScreenTest {
+    @Test
+    fun calibrationHasNoGlobalSettingsReset() = runDesktopComposeUiTest {
+        setContent {
+            MaterialTheme { SettingsScreen(true, {}, {}, {}, {}) }
+        }
+        onNodeWithText("Reset learned estimates").assertDoesNotExist()
+    }
+
     @Test
     fun groupedRowsOpenDestinationsAndWholeSwitchRowToggles() = runDesktopComposeUiTest {
         val notify = mutableStateOf<Boolean?>(null)

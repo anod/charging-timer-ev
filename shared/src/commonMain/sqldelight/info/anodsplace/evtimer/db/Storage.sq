@@ -30,7 +30,8 @@ CREATE TABLE charge_session (
     reviewed INTEGER AS Boolean NOT NULL DEFAULT 0,
     is_running INTEGER AS Boolean NOT NULL DEFAULT 0,
     interrupted INTEGER AS Boolean NOT NULL DEFAULT 0,
-    preset_edited INTEGER AS Boolean NOT NULL DEFAULT 0
+    preset_edited INTEGER AS Boolean NOT NULL DEFAULT 0,
+    calibration_enabled INTEGER AS Boolean NOT NULL DEFAULT 0
 );
 
 CREATE UNIQUE INDEX one_running_session ON charge_session(is_running) WHERE is_running = 1;
@@ -39,6 +40,7 @@ CREATE TABLE power_segment (
     session_id INTEGER NOT NULL REFERENCES charge_session(id) ON DELETE CASCADE,
     started_at INTEGER NOT NULL,
     power_kw REAL NOT NULL CHECK (power_kw > 0),
+    efficiency REAL,
     PRIMARY KEY (session_id, started_at)
 );
 
@@ -115,7 +117,7 @@ clearSegments:
 DELETE FROM power_segment WHERE session_id = ?;
 
 putSegment:
-INSERT INTO power_segment VALUES (?, ?, ?);
+INSERT INTO power_segment(session_id, started_at, power_kw, efficiency) VALUES (?, ?, ?, ?);
 
 finishSession:
 UPDATE charge_session SET is_running = 0, ended_at = ?, end_percent = ? WHERE is_running = 1;
@@ -129,6 +131,16 @@ UPDATE charge_session SET is_running = 0 WHERE is_running = 1;
 
 reviewSession:
 UPDATE charge_session SET actual_percent = ?, reviewed = ? WHERE id = ? AND ended_at IS NOT NULL;
+
+saveReading:
+UPDATE charge_session SET actual_percent = ?, calibration_enabled = ?
+WHERE id = ? AND ended_at IS NOT NULL AND is_running = 0;
+
+acknowledgeSession:
+UPDATE charge_session SET reviewed = 1 WHERE id = ? AND ended_at IS NOT NULL AND is_running = 0;
+
+disableSessionCalibration:
+UPDATE charge_session SET calibration_enabled = 0 WHERE id = ?;
 
 migrationDone:
 SELECT count(*) FROM storage_migration WHERE id = 1;
@@ -163,5 +175,8 @@ VALUES (?, ?, ?, ?, ?, ?);
 
 importBackupSession:
 INSERT INTO charge_session(id, battery_capacity, start_percent, target_percent, efficiency,
-preset_id, preset_name, ended_at, end_percent, actual_percent, reviewed, is_running, interrupted, preset_edited)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?);
+preset_id, preset_name, ended_at, end_percent, actual_percent, reviewed, is_running, interrupted, preset_edited, calibration_enabled)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?);
+
+importBackupSegment:
+INSERT INTO power_segment(session_id, started_at, power_kw, efficiency) VALUES (?, ?, ?, ?);

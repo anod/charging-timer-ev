@@ -29,6 +29,7 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
@@ -46,12 +47,18 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import info.anodsplace.evtimer.data.ChargingPreset
+import info.anodsplace.evtimer.data.ChargingCalibration
+import info.anodsplace.evtimer.data.formatLocaleNumber
 import info.anodsplace.evtimer.data.MAX_PRESET_NAME_CODE_POINTS
 import info.anodsplace.evtimer.data.PresetNameError
 import info.anodsplace.evtimer.data.normalizeAndValidatePresetName
 import info.anodsplace.evtimer.generated.resources.*
 import org.jetbrains.compose.resources.stringResource
+import org.jetbrains.compose.resources.pluralStringResource
+import org.jetbrains.compose.resources.painterResource
 import kotlin.math.roundToInt
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
 
 internal class PresetDragState(initialOrder: List<String>) {
     private var startingOrder = initialOrder
@@ -108,10 +115,17 @@ internal fun PresetManagement(
     onDelete: (String) -> Unit,
     onMove: (String, Int) -> Unit,
     onReorder: (List<String>) -> Unit,
-    showTitle: Boolean = true
+    showTitle: Boolean = true,
+    calibration: ChargingCalibration = ChargingCalibration(),
+    onResetCalibration: suspend (String, Float) -> Unit = { _, _ -> }
 ) {
     var renamingId by rememberSaveable { mutableStateOf<String?>(null) }
     var deletingId by rememberSaveable { mutableStateOf<String?>(null) }
+    var infoId by rememberSaveable { mutableStateOf<String?>(null) }
+    var resettingSpeed by rememberSaveable { mutableStateOf<Float?>(null) }
+    var resetBusy by remember { mutableStateOf(false) }
+    var resetFailed by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
     val dragState = remember(presets) { PresetDragState(presets.map { it.id }) }
     val commitOrder by rememberUpdatedState(onReorder)
     val rowPitch = with(LocalDensity.current) { 57.dp.toPx() }
@@ -171,6 +185,9 @@ internal fun PresetManagement(
                             renamingId = id
                         }.padding(vertical = 12.dp)
                     )
+                    IconButton(onClick = { infoId = id }) {
+                        Icon(painterResource(Res.drawable.ic_info), stringResource(Res.string.calibration_info, preset.name))
+                    }
                     IconButton(onClick = { deletingId = id }, enabled = presets.size > 1) {
                         Icon(DeletePresetIcon, stringResource(Res.string.delete_named_preset, preset.name))
                     }
@@ -202,6 +219,79 @@ internal fun PresetManagement(
                 TextButton(onClick = { deletingId = null }) { Text(stringResource(Res.string.cancel)) }
             }
         )
+    }
+    presets.firstOrNull { it.id == infoId && resettingSpeed == null }?.let { preset ->
+        AlertDialog(
+            onDismissRequest = { infoId = null },
+            title = { Text(preset.name) },
+            text = {
+                Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    preset.settings.availablePowers.forEach { power ->
+                        val estimate = calibration.estimate(preset.id, power)
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text(stringResource(Res.string.calibration_speed,
+                                    formatLocaleNumber(power, 0, 6)))
+                                Text(pluralStringResource(
+                                    Res.plurals.calibration_factor_count,
+                                    estimate.eligibleCount,
+                                    formatLocaleNumber(estimate.factor * 100f, 0, 1),
+                                    estimate.eligibleCount
+                                ),
+                                    style = MaterialTheme.typography.bodySmall)
+                            }
+                            TextButton(onClick = {
+                                resettingSpeed = power
+                                resetFailed = false
+                            }) { Text(stringResource(Res.string.calibration_reset_speed)) }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { infoId = null }) { Text(stringResource(Res.string.calibration_close)) }
+            }
+        )
+    }
+    presets.firstOrNull { it.id == infoId }?.let { preset ->
+        resettingSpeed?.let { power ->
+            val speed = formatLocaleNumber(power, 0, 6)
+            AlertDialog(
+                onDismissRequest = { if (!resetBusy) resettingSpeed = null },
+                title = { Text(stringResource(Res.string.calibration_reset_speed_title, preset.name, speed)) },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(stringResource(Res.string.calibration_reset_speed_message))
+                        if (resetFailed) Text(stringResource(Res.string.calibration_reset_failed),
+                            color = MaterialTheme.colorScheme.error)
+                    }
+                },
+                confirmButton = {
+                    TextButton(enabled = !resetBusy, onClick = {
+                        resetBusy = true
+                        resetFailed = false
+                        scope.launch {
+                            try {
+                                onResetCalibration(preset.id, power)
+                                resettingSpeed = null
+                            } catch (error: CancellationException) {
+                                throw error
+                            } catch (error: Exception) {
+                                println("Calibration reset failed: $error")
+                                resetFailed = true
+                            } finally {
+                                resetBusy = false
+                            }
+                        }
+                    }) { Text(stringResource(Res.string.reset)) }
+                },
+                dismissButton = {
+                    TextButton(enabled = !resetBusy, onClick = { resettingSpeed = null }) {
+                        Text(stringResource(Res.string.cancel))
+                    }
+                }
+            )
+        }
     }
 }
 

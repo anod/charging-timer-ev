@@ -82,10 +82,13 @@ fun ChargingTimerApp(
                                 Destination.Presets -> {
                                     val viewModel = koinViewModel<SettingsViewModel>()
                                     val presets by viewModel.presets.collectAsState()
+                                    val calibration by viewModel.calibration.collectAsState()
                                     PresetManagementScreen(
                                         presets, viewModel::renamePreset, viewModel::deletePreset,
                                         viewModel::movePreset, viewModel::reorderPresets,
                                         onBack = { navigation.onBack() },
+                                        calibration = calibration,
+                                        onResetCalibration = viewModel::resetLearnedEstimates,
                                         modifier = modifier.windowInsetsPadding(WindowInsets.systemBars)
                                     )
                                 }
@@ -108,6 +111,8 @@ fun ChargingTimerApp(
                                             summary = it.summary(),
                                             onShare = shareService::share,
                                             onDone = { navigation.onBack() },
+                                            entry = it,
+                                            onSaveReading = navigation::saveReading,
                                             modifier = modifier.windowInsetsPadding(WindowInsets.systemBars)
                                         )
                                     }

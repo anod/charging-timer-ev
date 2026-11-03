@@ -7,6 +7,7 @@ import app.cash.sqldelight.coroutines.asFlow
 import info.anodsplace.evtimer.db.Charge_session
 import info.anodsplace.evtimer.db.ChargingDatabase
 import info.anodsplace.evtimer.db.Preset
+import info.anodsplace.evtimer.db.Power_segment
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
@@ -14,6 +15,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -24,6 +26,8 @@ import kotlin.math.ceil
 data class ChargingPreset(val id: String, val name: String, val settings: ChargingSettings)
 
 interface PresetRepository {
+    fun observeCalibration(): Flow<ChargingCalibration> = flowOf(ChargingCalibration())
+    suspend fun resetLearnedEstimates(presetId: String, powerKw: Float) { error("Calibration reset is not supported") }
     fun observeConfiguration(): Flow<PresetConfiguration>
     suspend fun updateSelectedPreset()
     suspend fun saveAsPreset(name: String)
@@ -43,12 +47,15 @@ data class ChargingHistoryEntry(
     val endPercent: Float?,
     val actualPercent: Float?,
     val reviewed: Boolean,
-    val interrupted: Boolean = false
+    val interrupted: Boolean = false,
+    val calibrationEnabled: Boolean = false
 )
 
 interface ChargingHistoryRepository {
     fun observeHistory(): Flow<List<ChargingHistoryEntry>>
     suspend fun reviewSession(id: Long, actualPercent: Float?, reviewed: Boolean)
+    suspend fun saveReading(id: Long, actualPercent: Float?, calibrationEnabled: Boolean)
+    suspend fun acknowledgeSession(id: Long)
     suspend fun deleteSession(id: Long)
 }
 
@@ -159,13 +166,13 @@ class ChargingRepositoryImpl(
         settings.availablePowers.forEachIndexed { index, power -> queries.putOption(preset.id, index.toLong(), power.toDouble()) }
     }
 
-    private fun settings(row: Preset, startPercent: Float): ChargingSettings {
+    private fun settings(row: Preset, startPercent: Float, powerOptions: List<Double>): ChargingSettings {
         val raw = androidx.datastore.preferences.core.mutablePreferencesOf(
             SessionPreferences.batteryCapacity to row.battery_capacity.toFloat(),
             SessionPreferences.chargingPower to row.charging_power.toFloat(),
             SessionPreferences.maxPercent to row.target_percent.toFloat(),
             SessionPreferences.startPercent to startPercent,
-            SessionPreferences.availablePowers to queries.options(row.id).executeAsList().joinToString(",") { it.power_kw.toString() }
+            SessionPreferences.availablePowers to powerOptions.joinToString(",")
         )
         return SessionPreferences.readSettings(raw)
     }
@@ -213,8 +220,12 @@ class ChargingRepositoryImpl(
         changeConfiguration(PresetEvent.Edit(settings))
     }
 
-    private fun readPresets(): List<ChargingPreset> = queries.allPresets().executeAsList().map {
-        ChargingPreset(it.id, it.name, settings(it, ChargingSettings.DEFAULT.startPercent))
+    private fun readPresets(): List<ChargingPreset> {
+        val options = queries.allOptions().executeAsList().groupBy { it.preset_id }
+        return queries.allPresets().executeAsList().map {
+            ChargingPreset(it.id, it.name, settings(it, ChargingSettings.DEFAULT.startPercent,
+                options[it.id].orEmpty().map { option -> option.power_kw }))
+        }
     }
 
     private fun configuration(prefs: Preferences, presets: List<ChargingPreset>): PresetConfiguration {
@@ -278,17 +289,27 @@ class ChargingRepositoryImpl(
         initialize()
         return withContext(Dispatchers.Default) {
             mutex.withLock {
-                val state = configuration(dataStore.data.first(), readPresets())
-                ChargingSessionSnapshot.from(state.settings, startedAt).copy(
-                    presetId = state.selectedId, presetName = state.selected.name, presetEdited = state.isEdited
-                )
+                val prefs = dataStore.data.first()
+                database.transactionWithResult {
+                    val state = configuration(prefs, readPresets())
+                    val calibration = ChargingCalibration.derive(
+                        readHistory(), state.presets, mapOf(state.selectedId to state.settings.batteryCapacity)
+                    )
+                    val factor = calibration.factor(state.selectedId, state.settings.chargingPower)
+                    ChargingSessionSnapshot.from(state.settings, startedAt).copy(
+                        presetId = state.selectedId, presetName = state.selected.name, presetEdited = state.isEdited,
+                        efficiency = factor,
+                        segments = listOf(PowerSegment(startedAt, state.settings.chargingPower, factor))
+                    )
+                }
             }
         }
     }
 
-    private fun snapshot(row: Charge_session) = ChargingSessionSnapshot(
+    private fun snapshot(row: Charge_session, segments: List<Power_segment> =
+        queries.segments(row.id).executeAsList()) = ChargingSessionSnapshot(
         row.battery_capacity.toFloat(), row.start_percent.toFloat(), row.target_percent.toFloat(),
-        queries.segments(row.id).executeAsList().map { PowerSegment(it.started_at, it.power_kw.toFloat()) },
+        segments.map { PowerSegment(it.started_at, it.power_kw.toFloat(), it.efficiency?.toFloat()) },
         row.preset_id, row.preset_name, row.efficiency.toFloat(), row.preset_edited
     )
 
@@ -309,7 +330,9 @@ class ChargingRepositoryImpl(
             snapshot.targetPercent.toDouble(), snapshot.efficiency.toDouble(), snapshot.presetId, snapshot.presetName,
             session.isRunning, snapshot.presetEdited)
         queries.clearSegments(snapshot.startTime)
-        snapshot.segments.forEach { queries.putSegment(snapshot.startTime, it.startedAt, it.powerKw.toDouble()) }
+        snapshot.segments.forEach {
+            queries.putSegment(snapshot.startTime, it.startedAt, it.powerKw.toDouble(), it.efficiency?.toDouble())
+        }
         queries.setCurrentSession(snapshot.startTime)
     }
 
@@ -350,24 +373,86 @@ class ChargingRepositoryImpl(
         })
     }
 
+    private fun readHistory(): List<ChargingHistoryEntry> {
+        val segments = queries.allSegments().executeAsList().groupBy { it.session_id }
+        return queries.history(mapper = ::Charge_session).executeAsList().mapNotNull { row ->
+            try {
+                ChargingHistoryEntry(row.id, snapshot(row, segments[row.id].orEmpty()), requireNotNull(row.ended_at),
+                    row.end_percent?.toFloat(), row.actual_percent?.toFloat(), row.reviewed, row.interrupted,
+                    row.calibration_enabled)
+            } catch (_: IllegalArgumentException) {
+                println("Charging storage: invalid history snapshot ${row.id}; skipping")
+                null
+            }
+        }
+    }
+
     override fun observeHistory(): Flow<List<ChargingHistoryEntry>> = flow {
         initialize()
         emitAll(combine(
             queries.history(mapper = ::Charge_session).asFlow(),
             queries.allSegments().asFlow()
         ) { _, _ ->
-            transaction {
-                queries.history(mapper = ::Charge_session).executeAsList().mapNotNull { row ->
-                    try {
-                        ChargingHistoryEntry(row.id, snapshot(row), requireNotNull(row.ended_at),
-                            row.end_percent?.toFloat(), row.actual_percent?.toFloat(), row.reviewed, row.interrupted)
-                    } catch (_: IllegalArgumentException) {
-                        println("Charging storage: invalid history snapshot ${row.id}; skipping")
-                        null
-                    }
-                }
-            }
+            transaction { readHistory() }
         })
+    }
+
+    override fun observeCalibration(): Flow<ChargingCalibration> = flow {
+        initialize()
+        emitAll(combine(
+            queries.history(mapper = ::Charge_session).asFlow(),
+            queries.allSegments().asFlow(),
+            queries.allPresets().asFlow()
+        ) { _, _, _ ->
+            transaction { ChargingCalibration.derive(readHistory(), readPresets()) }
+        })
+    }
+
+    private fun computeEfficiencyFor(presetId: String?, batteryCapacity: Float, powerKw: Float): Float {
+        val presets = readPresets()
+        val capacities = presetId?.let { mapOf(it to batteryCapacity) } ?: emptyMap()
+        return ChargingCalibration.derive(readHistory(), presets, capacities).factor(presetId, powerKw)
+    }
+
+    override suspend fun efficiencyFor(presetId: String?, batteryCapacity: Float, powerKw: Float): Float =
+        transaction { computeEfficiencyFor(presetId, batteryCapacity, powerKw) }
+
+    override suspend fun changePower(session: ChargingSession, changedAt: Long, powerKw: Float) {
+        transaction {
+            val snapshot = session.snapshot ?: return@transaction
+            if (!session.isRunning || queries.activeSession().executeAsOneOrNull()?.id != snapshot.startTime) {
+                return@transaction
+            }
+            val updated = snapshot.withPower(
+                changedAt, powerKw, computeEfficiencyFor(snapshot.presetId, snapshot.batteryCapacity, powerKw)
+            ) ?: return@transaction
+            putSession(session.copy(snapshot = updated))
+        }
+    }
+
+    override suspend fun resetLearnedEstimates(presetId: String, powerKw: Float) {
+        require(presetId.isNotBlank() && powerKw.isFinite() && powerKw > 0f)
+        transaction {
+            readHistory().filter {
+                it.snapshot.presetId == presetId &&
+                    ChargingCalibration.singleSpeedPower(it) == powerKw
+            }.forEach { queries.disableSessionCalibration(it.id) }
+        }
+    }
+
+    override suspend fun saveReading(id: Long, actualPercent: Float?, calibrationEnabled: Boolean) {
+        require(actualPercent == null || (actualPercent.isFinite() && actualPercent in 0f..100f))
+        transaction {
+            require(queries.history().executeAsList().any { it.id == id }) { "Unknown completed session: $id" }
+            queries.saveReading(actualPercent?.toDouble(), actualPercent != null && calibrationEnabled, id)
+        }
+    }
+
+    override suspend fun acknowledgeSession(id: Long) {
+        transaction {
+            require(queries.history().executeAsList().any { it.id == id }) { "Unknown completed session: $id" }
+            queries.acknowledgeSession(id)
+        }
     }
 
     override suspend fun reviewSession(id: Long, actualPercent: Float?, reviewed: Boolean) {
@@ -407,9 +492,9 @@ class ChargingRepositoryImpl(
                         queries.backupSessions().executeAsList().map {
                             BackupSession(it.id, it.battery_capacity, it.start_percent, it.target_percent,
                                 it.efficiency, segments[it.id].orEmpty().map { segment ->
-                                    BackupSegment(segment.started_at, segment.power_kw)
+                                    BackupSegment(segment.started_at, segment.power_kw, segment.efficiency)
                                 }, it.preset_id, it.preset_name, it.ended_at, it.end_percent,
-                                it.actual_percent, it.reviewed, it.interrupted, it.preset_edited)
+                                it.actual_percent, it.reviewed, it.interrupted, it.preset_edited, it.calibration_enabled)
                         }
                     )
                 }
@@ -446,8 +531,11 @@ class ChargingRepositoryImpl(
                             it.efficiency, it.presetId, it.presetName,
                             it.endedAt ?: maxOf(now, it.segments.last().startedAt),
                             if (it.endedAt == null) null else it.endPercent, it.actualPercent,
-                            it.reviewed || it.id == newest, it.interrupted || it.endedAt == null, it.presetEdited)
-                        it.segments.forEach { segment -> queries.putSegment(it.id, segment.startedAt, segment.powerKw) }
+                            it.reviewed || it.id == newest, it.interrupted || it.endedAt == null, it.presetEdited,
+                            backup.formatVersion >= 2 && it.calibrationEnabled)
+                        it.segments.forEach { segment ->
+                            queries.importBackupSegment(it.id, segment.startedAt, segment.powerKw, segment.efficiency)
+                        }
                     }
                 }
                 try {
@@ -483,7 +571,7 @@ class ChargingRepositoryImpl(
             queries.deleteHistorySession(id)
             if (entries.first().id == id) {
                 // Deletion must not turn a superseded session into a pending completion on relaunch.
-                entries.getOrNull(1)?.let { queries.reviewSession(it.actual_percent, true, it.id) }
+                entries.getOrNull(1)?.let { queries.acknowledgeSession(it.id) }
             }
         }
     }
