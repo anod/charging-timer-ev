@@ -33,12 +33,20 @@ const mime = { ".wasm": "application/wasm", ".js": "application/javascript",
             const page = await context.newPage();
             const errors = [];
             page.on("pageerror", error => errors.push(error.message));
+            page.on("console", message => console.log(`[${colorScheme}] ${message.type()}: ${message.text()}`));
             await page.goto(origin);
-            await page.waitForFunction(async () => {
-                if (!globalThis.evTimerStorage) return false;
-                return JSON.parse(await globalThis.evTimerStorage.read()) !== null;
-            }, null, { timeout: 120_000 });
-            const initial = await page.evaluate(async () => JSON.parse(await evTimerStorage.read()));
+            let initial = null;
+            const deadline = Date.now() + 120_000;
+            while (initial === null && Date.now() < deadline) {
+                initial = await page.evaluate(async () =>
+                    globalThis.evTimerStorage ? JSON.parse(await globalThis.evTimerStorage.read()) : null);
+                if (initial === null) await new Promise(resolve => setTimeout(resolve, 250));
+            }
+            await page.screenshot({ path: path.join(screenshots, `startup-${colorScheme}.png`) });
+            fs.writeFileSync(path.join(screenshots, `semantics-${colorScheme}.txt`),
+                await page.locator("body").ariaSnapshot());
+            assert.deepEqual(errors, []);
+            assert.notEqual(initial, null, "Wasm must durably initialize IndexedDB before the UI is usable");
             const payload = JSON.parse(initial.payload);
             assert.equal(payload.backup.formatVersion, 2);
             assert.equal(payload.backup.presets.length, 1);

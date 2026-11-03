@@ -46,7 +46,7 @@ jobs:
 
       - name: Test IndexedDB transactions
         working-directory: webApp
-        run: npm install --ignore-scripts && npm test
+        run: npm ci --ignore-scripts && npm test
 
       - name: Test portable backup and browser state
         run: ./gradlew :storage:jvmTest :shared:jvmTest --tests '*ManualBackupTest' --tests '*BrowserStorageTest' --tests '*BackupCompatibilityTest'
