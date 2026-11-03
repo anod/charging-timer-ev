@@ -51,6 +51,14 @@ class BrowserTimerRuntimeTest {
     }
 
     @Test
+    fun repeatedStartCannotResetAnExistingTimer() = runTest {
+        val runtime = configured()
+        val started = runtime.start()
+        clock.epoch += 60_000
+        assertEquals(started, runtime().start())
+    }
+
+    @Test
     fun completionIsDurableExactlyOnceAtTargetEpochNotResumeEpoch() = runTest {
         val runtime = configured()
         val active = assertNotNull(runtime.start().activeSession)

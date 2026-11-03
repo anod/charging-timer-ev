@@ -47,7 +47,7 @@ class BrowserTimerRuntime(
     }
 
     suspend fun start(): BrowserState = storage.update { state ->
-        check(state.activeSession == null) { "A session is already running" }
+        if (state.activeSession != null) return@update state
         val configuration = state.configuration()
         val settings = configuration.settings
         require(settings.startPercent < settings.maxPercent) { "Start must be below target" }
