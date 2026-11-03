@@ -94,3 +94,22 @@ test("an aborted quota write rejects and preserves the previous committed docume
         IDBObjectStore.prototype.put = put;
     }
 });
+
+test("a corrupt IndexedDB envelope is not mistaken for an empty database", async () => {
+    const db = new IDBFactory();
+    const storage = bridge(db);
+    await storage.write(null, "original");
+    await new Promise((resolve, reject) => {
+        const request = db.open("ev-charging-timer", 1);
+        request.onerror = () => reject(request.error);
+        request.onsuccess = () => {
+            const connection = request.result;
+            const tx = connection.transaction("state", "readwrite");
+            tx.objectStore("state").put(null, "app");
+            tx.oncomplete = () => { connection.close(); resolve(); };
+            tx.onabort = () => { connection.close(); reject(tx.error); };
+        };
+    });
+    await assert.rejects(storage.read(), /corrupt/);
+    await assert.rejects(storage.write(null, "defaults"), /corrupt/);
+});

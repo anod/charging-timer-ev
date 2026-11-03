@@ -61,6 +61,12 @@
             const request = store.get(key);
             request.onsuccess = () => {
                 const current = request.result;
+                if (current !== undefined && (!current || typeof current.revision !== "string" ||
+                    current.revision.length === 0 || typeof current.payload !== "string")) {
+                    failure = new Error("Browser storage record is corrupt. Existing data was not replaced.");
+                    tx.abort();
+                    return;
+                }
                 if (!write) {
                     result = current === undefined ? null : current;
                     return;
