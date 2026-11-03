@@ -103,7 +103,12 @@
                 }
             };
             root.document.body.append(input);
-            input.click();
+            try {
+                input.click();
+            } catch (error) {
+                cleanup();
+                reject(error);
+            }
         });
     }
 

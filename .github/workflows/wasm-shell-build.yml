@@ -68,3 +68,4 @@ jobs:
             webApp/build/browser-evidence
             storage/build/test-results
             shared/build/test-results
+            webApp/package-lock.json

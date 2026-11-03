@@ -6,8 +6,8 @@ const { webcrypto } = require("node:crypto");
 const { IDBFactory, IDBObjectStore } = require("fake-indexeddb");
 const source = fs.readFileSync("src/wasmJsMain/resources/browser-storage.js", "utf8");
 
-function bridge(indexedDB = new IDBFactory()) {
-    const root = { indexedDB, crypto: webcrypto };
+function bridge(indexedDB = new IDBFactory(), extra = {}) {
+    const root = { indexedDB, crypto: webcrypto, TextDecoder, Blob, ...extra };
     vm.runInNewContext(source, root);
     return root.evTimerStorage;
 }
@@ -23,6 +23,41 @@ test("commits are readable after reopening; payload stays opaque including 64-bi
     const replacement = JSON.parse(await bridge(db).write(saved.revision, "replacement"));
     assert.notEqual(saved.revision, replacement.revision);
     assert.equal(JSON.parse(await first.read()).payload, "replacement");
+});
+
+function picker(files, event = "change") {
+    let removed = false;
+    const input = {
+        files,
+        remove() { removed = true; },
+        click() { queueMicrotask(() => event === "cancel" ? input.oncancel() : input.onchange()); }
+    };
+    const storage = bridge(null, { document: { createElement: () => input, body: { append() {} } } });
+    return { storage, removed: () => removed };
+}
+
+test("picker cancellation is not a successful import and removes its input", async () => {
+    const cancelled = picker([], "cancel");
+    assert.equal(await cancelled.storage.pickBackup(), null);
+    assert.equal(cancelled.removed(), true);
+});
+
+test("picker bounds bytes before reading and rejects invalid UTF-8 rather than replacing characters", async () => {
+    let read = false;
+    const oversized = picker([{ size: 16 * 1024 * 1024 + 1, arrayBuffer() { read = true; } }]);
+    await assert.rejects(oversized.storage.pickBackup(), /16 MiB/);
+    assert.equal(read, false);
+    assert.equal(oversized.removed(), true);
+    const invalid = picker([{ size: 1, arrayBuffer: async () => new Uint8Array([0xff]).buffer }]);
+    await assert.rejects(invalid.storage.pickBackup(), /encoded data/);
+    assert.equal(invalid.removed(), true);
+    const valid = picker([{ size: 2, arrayBuffer: async () => new TextEncoder().encode("{}").buffer }]);
+    assert.equal(await valid.storage.pickBackup(), "{}");
+});
+
+test("download initiation failures propagate rather than reporting export success", () => {
+    const storage = bridge(null, { URL: { createObjectURL() { throw new Error("Download blocked"); } } });
+    assert.throws(() => storage.downloadBackup("{}"), /Download blocked/);
 });
 
 test("two tabs cannot overwrite each other's revision", async () => {

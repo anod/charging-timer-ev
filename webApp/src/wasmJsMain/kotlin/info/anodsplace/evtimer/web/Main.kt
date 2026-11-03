@@ -1,3 +1,5 @@
+@file:OptIn(kotlin.js.ExperimentalWasmJsInterop::class)
+
 package info.anodsplace.evtimer.web
 
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -80,7 +82,11 @@ private fun BrowserStorageScreen() {
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     Text(stringResource(Res.string.web_storage_title), style = MaterialTheme.typography.headlineMedium)
-                    Text(stringResource(Res.string.web_storage_description))
+                    Text(stringResource(when {
+                        state != null -> Res.string.web_storage_description
+                        failed -> Res.string.web_storage_unavailable
+                        else -> Res.string.web_storage_loading
+                    }))
                     Text(stringResource(Res.string.web_storage_privacy))
                     state?.let { loaded ->
                         Text(stringResource(Res.string.web_storage_counts,
@@ -118,7 +124,13 @@ private fun BrowserStorageScreen() {
             AlertDialog(
                 onDismissRequest = { if (!busy) pending = null },
                 title = { Text(stringResource(Res.string.web_backup_confirm_title)) },
-                text = { Text(stringResource(Res.string.web_backup_confirm, backup.presets.size, backup.sessions.size)) },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text(stringResource(Res.string.web_backup_confirm, backup.presets.size, backup.sessions.size))
+                        if (failed) Text(stringResource(Res.string.web_storage_error),
+                            color = MaterialTheme.colorScheme.error)
+                    }
+                },
                 confirmButton = {
                     TextButton(enabled = !busy, onClick = {
                         scope.launch {

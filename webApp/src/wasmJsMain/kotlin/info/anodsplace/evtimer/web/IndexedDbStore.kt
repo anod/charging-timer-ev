@@ -1,3 +1,5 @@
+@file:OptIn(kotlin.js.ExperimentalWasmJsInterop::class)
+
 package info.anodsplace.evtimer.web
 
 import info.anodsplace.evtimer.data.BackupError

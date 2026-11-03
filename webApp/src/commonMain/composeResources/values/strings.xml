@@ -1,5 +1,7 @@
 <resources>
     <string name="web_storage_title">Charging data</string>
+    <string name="web_storage_loading">Opening browser storage...</string>
+    <string name="web_storage_unavailable">Browser storage could not be opened. No charging data is available.</string>
     <string name="web_storage_description">Browser storage and backup are ready. The charging timer will be connected in the next web release.</string>
     <string name="web_storage_privacy">Data stays in this browser on this site. Clearing site data or leaving private browsing can erase it. Export a backup and keep the unencrypted file somewhere private.</string>
     <string name="web_storage_counts">Saved presets: %1$d, history entries: %2$d</string>

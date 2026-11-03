@@ -13,12 +13,13 @@ compose.resources {
 val generatedBuildInfo = layout.buildDirectory.dir("generated/buildInfo")
 val webVersion = rootProject.extra["generatedVersionName"] as String
 val generateBuildInfo = tasks.register("generateBuildInfo") {
+    val version = webVersion
     val output = generatedBuildInfo.get().file("info/anodsplace/evtimer/web/BuildInfo.kt")
-    inputs.property("version", webVersion)
+    inputs.property("version", version)
     outputs.dir(generatedBuildInfo)
     doLast {
         output.asFile.parentFile.mkdirs()
-        output.asFile.writeText("package info.anodsplace.evtimer.web\n\ninternal const val WEB_APP_VERSION = \"$webVersion\"\n")
+        output.asFile.writeText("package info.anodsplace.evtimer.web\n\ninternal const val WEB_APP_VERSION = \"$version\"\n")
     }
 }
 
