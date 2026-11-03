@@ -21,6 +21,7 @@ import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performCustomAccessibilityActionWithLabel
 import androidx.compose.ui.test.performTextReplacement
@@ -28,6 +29,9 @@ import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import info.anodsplace.evtimer.data.ChargingPreset
 import info.anodsplace.evtimer.data.ChargingSettings
+import info.anodsplace.evtimer.data.ChargingCalibration
+import info.anodsplace.evtimer.data.CalibrationKey
+import info.anodsplace.evtimer.data.CalibrationEstimate
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -35,6 +39,65 @@ import kotlin.test.assertTrue
 
 @OptIn(ExperimentalTestApi::class)
 class PresetManagementTest {
+    @Test
+    fun infoListsEveryExactSpeedFactorAndCountWithoutChangingRowsOrRenameAction() = runDesktopComposeUiTest {
+        val settings = ChargingSettings(60f, 7f, 20f, 90f, listOf(7f, 11f))
+        val presets = listOf(
+            ChargingPreset("custom", "Renamed default", settings),
+            ChargingPreset("home", "Home", settings)
+        )
+        setContent {
+            MaterialTheme {
+                Column {
+                    PresetManagement(presets, { _, _ -> }, {}, { _, _ -> }, {},
+                        calibration = ChargingCalibration(mapOf(
+                            CalibrationKey("home", 7f) to CalibrationEstimate(0.94f, 1),
+                            CalibrationKey("home", 11f) to CalibrationEstimate(0.898f, 2)
+                        )))
+                }
+            }
+        }
+        val height = onNodeWithTag("preset-home").fetchSemanticsNode().boundsInRoot.height
+        onNodeWithContentDescription("Estimate information for Home").performClick()
+        onNodeWithText("7 kW").assertExists()
+        onNodeWithText("Estimate factor 94% · 1 reading").assertExists()
+        onNodeWithText("11 kW").assertExists()
+        onNodeWithText("Estimate factor 89.8% · 2 readings").assertExists()
+        onNodeWithText("AC").assertDoesNotExist()
+        onNodeWithText("DC").assertDoesNotExist()
+        onNodeWithText("Close").performClick()
+        assertEquals(height, onNodeWithTag("preset-home").fetchSemanticsNode().boundsInRoot.height)
+        onNodeWithText("Home").performClick()
+        onNodeWithText("Preset name").assertExists()
+        onNodeWithText("Cancel").performClick()
+    }
+
+    @Test
+    fun targetedResetRequiresConfirmationAndUsesPresetAndExactSpeed() = runDesktopComposeUiTest {
+        val settings = ChargingSettings(60f, 7f, 20f, 90f, listOf(7f, 11f))
+        val calls = mutableListOf<Pair<String, Float>>()
+        setContent {
+            MaterialTheme {
+                Column {
+                    PresetManagement(listOf(ChargingPreset("home", "Home", settings)),
+                        { _, _ -> }, {}, { _, _ -> }, {},
+                        calibration = ChargingCalibration(mapOf(
+                            CalibrationKey("home", 7f) to CalibrationEstimate(0.94f, 1)
+                        )),
+                        onResetCalibration = { id, power -> calls += id to power })
+                }
+            }
+        }
+        onNodeWithContentDescription("Estimate information for Home").performClick()
+        onAllNodesWithText("Reset")[0].performClick()
+        onNodeWithText("Reset Home at 7 kW?").assertExists()
+        runOnIdle { assertEquals(emptyList(), calls) }
+        onNodeWithText("Cancel").performClick()
+        onAllNodesWithText("Reset")[0].performClick()
+        onNodeWithText("Reset").performClick()
+        runOnIdle { assertEquals(listOf("home" to 7f), calls) }
+    }
+
     @Test
     fun defaultCanBeDeletedWithConfirmationAndCancelDoesNotDelete() = runDesktopComposeUiTest {
         val presets = listOf(

@@ -24,6 +24,149 @@ import kotlin.time.Instant
 
 class StorageRepositoryTest {
     @Test
+    fun readingsAcknowledgeAndResetNeverOverwriteEachOtherOrActiveFactors() = runTest {
+        fixture { f ->
+            val home = ChargingPreset("home", "Home", ChargingSettings(60f, 6f, 20f, 90f, listOf(6f, 12f)))
+            f.repo.savePreset(home)
+            f.repo.selectPreset(home.id)
+            f.repo.saveSettings(home.settings)
+            for (start in listOf(1_000L, 4_000_000L)) {
+                val snapshot = f.repo.createSnapshot(start)
+                f.repo.saveSession(ChargingSession(true, snapshot))
+                f.now = start + 3_600_000L
+                f.repo.saveSession(ChargingSession(false, snapshot))
+                f.repo.saveReading(start, 28f, true)
+            }
+            assertEquals(0.898f, f.repository().observeCalibration().first().factor("home", 6f), 1e-6f)
+            val original = f.repo.observeHistory().first().first()
+            val active = f.repo.createSnapshot(8_000_000L)
+            assertEquals(0.898f, active.efficiency, 1e-6f)
+            f.repo.saveSession(ChargingSession(true, active))
+            f.repo.acknowledgeSession(original.id)
+            assertEquals(original.copy(reviewed = true), f.repo.observeHistory().first().first())
+            f.repo.saveReading(original.id, 30f, true)
+            assertTrue(f.repo.observeHistory().first().first().reviewed)
+            assertEquals(0.958f, f.repo.observeCalibration().first().factor("home", 6f), 1e-6f)
+            assertEquals(active, f.repository().observeSession().first().snapshot)
+            f.repo.renamePreset(home.id, "Renamed")
+            f.repo.reorderPresets(listOf(home.id, "custom"))
+            assertEquals(0.958f, f.repo.createSnapshot(9_000_000L).efficiency, 1e-6f)
+            f.repo.resetLearnedEstimates("home", 6f)
+            val resetHistory = f.repository().observeHistory().first()
+            assertTrue(resetHistory.none { it.calibrationEnabled })
+            assertEquals(listOf(30f, 28f), resetHistory.map { it.actualPercent })
+            assertEquals(1f, f.repository().createSnapshot(9_000_000L).efficiency)
+            assertEquals(active, f.repository().observeSession().first().snapshot)
+            f.repo.saveReading(original.id, 30.5f, true)
+            val faster = f.repo.createSnapshot(9_000_000L)
+            assertEquals(1f, faster.efficiency, 1e-6f)
+            f.repo.saveReading(original.id, 28f, true)
+            assertEquals(0.94f, f.repo.createSnapshot(9_000_000L).efficiency, 1e-6f)
+            f.repo.deleteSession(original.id)
+            assertEquals(1f, f.repo.createSnapshot(9_000_000L).efficiency)
+            assertEquals(active, f.repository().observeSession().first().snapshot)
+            f.repo.changePower(ChargingSession(true, active), 8_060_000L, 12f)
+            val changedPower = f.repository().observeSession().first().snapshot!!
+            assertEquals(active.efficiency, changedPower.efficiency)
+            assertEquals(listOf(active.efficiency, 1f), changedPower.segments.map { it.efficiency })
+        }
+    }
+
+    @Test
+    fun targetedResetClearsExactSpeedAcrossCapacitiesAndLeavesOtherKeys() = runTest {
+        fixture { f ->
+            val settings = ChargingSettings(60f, 6f, 20f, 90f, listOf(6f, 12f))
+            val home = ChargingPreset("home", "Home", settings)
+            f.repo.savePreset(home)
+            suspend fun record(start: Long, capacity: Float, power: Float, actual: Float): Long {
+                val snapshot = ChargingSessionSnapshot(
+                    capacity, 20f, 90f, listOf(PowerSegment(start, power)), "home", "Home"
+                )
+                f.repo.saveSession(ChargingSession(true, snapshot))
+                f.now = start + 3_600_000L
+                f.repo.saveSession(ChargingSession(false, snapshot))
+                f.repo.saveReading(start, actual, true)
+                return start
+            }
+            val first = record(1_000L, 60f, 6f, 28f)
+            val otherCapacity = record(4_000_000L, 61f, 6f, 28f)
+            record(8_000_000L, 60f, 12f, 36f)
+            val before = f.repo.observeHistory().first()
+            assertEquals(0.94f, f.repo.observeCalibration().first().factor("home", 6f), 1e-6f)
+            assertEquals(0.94f, f.repo.observeCalibration().first().factor("home", 12f), 1e-6f)
+
+            f.repo.resetLearnedEstimates("home", 6f)
+            val after = f.repo.observeHistory().first()
+            assertFalse(after.first { it.id == first }.calibrationEnabled)
+            assertFalse(after.first { it.id == otherCapacity }.calibrationEnabled)
+            assertTrue(after.first { it.id == 8_000_000L }.calibrationEnabled)
+            assertEquals(before.associate { it.id to it.actualPercent },
+                after.associate { it.id to it.actualPercent })
+            val calibration = f.repo.observeCalibration().first()
+            assertEquals(1f, calibration.factor("home", 6f))
+            assertEquals(0, calibration.estimate("home", 6f).eligibleCount)
+            assertEquals(0.94f, calibration.factor("home", 12f), 1e-6f)
+            f.repo.saveReading(first, 28f, true)
+            assertEquals(0.94f, f.repo.observeCalibration().first().factor("home", 6f), 1e-6f)
+        }
+    }
+
+    @Test
+    fun customAndNamedPresetsUseExactSpeedKeysAndCapacityChangesExcludeSamples() = runTest {
+        fixture { f ->
+            val settings = ChargingSettings(60f, 6f, 20f, 90f, listOf(6f, 22f))
+            f.repo.saveSettings(settings)
+            val ac = f.repo.createSnapshot(1_000L)
+            f.repo.saveSession(ChargingSession(true, ac))
+            f.now = 3_601_000L
+            f.repo.saveSession(ChargingSession(false, ac))
+            f.repo.saveReading(ac.startTime, 28f, false)
+            assertEquals(1f, f.repo.createSnapshot(4_000_000L).efficiency)
+            f.repo.saveReading(ac.startTime, 28f, true)
+            assertEquals(0.94f, f.repo.createSnapshot(4_000_000L).efficiency, 1e-6f)
+            f.repo.saveSettings(settings.copy(chargingPower = 22f))
+            assertEquals(1f, f.repo.createSnapshot(4_000_000L).efficiency)
+            f.repo.savePreset(ChargingPreset("home", "Home", settings))
+            f.repo.selectPreset("home")
+            f.repo.saveSettings(settings)
+            val home = f.repo.createSnapshot(4_000_000L)
+            f.repo.saveSession(ChargingSession(true, home))
+            f.now = 7_600_000L
+            f.repo.saveSession(ChargingSession(false, home))
+            f.repo.saveReading(home.startTime, 28f, true)
+            assertEquals(0.94f, f.repo.createSnapshot(8_000_000L).efficiency, 1e-6f)
+            f.repo.savePreset(ChargingPreset("home", "Home", settings.copy(batteryCapacity = 61f)))
+            assertEquals(1f, f.repo.observeCalibration().first().factor("home", 6f))
+            f.repo.savePreset(ChargingPreset("new-home", "New home", settings))
+            f.repo.selectPreset("new-home")
+            assertEquals(1f, f.repo.createSnapshot(8_000_000L).efficiency)
+        }
+    }
+
+    @Test
+    fun readingClearAndValidationPreserveOriginalSummaryAndConsentDefaults() = runTest {
+        fixture { f ->
+            val snapshot = ChargingSessionSnapshot.from(ChargingSettings(60f, 6f, 20f, 90f), 1_000L)
+            f.repo.saveSession(ChargingSession(true, snapshot))
+            f.now = 3_601_000L
+            f.repo.saveSession(ChargingSession(false, snapshot))
+            val original = f.repo.observeHistory().first().single()
+            assertFalse(original.calibrationEnabled)
+            f.repo.saveReading(original.id, 18.5f, true)
+            val noGain = f.repo.observeHistory().first().single()
+            assertEquals(18.5f, noGain.actualPercent)
+            assertEquals(original.endPercent, noGain.endPercent)
+            assertEquals(1f, f.repo.observeCalibration().first().factor("custom", 6f))
+            f.repo.saveReading(original.id, null, true)
+            assertEquals(original, f.repository().observeHistory().first().single())
+            assertFailsWith<IllegalArgumentException> { f.repo.saveReading(original.id, 101f, true) }
+            assertFailsWith<IllegalArgumentException> { f.repo.saveReading(original.id, Float.NaN, true) }
+            assertFailsWith<IllegalArgumentException> { f.repo.saveReading(999L, 28f, true) }
+            assertFailsWith<IllegalArgumentException> { f.repo.acknowledgeSession(999L) }
+        }
+    }
+
+    @Test
     fun deletingNewestReviewsOnlyItsSuccessorWithoutChangingActualPercent() = runTest {
         fixture { f ->
             val settings = ChargingSettings.DEFAULT
@@ -664,7 +807,7 @@ class StorageRepositoryTest {
             f.repo.observeSettings().first()
             f.database.storageQueries.putPreset("custom", "Default", 1e100, 11.0, 100.0)
             f.database.storageQueries.putSession(123L, 1e100, 20.0, 80.0, 1.0, null, null, true, false)
-            f.database.storageQueries.putSegment(123L, 123L, 11.0)
+            f.database.storageQueries.putSegment(123L, 123L, 11.0, null)
             val restarted = f.repository()
             assertEquals(ChargingSettings.DEFAULT.batteryCapacity, restarted.observeSettings().first().batteryCapacity)
             assertFalse(restarted.observeSession().first().isRunning)
@@ -799,7 +942,7 @@ class StorageRepositoryTest {
             f.file.writeBytes(byteArrayOf(0x0a, 0x7f))
             f.database.storageQueries.putPreset("custom", "Default", 75.0, 7.0, 80.0)
             f.database.storageQueries.putSession(123L, 75.0, 25.0, 80.0, 1.0, null, null, true, false)
-            f.database.storageQueries.putSegment(123L, 123L, 7.0)
+            f.database.storageQueries.putSegment(123L, 123L, 7.0, null)
             f.database.storageQueries.markMigrated()
             f.database.storageQueries.setCurrentSession(123L)
             val restore = object : StorageRestoreState {
@@ -817,12 +960,22 @@ class StorageRepositoryTest {
     @Test
     fun speedChangeSurvivesRestartAndKeepsPresetValuesUntouched() = runTest {
         fixture { f ->
+            val settings = ChargingSettings(60f, 6f, 20f, 90f, listOf(6f, 12f))
+            val preset = ChargingPreset("home", "Home", settings)
+            f.repo.savePreset(preset)
+            f.repo.selectPreset(preset.id)
+            val completed = ChargingSessionSnapshot.from(settings, 1_000L)
+                .copy(presetId = preset.id, presetName = preset.name)
+            f.repo.saveSession(ChargingSession(true, completed))
+            f.now = 3_601_000L
+            f.repo.saveSession(ChargingSession(false, completed))
+            f.repo.saveReading(completed.startTime, 28f, true)
             val before = f.repo.observeConfiguration().first()
             val scope = CoroutineScope(Dispatchers.Default + Job())
             try {
                 val service = ChargingServiceImpl(f.repo, scope, f.clock)
                 service.start()
-                service.changePower(50f)
+                service.changePower(12f)
             } finally {
                 scope.coroutineContext[Job]!!.cancelAndJoin()
             }
@@ -830,7 +983,8 @@ class StorageRepositoryTest {
             val session = restarted.observeSession().first()
             assertTrue(session.isRunning)
             assertEquals(2, session.snapshot!!.segments.size)
-            assertEquals(50f, session.snapshot!!.segments.last().powerKw)
+            assertEquals(12f, session.snapshot!!.segments.last().powerKw)
+            assertEquals(listOf(0.94f, 1f), session.snapshot!!.segments.map { it.efficiency })
             val after = restarted.observeConfiguration().first()
             assertEquals(before.settings, after.settings)
             assertEquals(before.isEdited, after.isEdited)

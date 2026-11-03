@@ -20,10 +20,47 @@ import kotlinx.coroutines.test.setMain
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class NavigationViewModelTest {
+    @Test
+    fun savingReadingKeepsCompletionOpenAndAcknowledgeCannotOverwriteIt() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val entry = ChargingHistoryEntry(
+            1L, ChargingSessionSnapshot.from(ChargingSettings(60f, 6f, 20f, 90f), 1L),
+            3_600_001L, 30f, null, false
+        )
+        val history = TestHistoryRepository(listOf(entry))
+        val navigation = NavigationViewModel(NavigationTestService(false), history)
+        try {
+            runCurrent()
+            navigation.saveReading(entry.id, 28.5f, true)
+            runCurrent()
+            assertEquals(Destination.EndSummary, navigation.backStack.value.last())
+            assertEquals(28.5f, navigation.summary.value!!.actualPercent)
+            assertFalse(navigation.summary.value!!.reviewed)
+            assertTrue(navigation.onBack())
+            // Change the reading before the queued acknowledgment executes.
+            navigation.saveReading(entry.id, 29f, false)
+            runCurrent()
+            assertEquals(listOf(Destination.Config), navigation.backStack.value)
+            assertEquals(entry.copy(actualPercent = 29f, reviewed = true), history.entries.value.single())
+            navigation.navigate(Destination.History)
+            navigation.openHistorySummary(history.entries.value.single())
+            navigation.saveReading(entry.id, null, false)
+            runCurrent()
+            assertEquals(Destination.EndSummary, navigation.backStack.value.last())
+            assertNull(navigation.summary.value!!.actualPercent)
+            assertTrue(navigation.onBack())
+            assertEquals(Destination.History, navigation.backStack.value.last())
+        } finally {
+            navigation.viewModelScope.cancel()
+            Dispatchers.resetMain()
+        }
+    }
+
     @Test
     fun settingsHistorySummaryRoundTripPreservesReviewState() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))

@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Dp
 import info.anodsplace.evtimer.APP_VERSION
 import info.anodsplace.evtimer.data.ChargingPreset
+import info.anodsplace.evtimer.data.ChargingCalibration
 import info.anodsplace.evtimer.generated.resources.*
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
@@ -170,7 +171,9 @@ fun PresetManagementScreen(
     onMove: (String, Int) -> Unit,
     onReorder: (List<String>) -> Unit,
     onBack: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    calibration: ChargingCalibration = ChargingCalibration(),
+    onResetCalibration: suspend (String, Float) -> Unit = { _, _ -> }
 ) {
     SettingsPage(modifier) {
         SettingsHeader(stringResource(Res.string.settings_presets), onBack)
@@ -180,7 +183,8 @@ fun PresetManagementScreen(
         ) {
             Text(stringResource(Res.string.settings_presets_help), Modifier.padding(horizontal = 8.dp),
                 style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            PresetManagement(presets, onRename, onDelete, onMove, onReorder, showTitle = false)
+            PresetManagement(presets, onRename, onDelete, onMove, onReorder,
+                showTitle = false, calibration = calibration, onResetCalibration = onResetCalibration)
         }
     }
 }

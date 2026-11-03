@@ -83,6 +83,12 @@ class SettingsViewModel(
     val presets: StateFlow<List<ChargingPreset>> =
         presetRepository.observePresets().stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
+    val calibration: StateFlow<ChargingCalibration> =
+        presetRepository.observeCalibration().stateIn(viewModelScope, SharingStarted.Eagerly, ChargingCalibration())
+
+    suspend fun resetLearnedEstimates(presetId: String, powerKw: Float) =
+        presetRepository.resetLearnedEstimates(presetId, powerKw)
+
     fun renamePreset(id: String, name: String) {
         viewModelScope.launch { presetRepository.renamePreset(id, name) }
     }

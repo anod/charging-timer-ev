@@ -5,12 +5,70 @@ import info.anodsplace.evtimer.db.ChargingDatabase
 import java.io.File
 import java.nio.file.Files
 import java.sql.DriverManager
+import java.util.Properties
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class StorageBackupTest {
+    @Test
+    fun v4AdditiveMigrationPreservesRowsAndAddsNullableSegmentFactorsWithForeignKeysOnAndOff() {
+        for (foreignKeys in listOf(false, true)) {
+            val file = File("build/calibration-migration-$foreignKeys.db")
+            file.parentFile.mkdirs()
+            try {
+                File("src/commonMain/sqldelight/databases/4.db").copyTo(file, overwrite = true)
+                DriverManager.getConnection("jdbc:sqlite:${file.path}").use { connection ->
+                    connection.createStatement().use {
+                        it.execute("INSERT INTO charge_session(id,battery_capacity,start_percent,target_percent,efficiency,preset_id,preset_name,is_running,preset_edited) VALUES(123,60,20,90,.5,'home','Home',1,1)")
+                        it.execute("INSERT INTO charge_session(id,battery_capacity,start_percent,target_percent,efficiency,ended_at,actual_percent,reviewed,interrupted) VALUES(122,60,20,90,1,1000,28,1,1)")
+                        it.execute("INSERT INTO power_segment(session_id,started_at,power_kw) VALUES(123,123,6)")
+                        it.execute("INSERT INTO power_segment(session_id,started_at,power_kw) VALUES(123,456,12)")
+                        it.execute("INSERT INTO power_segment(session_id,started_at,power_kw) VALUES(122,122,6)")
+                        it.execute("INSERT INTO storage_migration VALUES(1,123)")
+                    }
+                }
+                val properties = Properties().apply { setProperty("foreign_keys", foreignKeys.toString()) }
+                JdbcSqliteDriver("jdbc:sqlite:${file.path}", properties, ChargingDatabase.Schema).use { driver ->
+                    val queries = ChargingDatabase(driver).storageQueries
+                    val active = queries.activeSession().executeAsOne()
+                    assertEquals(123L, active.id)
+                    assertEquals(0.5, active.efficiency)
+                    assertTrue(active.preset_edited)
+                    assertFalse(active.calibration_enabled)
+                    assertEquals(active, queries.latestSession().executeAsOne())
+                    assertEquals(listOf(123L, 456L), queries.segments(123L).executeAsList().map { it.started_at })
+                    assertTrue(queries.history().executeAsOne().interrupted)
+                    assertTrue(queries.history().executeAsOne().reviewed)
+                    assertEquals(28.0, queries.history().executeAsOne().actual_percent)
+                    assertEquals(null, queries.segments(123L).executeAsList().first().efficiency)
+                    driver.execute(null, "UPDATE charge_session SET efficiency=1 WHERE id=123", 0)
+                    kotlin.test.assertFails { driver.execute(null, "UPDATE charge_session SET efficiency=1.01 WHERE id=123", 0) }
+                    queries.putSegment(123L, 789L, 18.0, 0.8)
+                    kotlin.test.assertFails { queries.putSegment(123L, 900L, 18.0, 1.01) }
+                    kotlin.test.assertFails {
+                        queries.putSession(124L, 60.0, 20.0, 90.0, 1.0, null, null, true, false)
+                    }
+                    assertEquals(0L, driver.executeQuery(null, "SELECT count(*) FROM pragma_foreign_key_check",
+                        { cursor -> cursor.next(); app.cash.sqldelight.db.QueryResult.Value(cursor.getLong(0)!!) }, 0).value)
+                    if (foreignKeys) {
+                        kotlin.test.assertFails { queries.putSegment(999L, 999L, 6.0, null) }
+                    }
+                    queries.saveReading(28.0, true, 122L)
+                    assertTrue(queries.history().executeAsOne().calibration_enabled)
+                }
+                JdbcSqliteDriver("jdbc:sqlite:${file.path}", properties, ChargingDatabase.Schema).use { driver ->
+                    assertEquals(1.0, ChargingDatabase(driver).storageQueries.activeSession().executeAsOne().efficiency)
+                    assertEquals(0.8, ChargingDatabase(driver).storageQueries.segments(123L).executeAsList().last().efficiency)
+                    assertTrue(ChargingDatabase(driver).storageQueries.history().executeAsOne().calibration_enabled)
+                }
+            } finally {
+                check(file.delete())
+            }
+        }
+    }
+
     @Test
     fun v3BackupMigratesAlphabeticalOrderAndRetainsValuesAndOptions() {
         val file = Files.createTempFile("evtimer-v3-restore", ".db").toFile()

@@ -37,7 +37,7 @@ import kotlin.time.Instant
 
 class ManualBackupTest {
     private val sample = ManualBackup(
-        BackupFormat.FORMAT, 1, "2026-11-01T09:30:00Z", "test",
+        BackupFormat.FORMAT, BackupFormat.VERSION, "2026-11-01T09:30:00Z", "test",
         BackupPreferences("home", 25f, false, BackupDraft("home", 61f, 11f, 85f, listOf(7f, 11f))),
         listOf(
             BackupPreset("custom", "Default", 70.0, 7.0, 80.0, listOf(7.0, 11.0), 1),
@@ -57,6 +57,44 @@ class ManualBackupTest {
         assertEquals(sample, BackupFormat.decode(BackupFormat.encode(sample)))
         val extra = BackupFormat.encode(sample).decodeToString().replaceFirst("{", """{"futureField": 123,""")
         assertEquals(sample, BackupFormat.decode(extra.encodeToByteArray()))
+    }
+
+    @Test
+    fun versionTwoConsentAndFactorsRoundTripResetAndRestoreWithoutTeachingInterruptedRows() = runTest {
+        fixture { f ->
+            val reading = BackupSession(
+                100L, 60.0, 20.0, 90.0, 1.0, listOf(BackupSegment(100L, 6.0, 0.8)),
+                "home", "Home", 3_600_100L, 30.0, 28.0, calibrationEnabled = true
+            )
+            val backup = sample.copy(
+                preferences = BackupPreferences("home", 20f),
+                sessions = listOf(reading, reading.copy(id = 99L, interrupted = true, actualPercent = 100.0))
+            )
+            f.repo.restoreBackup(BackupFormat.decode(BackupFormat.encode(backup)))
+            assertEquals(0.94f, f.repo.observeCalibration().first().factor("home", 6f), 1e-6f)
+            assertEquals(1, f.repo.observeCalibration().first().estimate("home", 6f).eligibleCount)
+            val exported = f.repo.exportBackup("test")
+            assertEquals(BackupFormat.VERSION, exported.formatVersion)
+            assertTrue(exported.sessions.all { it.calibrationEnabled })
+            assertTrue(exported.sessions.first().reviewed)
+            assertEquals(1.0, exported.sessions.first().efficiency)
+            assertEquals(0.8, exported.sessions.first().segments.single().efficiency)
+            fixture { target ->
+                target.repo.restoreBackup(exported)
+                assertEquals(0.94f, target.repo.observeCalibration().first().factor("home", 6f), 1e-6f)
+                assertEquals(1, target.repo.observeCalibration().first().estimate("home", 6f).eligibleCount)
+            }
+            f.repo.resetLearnedEstimates("home", 6f)
+            val reset = f.repo.exportBackup("test")
+            assertTrue(reset.sessions.none { it.calibrationEnabled })
+            assertEquals(exported.sessions.map { it.actualPercent }, reset.sessions.map { it.actualPercent })
+            fixture { target ->
+                target.repo.restoreBackup(BackupFormat.decode(BackupFormat.encode(reset)))
+                assertEquals(1f, target.repo.observeCalibration().first().factor("home", 6f))
+                target.repo.saveReading(reading.id, 28f, true)
+                assertEquals(0.94f, target.repo.observeCalibration().first().factor("home", 6f), 1e-6f)
+            }
+        }
     }
 
     @Test
@@ -142,9 +180,9 @@ class ManualBackupTest {
             val cases = listOf(
                 "not json".encodeToByteArray() to BackupError.INVALID_JSON,
                 bytes.copyOf(bytes.size / 2) to BackupError.INVALID_JSON,
-                bytes.decodeToString().replace("\"formatVersion\": 1", "\"formatVersion\": \"one\"").encodeToByteArray() to BackupError.INVALID_JSON,
+                bytes.decodeToString().replace("\"formatVersion\": 2", "\"formatVersion\": \"one\"").encodeToByteArray() to BackupError.INVALID_JSON,
                 bytes.decodeToString().replace("\"batteryCapacity\": 70.0", "\"batteryCapacity\": \"70.0\"").encodeToByteArray() to BackupError.INVALID_JSON,
-                bytes.decodeToString().replace("\"formatVersion\": 1", "\"formatVersion\": 2").encodeToByteArray() to BackupError.NEWER_VERSION,
+                bytes.decodeToString().replace("\"formatVersion\": 2", "\"formatVersion\": 3").encodeToByteArray() to BackupError.NEWER_VERSION,
                 "{}".encodeToByteArray() to BackupError.INVALID_JSON,
                 byteArrayOf(0xc3.toByte(), 0x28) to BackupError.INVALID_JSON,
                 ByteArray(BackupFormat.MAX_BYTES + 1) to BackupError.TOO_LARGE
@@ -335,8 +373,8 @@ class ManualBackupTest {
             "power_option" to setOf("preset_id", "position", "power_kw"),
             "charge_session" to setOf("id", "battery_capacity", "start_percent", "target_percent", "efficiency",
                 "preset_id", "preset_name", "ended_at", "end_percent", "actual_percent", "reviewed",
-                "interrupted", "preset_edited"),
-            "power_segment" to setOf("session_id", "started_at", "power_kw")
+                "interrupted", "preset_edited", "calibration_enabled"),
+            "power_segment" to setOf("session_id", "started_at", "power_kw", "efficiency")
         )
         val excluded = mapOf(
             "charge_session" to mapOf("is_running" to "Never restore a running timer; export finished history only"),
@@ -413,6 +451,15 @@ class ManualBackupTest {
             assertEquals(exported, decoded)
             assertEquals(2_000, decoded.sessions.size)
             assertEquals(4_000, decoded.sessions.sumOf { it.segments.size })
+            f.queryCount = 0
+            assertEquals(2_000, f.repo.observeHistory().first().size)
+            assertEquals(2, f.queryCount, "History must bulk-read segments instead of issuing one query per session")
+            f.queryCount = 0
+            f.repo.observeCalibration().first()
+            assertEquals(4, f.queryCount, "Factors must bulk-read history, segments, presets and options")
+            f.queryCount = 0
+            f.repo.createSnapshot(2_000_000L)
+            assertEquals(4, f.queryCount, "Snapshot factors must not issue one query per preset or history row")
         }
     }
 

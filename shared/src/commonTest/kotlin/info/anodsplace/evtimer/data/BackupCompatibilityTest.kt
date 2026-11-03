@@ -30,6 +30,7 @@ class BackupCompatibilityTest {
     @Test
     fun firstVersionRemainsReadableWithDefaultsForOptionalFields() {
         val backup = BackupFormat.decode(versionOne.encodeToByteArray())
+        assertEquals(BackupFormat.VERSION, backup.formatVersion)
         assertTrue(backup.preferences.notifyAt80)
         assertNull(backup.preferences.draft)
         assertEquals(0L, backup.presets.single().position)
@@ -37,6 +38,7 @@ class BackupCompatibilityTest {
         assertFalse(session.presetEdited)
         assertFalse(session.reviewed)
         assertFalse(session.interrupted)
+        assertFalse(session.calibrationEnabled)
         assertNull(session.presetId)
         assertNull(session.presetName)
         assertNull(session.actualPercent)
@@ -58,9 +60,36 @@ class BackupCompatibilityTest {
     @Test
     fun newerVersionHasClearErrorEvenWhenItsPayloadShapeChanged() {
         val error = assertFailsWith<BackupException> {
-            BackupFormat.decode("""{"formatVersion":2,"newPayload":{}}""".encodeToByteArray())
+            BackupFormat.decode("""{"formatVersion":3,"newPayload":{}}""".encodeToByteArray())
         }
         assertEquals(BackupError.NEWER_VERSION, error.error)
+    }
+
+    @Test
+    fun versionOneKeepsOldBoundsAndNeverGrantsConsentOrSegmentFactors() {
+        val oldWithUnknowns = versionOne
+            .replace("\"efficiency\": 0.9", "\"calibrationEnabled\": true, \"efficiency\": 0.9")
+            .replace("\"powerKw\": 7.0", "\"powerKw\": 7.0, \"efficiency\": 0.8")
+        val upgraded = BackupFormat.decode(oldWithUnknowns.encodeToByteArray()).sessions.single()
+        assertFalse(upgraded.calibrationEnabled)
+        assertNull(upgraded.segments.single().efficiency)
+        assertEquals(BackupError.INVALID_DATA, assertFailsWith<BackupException> {
+            BackupFormat.decode(versionOne.replace("\"efficiency\": 0.9", "\"efficiency\": 1.01").encodeToByteArray())
+        }.error)
+
+        val v2 = versionOne.replace("\"formatVersion\": 1", "\"formatVersion\": 2")
+            .replace("\"powerKw\": 7.0", "\"powerKw\": 7.0, \"efficiency\": 0.8")
+            .replace("\"efficiency\": 0.9", "\"efficiency\": 1.0, \"calibrationEnabled\": true")
+        val backup = BackupFormat.decode(v2.encodeToByteArray())
+        assertEquals(1.0, backup.sessions.single().efficiency)
+        assertEquals(0.8, backup.sessions.single().segments.single().efficiency)
+        assertTrue(backup.sessions.single().calibrationEnabled)
+        assertEquals(backup, BackupFormat.decode(BackupFormat.encode(backup)))
+        val missingConsent = v2.replace(", \"calibrationEnabled\": true", "")
+        assertFalse(BackupFormat.decode(missingConsent.encodeToByteArray()).sessions.single().calibrationEnabled)
+        assertEquals(BackupError.INVALID_JSON, assertFailsWith<BackupException> {
+            BackupFormat.decode(v2.replace("\"calibrationEnabled\": true", "\"calibrationEnabled\": \"true\"").encodeToByteArray())
+        }.error)
     }
 
     @Test

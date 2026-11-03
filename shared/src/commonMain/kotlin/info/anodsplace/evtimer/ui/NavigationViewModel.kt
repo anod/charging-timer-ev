@@ -77,7 +77,7 @@ class NavigationViewModel(
         if (stack.size <= 1) return false
         if (stack.last() == Destination.EndSummary && historySummaryId == null) {
             val entry = mutableSummary.value ?: return false
-            viewModelScope.launch { history.reviewSession(entry.id, entry.actualPercent, reviewed = true) }
+            viewModelScope.launch { history.acknowledgeSession(entry.id) }
             return true
         }
         historySummaryId = null
@@ -88,4 +88,8 @@ class NavigationViewModel(
     private fun sessionStack(isRunning: Boolean): List<Destination> =
         if (isRunning) listOf(Destination.Config, Destination.Running)
         else listOf(Destination.Config)
+
+    suspend fun saveReading(id: Long, actualPercent: Float?, calibrationEnabled: Boolean) {
+        history.saveReading(id, actualPercent, calibrationEnabled)
+    }
 }

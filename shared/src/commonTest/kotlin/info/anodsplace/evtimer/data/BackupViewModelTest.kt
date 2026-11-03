@@ -21,7 +21,7 @@ import kotlin.test.assertTrue
 @OptIn(ExperimentalCoroutinesApi::class)
 class BackupViewModelTest {
     private val backup = ManualBackup(
-        BackupFormat.FORMAT, 1, "2026-11-01T09:30:00Z", "test",
+        BackupFormat.FORMAT, BackupFormat.VERSION, "2026-11-01T09:30:00Z", "test",
         BackupPreferences("custom", 20f),
         listOf(BackupPreset("custom", "Default", 60.0, 7.0, 80.0, listOf(7.0))), emptyList()
     )

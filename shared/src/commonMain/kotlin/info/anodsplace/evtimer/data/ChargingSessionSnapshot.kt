@@ -1,8 +1,13 @@
 package info.anodsplace.evtimer.data
 
-data class PowerSegment(val startedAt: Long, val powerKw: Float) {
+data class PowerSegment(
+    val startedAt: Long,
+    val powerKw: Float,
+    val efficiency: Float? = null
+) {
     init {
         require(powerKw.isFinite() && powerKw > 0f)
+        require(efficiency == null || (efficiency.isFinite() && efficiency > 0f && efficiency <= 1f))
     }
 }
 
@@ -31,12 +36,12 @@ data class ChargingSessionSnapshot(
         segments.lastOrNull { it.startedAt <= time }?.powerKw ?: segments.first().powerKw
 
     /** Appends a segment at [now]; returns null when the power is unchanged. */
-    fun withPower(now: Long, powerKw: Float): ChargingSessionSnapshot? {
+    fun withPower(now: Long, powerKw: Float, efficiency: Float? = null): ChargingSessionSnapshot? {
         val last = segments.last()
         // A clock that did not advance past the last change still has to keep segments ordered.
         val startedAt = maxOf(now, last.startedAt + 1)
         if (powerAt(startedAt) == powerKw) return null
-        return copy(segments = segments + PowerSegment(startedAt, powerKw))
+        return copy(segments = segments + PowerSegment(startedAt, powerKw, efficiency))
     }
 
     companion object {

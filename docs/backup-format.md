@@ -8,14 +8,14 @@ It is a logical export, not a SQLite database copy. It works independently of
 database schema versions, journaling, Google accounts, installation source and
 signing keys. The file is plain text, not encrypted. Store it somewhere private.
 
-## Version 1
+## Version 2
 
 The root object has these required fields:
 
 | Field | Meaning |
 |---|---|
 | `format` | Exactly `ev-charging-timer-backup` |
-| `formatVersion` | Integer `1` |
+| `formatVersion` | Integer `2` |
 | `exportedAt` | ISO-8601 instant, generated in UTC |
 | `appVersion` | Exporting app's build version |
 | `preferences` | Simple preferences and optional working draft |
@@ -23,16 +23,20 @@ The root object has these required fields:
 | `sessions` | Array of finished history entries |
 
 Unknown object keys are ignored. A newer format version is rejected with a
-specific message; version 1 is the first released version, so there is no older
-released format to upgrade yet. Future version readers must upgrade supported
-older versions before import, not rely on SQLite migrations.
+specific message. Version 1 remains readable: its original efficiency limit
+`(0,1]` is validated before upgrading to version 2, and learning consent is
+always set to false, even if an unknown consent field was present in that file.
+Version 1 segment factors remain null. Version 2 persists explicit consent and
+an optional frozen factor per segment. Snapshot and segment factors are in
+`(0,1]`; a null segment factor uses the unchanged snapshot efficiency for legacy
+sessions. No SQLite migration is required to read a JSON backup.
 
 Example (additional sessions and presets omitted):
 
 ```json
 {
   "format": "ev-charging-timer-backup",
-  "formatVersion": 1,
+  "formatVersion": 2,
   "exportedAt": "2026-11-01T09:30:00Z",
   "appVersion": "2026.1101.0930",
   "preferences": {
@@ -64,7 +68,8 @@ Example (additional sessions and presets omitted):
     "reviewed": true,
     "interrupted": false,
     "presetEdited": false,
-    "segments": [{"startedAt": 1789990000000, "powerKw": 7.0}]
+    "calibrationEnabled": false,
+    "segments": [{"startedAt": 1789990000000, "powerKw": 7.0, "efficiency": null}]
   }]
 }
 ```
@@ -88,7 +93,9 @@ installation markers or migration bookkeeping are included.
 
 Session numeric settings, `id` and `segments` are required. Nullable preset
 identity/name and end/actual percentages default to `null`; review, interruption
-and edited flags default to `false`. Timestamps are epoch milliseconds.
+and edited flags default to `false`. Version 2's `calibrationEnabled` also
+defaults to `false`; acknowledgment (`reviewed`) never implies learning consent.
+Timestamps are epoch milliseconds.
 Exports contain only non-running rows with an end timestamp. A manually authored
 row without `endedAt` is imported as interrupted history with unknown end
 percentage and a restore timestamp (at least its last segment time), never as a
@@ -101,7 +108,9 @@ incorrect document sizes. It validates the complete document before import:
 required fields/types, format/version, timestamp, unique preset/session IDs,
 nonblank stored names, non-empty positive power options and ordered
 segments, finite positive capacity/power, percentages in `[0,100]`, and
-efficiency in `(0,1]`. Numeric values must also be representable by the app's
+snapshot efficiency in `(0,1]`; nullable segment efficiency, when present, is
+also in `(0,1]`.
+Numeric values must also be representable by the app's
 Float-based calculator. An end timestamp cannot precede the last segment.
 Emoji, including joined sequences, are preserved without normalization.
 Names are restored as existing stored names, using the same grandfathering rule
@@ -124,6 +133,13 @@ preferences write failure is reported, not silently treated as success.
 The current-session pointer is cleared. The newest imported history entry is
 marked reviewed even if the file says otherwise, preventing a stale charge
 summary and completion notification; older review states are retained.
+This normalization never changes calibration consent. Interrupted sessions,
+including imported unfinished timers, cannot contribute to learned estimates.
+Per-preset, per-speed reset clears consent for matching single-speed rows across
+all capacities, retaining car readings and snapshots. Version 2 exports/restores
+these flags and every segment factor. A later explicitly opted-in reading save
+can teach again. Factors and eligible-reading counts are derived from history,
+not exported as an accumulator.
 
 Picker cancellation does nothing. Read/parse/validation errors leave data
 unchanged. Export uses `openOutputStream(uri, "wt")`, so replacing an existing
@@ -146,14 +162,16 @@ implementation details. These are the intentional mappings:
 |---|---|
 | `preset` columns | `presets[]`: same identity, stored name, capacity, power, target and position |
 | `power_option.preset_id`, `position`, `power_kw` | Parent preset, `powerOptions[]` array order and values |
-| `charge_session` settings, identity, end values and flags | `sessions[]` fields, including `presetEdited`; snake_case becomes camelCase |
-| `power_segment.session_id`, `started_at`, `power_kw` | Parent session and `segments[]` timestamps/power |
+| `charge_session` settings, identity, end values and flags | `sessions[]` fields, including `presetEdited` and `calibrationEnabled`; snake_case becomes camelCase |
+| `power_segment.session_id`, `started_at`, `power_kw`, nullable `efficiency` | Parent session and `segments[]` timestamp, power and frozen factor |
 | `charge_session.is_running` | Excluded; always false on import |
 | `storage_migration` | Excluded; device-local marker, current-session pointer cleared |
 | Active DataStore preferences/draft | Typed `preferences` fields; obsolete migration/session keys excluded |
 
-Additive optional JSON fields must have defaults so existing version-1 files
-remain readable. Required shape or meaning changes need a new format version and
+Additive optional JSON fields must have defaults so supported older files
+remain readable. Version 1's explicit reader/upgrader preserves old bounds and
+uses the snapshot-factor fallback for every segment.
+Required shape or meaning changes need a new format version and
 an explicit old-version reader/upgrader; never silently reinterpret old fields.
 There is no invented version-0 migration. The fixed first-version compatibility
 fixture must keep working when a future reader is added. Newer versions fail

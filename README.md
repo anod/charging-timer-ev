@@ -32,10 +32,10 @@ sizes, spacing, insets, semantics, state or motion. There is no backdrop blur or
 new dependency; sheets/dialogs and Settings surface adoption are a later step.
 
 Starting a timer persists a session snapshot (capacity, start/target percentages,
-optional preset identity and edited flag, efficiency and timestamped power segments) in SQLDelight
+optional preset identity and edited flag, efficiency and timestamped power segments with frozen estimate factors) in SQLDelight
 2.4.1 SQLite storage. Presets and ordered power options, sessions and their power
 segments are structured tables; completed sessions retain estimated end percentage,
-optional actual percentage and review status. DataStore keeps selected preset, start
+optional actual percentage, review status and explicit learning consent. DataStore keeps selected preset, start
 percentage, unsaved named-preset edits and simple preferences. Later settings edits affect the next session, not
 one already running. A transactional, idempotent migration imports legacy settings
 as the Default preset and preserves every segment of an existing running snapshot
@@ -44,8 +44,41 @@ cleanup, so an interrupted migration never imports twice.
 Android's app-update receiver waits for that loaded status and restarts the charging
 foreground service only when the migrated session is still running.
 
+### Learning from car readings
+
+On the completion summary or a history summary, use **Add/Edit car reading** to
+record the car's percentage, including decimals. Save keeps the summary open;
+Cancel discards the draft, and Done acknowledges completion separately. Clearing
+the field and saving removes the reading. Summary totals use the saved reading
+while keeping the original estimate visible.
+
+**Read when timer stopped** is off by default. A later reading can still be
+recorded without enabling learning. Interrupted sessions, nonpositive gains and
+sessions with more than one positive-duration charging speed do not teach the
+estimator. A speed change back to the original speed still makes a session
+ineligible.
+
+Confirmed readings compare actual added energy with uncapped nominal energy
+from the recorded power segments. Samples are clamped to 0.7–1.0 and smoothed
+chronologically with a 0.3 EWMA starting at 1.0. Learning uses the stable preset
+ID and exact recorded speed, including for Default and custom speeds; unattributed
+sessions do not train. Only matching battery capacities contribute. Rename/reorder
+keeps learning; a different preset ID or speed starts fresh.
+
+Preset information lists each configured speed's factor and eligible reading
+count. Its per-speed Reset retains readings and clears learning consent for
+matching single-speed sessions across all capacities; another speed is unaffected.
+Subsequent explicitly opted-in saves may teach again. Editing or deleting history
+rebuilds factors. Each segment freezes the matching preset-and-speed factor, so
+history changes, reset, preset edits and restart do not recalibrate elapsed
+segments. Legacy segments without a factor use their original snapshot factor.
+Manual backup v2 retains readings, consent and segment factors; v1 imports leave
+consent off and use the snapshot fallback. No new permissions, telemetry,
+dependencies or backup allow-list are needed.
+
 Config starts with the built-in Default preset, seeded from existing manual settings.
-Default always appears first and cannot be renamed or deleted. Selecting a named preset
+Default initially appears first; Presets can rename/delete it while keeping at least one preset.
+Learning identifies it by `custom`, never its display name. Selecting a named preset
 applies capacity, charging power, target and its power options, but never the session's
 start percentage. Named-preset edits stay selected with a clear `*` marker.
 Tap the selected edited chip to open its anchored Update preset / Reset menu.

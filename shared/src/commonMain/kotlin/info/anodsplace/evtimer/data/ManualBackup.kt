@@ -86,19 +86,62 @@ data class BackupSession(
     val actualPercent: Double? = null,
     val reviewed: Boolean = false,
     val interrupted: Boolean = false,
-    val presetEdited: Boolean = false
+    val presetEdited: Boolean = false,
+    val calibrationEnabled: Boolean = false
 )
 
 @Serializable
-data class BackupSegment(val startedAt: Long, val powerKw: Double)
+data class BackupSegment(val startedAt: Long, val powerKw: Double, val efficiency: Double? = null)
 
 @Serializable
 private data class BackupHeader(val formatVersion: Int)
 
+@Serializable
+private data class BackupSegmentV1(val startedAt: Long, val powerKw: Double) {
+    fun upgrade() = BackupSegment(startedAt, powerKw)
+}
+
+// Keep the released v1 session contract separate: new fields must not grant consent.
+@Serializable
+private data class BackupSessionV1(
+    val id: Long,
+    val batteryCapacity: Double,
+    val startPercent: Double,
+    val targetPercent: Double,
+    val efficiency: Double,
+    val segments: List<BackupSegmentV1>,
+    val presetId: String? = null,
+    val presetName: String? = null,
+    val endedAt: Long? = null,
+    val endPercent: Double? = null,
+    val actualPercent: Double? = null,
+    val reviewed: Boolean = false,
+    val interrupted: Boolean = false,
+    val presetEdited: Boolean = false
+) {
+    fun upgrade() = BackupSession(id, batteryCapacity, startPercent, targetPercent, efficiency,
+        segments.map { it.upgrade() }, presetId, presetName, endedAt, endPercent, actualPercent, reviewed,
+        interrupted, presetEdited, calibrationEnabled = false)
+}
+
+@Serializable
+private data class ManualBackupV1(
+    val format: String,
+    val formatVersion: Int,
+    val exportedAt: String,
+    val appVersion: String,
+    val preferences: BackupPreferences,
+    val presets: List<BackupPreset>,
+    val sessions: List<BackupSessionV1>
+) {
+    fun upgrade() = ManualBackup(format, formatVersion, exportedAt, appVersion,
+        preferences, presets, sessions.map { it.upgrade() })
+}
+
 object BackupFormat {
     const val MAX_BYTES = 16 * 1024 * 1024
     const val FORMAT = "ev-charging-timer-backup"
-    const val VERSION = 1
+    const val VERSION = 2
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true; prettyPrint = true }
 
     fun encode(backup: ManualBackup): ByteArray {
@@ -117,8 +160,8 @@ object BackupFormat {
             if (version > VERSION) {
                 throw BackupException(BackupError.NEWER_VERSION, "This backup needs a newer app version")
             }
-            // Version 1 is the first released format. Future readers upgrade older DTOs here.
-            json.decodeFromString(ManualBackup.serializer(), text)
+            if (version == 1) json.decodeFromString(ManualBackupV1.serializer(), text).upgrade()
+            else json.decodeFromString(ManualBackup.serializer(), text)
         } catch (error: SerializationException) {
             throw BackupException(BackupError.INVALID_JSON, "Malformed or incomplete backup JSON", error)
         } catch (error: CharacterCodingException) {
@@ -128,7 +171,10 @@ object BackupFormat {
             throw BackupException(BackupError.INVALID_JSON, "Invalid UTF-8 or JSON document", error)
         }
         validate(backup)
-        return backup
+        return if (backup.formatVersion == 1) backup.copy(
+            formatVersion = VERSION,
+            sessions = backup.sessions.map { it.copy(calibrationEnabled = false) }
+        ) else backup
     }
 
     private fun checkDepth(bytes: ByteArray) {
@@ -166,7 +212,7 @@ object BackupFormat {
         fun percent(value: Double) = value.isFinite() && value in 0.0..100.0
         valid(backup.format == FORMAT, "format")
         if (backup.formatVersion > VERSION) throw BackupException(BackupError.NEWER_VERSION, "This backup needs a newer app version")
-        valid(backup.formatVersion == VERSION, "formatVersion")
+        valid(backup.formatVersion in 1..VERSION, "formatVersion")
         valid(runCatching { Instant.parse(backup.exportedAt) }.isSuccess, "exportedAt")
         valid(backup.appVersion.isNotBlank(), "appVersion")
         valid(backup.presets.isNotEmpty(), "presets must not be empty")
@@ -193,11 +239,16 @@ object BackupFormat {
             valid(sessionIds.add(it.id), "duplicate session ids")
             valid(positive(it.batteryCapacity), "session capacity")
             valid(percent(it.startPercent) && percent(it.targetPercent), "session percentages")
-            valid(it.efficiency.isFinite() && it.efficiency > 0 && it.efficiency <= 1 &&
+            valid(it.efficiency.isFinite() && it.efficiency > 0 &&
+                it.efficiency <= 1.0 &&
                 it.efficiency.toFloat() > 0, "session efficiency")
             valid(it.endPercent == null || percent(it.endPercent), "end percentage")
             valid(it.actualPercent == null || percent(it.actualPercent), "actual percentage")
             valid(it.segments.isNotEmpty() && it.segments.all { segment -> positive(segment.powerKw) } &&
+                it.segments.all { segment -> segment.efficiency == null ||
+                    (segment.efficiency.isFinite() && segment.efficiency > 0.0 && segment.efficiency <= 1.0) } &&
+                (backup.formatVersion != 1 || (it.segments.all { segment -> segment.efficiency == null } &&
+                    !it.calibrationEnabled)) &&
                 (1 until it.segments.size).all { index ->
                     it.segments[index - 1].startedAt < it.segments[index].startedAt
                 }, "session segments")

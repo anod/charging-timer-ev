@@ -172,8 +172,7 @@ class ChargingServiceImpl(
         val session = repository.observeSession().first()
         val snapshot = session.snapshot ?: return@withLock
         if (!session.isRunning) return@withLock
-        val updated = snapshot.withPower(clock.now().toEpochMilliseconds(), powerKw) ?: return@withLock
-        repository.saveSession(session.copy(snapshot = updated))
+        repository.changePower(session, clock.now().toEpochMilliseconds(), powerKw)
     }
 
     override fun refresh() {

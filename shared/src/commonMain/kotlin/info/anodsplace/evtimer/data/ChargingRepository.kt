@@ -17,6 +17,13 @@ interface ChargingRepository {
     suspend fun setNotifyAt80(enabled: Boolean)
     suspend fun createSnapshot(startedAt: Long): ChargingSessionSnapshot =
         ChargingSessionSnapshot.from(observeSettings().first(), startedAt)
+    suspend fun efficiencyFor(presetId: String?, batteryCapacity: Float, powerKw: Float): Float = 1f
+    suspend fun changePower(session: ChargingSession, changedAt: Long, powerKw: Float) {
+        val snapshot = session.snapshot ?: return
+        val efficiency = efficiencyFor(snapshot.presetId, snapshot.batteryCapacity, powerKw)
+        val updated = snapshot.withPower(changedAt, powerKw, efficiency) ?: return
+        saveSession(session.copy(snapshot = updated))
+    }
 
     // Session
     suspend fun saveSession(session: ChargingSession)
@@ -106,7 +113,9 @@ internal object SessionPreferences {
         snapshot.presetId?.let { prefs[presetId] = it } ?: prefs.remove(presetId)
         snapshot.presetName?.let { prefs[presetName] = it } ?: prefs.remove(presetName)
         prefs[presetEdited] = snapshot.presetEdited
-        prefs[segments] = snapshot.segments.joinToString(",") { "${it.startedAt}:${it.powerKw}" }
+        prefs[segments] = snapshot.segments.joinToString(",") {
+            "${it.startedAt}:${it.powerKw}:${it.efficiency.orEmpty()}"
+        }
     }
 
     fun readSnapshot(prefs: Preferences): ChargingSessionSnapshot? {
@@ -121,11 +130,13 @@ internal object SessionPreferences {
             presetEdited = prefs[presetEdited] ?: false,
             segments = storedSegments.split(",").map {
                 val parts = it.split(":")
-                require(parts.size == 2) { "Invalid persisted power segment" }
-                PowerSegment(parts[0].toLong(), parts[1].toFloat())
+                require(parts.size in 2..3) { "Invalid persisted power segment" }
+                PowerSegment(parts[0].toLong(), parts[1].toFloat(), parts.getOrNull(2)?.toFloatOrNull())
             }
         )
     }
+
+    private fun Float?.orEmpty(): String = this?.toString().orEmpty()
 }
 
 internal class ChargingSessionMigration : DataMigration<Preferences> {
