@@ -22,17 +22,24 @@ async function waitForRecord(page, accept = record => record !== null) {
 
 async function clickCanvasButton(page, name) {
     const button = page.getByRole("button", { name, exact: true });
-    await button.waitFor();
     const deadline = Date.now() + 10_000;
-    while (!await button.isEnabled()) {
-        assert.ok(Date.now() < deadline, `${name} must become enabled`);
-        await new Promise(resolve => setTimeout(resolve, 50));
+    while (Date.now() < deadline) {
+        await button.waitFor();
+        const before = await button.boundingBox();
+        await button.evaluate(() => new Promise(resolve =>
+            requestAnimationFrame(() => requestAnimationFrame(resolve))));
+        const after = await button.boundingBox();
+        if (before && after && after.width > 0 && after.height > 0 &&
+            ["x", "y", "width", "height"].every(key => Math.abs(before[key] - after[key]) < 0.5) &&
+            await button.isEnabled()) {
+            // Transparent semantics proxies cannot receive pointer events. Click
+            // stable canvas coordinates, not a proxy that may detach during reflow.
+            await page.mouse.click(after.x + after.width / 2, after.y + after.height / 2);
+            return;
+        }
+        await page.waitForTimeout(50);
     }
-    // Semantics layout can precede canvas painting, especially after centered
-    // content reflows. Let the updated bounds reach the rendered canvas.
-    await button.evaluate(() => new Promise(resolve =>
-        requestAnimationFrame(() => requestAnimationFrame(resolve))));
-    await button.click({ force: true, timeout: 10_000 });
+    assert.fail(`${name} must have stable, enabled canvas bounds`);
 }
 
 async function waitForAccessibleText(page, text) {
