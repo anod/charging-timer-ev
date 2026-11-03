@@ -30,6 +30,7 @@ import info.anodsplace.evtimer.data.*
 import info.anodsplace.evtimer.web.generated.resources.*
 import kotlinx.browser.document
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.await
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
@@ -101,9 +102,11 @@ private fun BrowserStorageScreen() {
                             }
                         }) { Text(stringResource(Res.string.web_backup_export)) }
                         Button(enabled = !busy && loaded.activeSession == null, onClick = {
-                            scope.launch {
+                            // File pickers need the browser's trusted click activation.
+                            val selection = pickBackup()
+                            scope.launch(start = CoroutineStart.UNDISPATCHED) {
                                 operation {
-                                    val text = pickBackup().await()?.toString()
+                                    val text = selection.await()?.toString()
                                     if (text != null) pending = BackupFormat.decode(text.encodeToByteArray())
                                 }
                             }

@@ -20,6 +20,21 @@ async function waitForRecord(page, accept = record => record !== null) {
     return null;
 }
 
+async function clickCanvasButton(page, name) {
+    const button = page.getByRole("button", { name, exact: true });
+    await button.waitFor();
+    const deadline = Date.now() + 10_000;
+    while (!await button.isEnabled()) {
+        assert.ok(Date.now() < deadline, `${name} must become enabled`);
+        await new Promise(resolve => setTimeout(resolve, 50));
+    }
+    // Semantics layout can precede canvas painting, especially after centered
+    // content reflows. Let the updated bounds reach the rendered canvas.
+    await button.evaluate(() => new Promise(resolve =>
+        requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    await button.click({ force: true, timeout: 10_000 });
+}
+
 (async () => {
     fs.mkdirSync(screenshots, { recursive: true });
     const server = http.createServer((request, response) => {
@@ -69,12 +84,14 @@ async function waitForRecord(page, accept = record => record !== null) {
             // have pointer-events:none. Send trusted pointer input through to the canvas.
             const [download] = await Promise.all([
                 page.waitForEvent("download"),
-                page.getByRole("button", { name: "Export backup", exact: true }).click({ force: true, timeout: 10_000 })
+                clickCanvasButton(page, "Export backup")
             ]);
             assert.equal(await download.failure(), null);
             const exported = JSON.parse(fs.readFileSync(await download.path(), "utf8"));
             assert.equal(exported.formatVersion, 2);
             assert.equal(exported.preferences.selectedPresetId, "custom");
+            await page.getByText("Download requested. Check your browser downloads to confirm the file was saved.",
+                { exact: true }).waitFor();
             const imported = JSON.stringify({
                 ...exported,
                 presets: [{ ...exported.presets[0], name: "Imported car" }],
@@ -86,7 +103,7 @@ async function waitForRecord(page, accept = record => record !== null) {
                 '"segments":[{"startedAt":100,"powerKw":11,"efficiency":0.85}]}]');
             const [chooser] = await Promise.all([
                 page.waitForEvent("filechooser"),
-                page.getByRole("button", { name: "Import backup", exact: true }).click({ force: true, timeout: 10_000 })
+                clickCanvasButton(page, "Import backup")
             ]);
             await chooser.setFiles({
                 name: "backup.json", mimeType: "application/json", buffer: Buffer.from(imported)
@@ -94,7 +111,7 @@ async function waitForRecord(page, accept = record => record !== null) {
             await page.getByRole("button", { name: "Replace data", exact: true }).waitFor();
             // Merely reading the file must not mutate persisted data.
             assert.equal(await page.evaluate(async () => JSON.parse(await evTimerStorage.read()).revision), initial.revision);
-            await page.getByRole("button", { name: "Replace data", exact: true }).click({ force: true, timeout: 10_000 });
+            await clickCanvasButton(page, "Replace data");
             const committed = await waitForRecord(page, record => record?.payload.includes("Imported car"));
             assert.notEqual(committed, null, "Confirmed import must commit the selected backup");
             assert.ok(committed.payload.includes('"id":9007199254740993'));
