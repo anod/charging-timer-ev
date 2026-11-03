@@ -3,6 +3,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 plugins {
     alias(libs.plugins.aboutlibraries)
     alias(libs.plugins.androidApplication)
+    alias(libs.plugins.baselineprofile)
     alias(libs.plugins.composeCompiler)
 }
 
@@ -74,13 +75,20 @@ android {
     }
 }
 
+baselineProfile {
+    mergeIntoMain = true
+    saveInSrc = true
+}
+
 dependencies {
     implementation(project(":shared"))
     implementation(project(":lib:permissions"))
+    baselineProfile(project(":baselineprofile"))
     implementation(libs.androidx.activity)
     implementation(libs.androidx.core)
     // Splash screen API
     implementation(libs.androidx.core.splashscreen)
+    implementation(libs.androidx.profileinstaller)
     implementation(libs.koin.android)
     implementation(libs.koin.compose)
     implementation(libs.compose.uiToolingPreview)
