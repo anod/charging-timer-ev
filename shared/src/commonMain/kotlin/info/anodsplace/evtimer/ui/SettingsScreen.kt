@@ -27,6 +27,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.semantics.Role
@@ -47,7 +48,8 @@ fun SettingsScreen(
     onOpenLicenses: () -> Unit,
     onOpenPresets: () -> Unit,
     modifier: Modifier = Modifier,
-    onOpenHistory: () -> Unit = {}
+    onOpenHistory: () -> Unit = {},
+    backupContent: @Composable () -> Unit = {}
 ) {
     val uriHandler = LocalUriHandler.current
     SettingsPage(modifier) {
@@ -77,6 +79,7 @@ fun SettingsScreen(
                     )
                 )
             }
+            backupContent()
             SettingsSection(stringResource(Res.string.settings_about)) {
                 ListItem(
                     headlineContent = { Text(stringResource(Res.string.app_title)) },
@@ -119,20 +122,23 @@ internal fun SettingsRow(
     title: String,
     icon: DrawableResource,
     supportingText: String? = null,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    enabled: Boolean = true
 ) {
     ListItem(
-        headlineContent = { Text(title) },
+        headlineContent = { Text(title, Modifier.alpha(if (enabled) 1f else 0.38f)) },
         supportingContent = supportingText?.let { { Text(it) } },
-        leadingContent = { SettingsIcon(icon) },
+        leadingContent = {
+            Box(Modifier.alpha(if (enabled) 1f else 0.38f)) { SettingsIcon(icon) }
+        },
         colors = settingsRowColors(),
         modifier = Modifier.fillMaxWidth()
-            .clickable(role = Role.Button, onClick = onClick)
+            .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
     )
 }
 
 @Composable
-private fun SettingsSection(title: String, content: @Composable () -> Unit) {
+internal fun SettingsSection(title: String, content: @Composable () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(title, Modifier.padding(start = 8.dp, top = 8.dp, bottom = 4.dp),
             style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)

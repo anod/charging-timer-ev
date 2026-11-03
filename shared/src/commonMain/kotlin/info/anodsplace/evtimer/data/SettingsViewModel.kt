@@ -5,12 +5,78 @@ import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import info.anodsplace.evtimer.APP_VERSION
+import kotlin.time.Clock
+
+data class BackupState(
+    val busy: Boolean = false,
+    val pending: ManualBackup? = null,
+    val message: BackupMessage? = null,
+    val error: BackupError? = null
+)
+
+enum class BackupMessage { EXPORTED, RESTORED }
 
 class SettingsViewModel(
     private val repository: ChargingRepository,
-    private val presetRepository: PresetRepository
+    private val presetRepository: PresetRepository,
+    private val backups: ManualBackupRepository
 ) : ViewModel() {
+    private val mutableBackup = MutableStateFlow(BackupState())
+    val backup = mutableBackup.asStateFlow()
+    val session: StateFlow<ChargingSession?> =
+        repository.observeSession().stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    fun backupFileName(): String = "ev-charging-timer-${Clock.System.now().toString().substringBefore('T')}.json"
+
+    fun exportBackup(destination: BackupDestination) = backupOperation {
+        val bytes = withContext(Dispatchers.Default) { BackupFormat.encode(backups.exportBackup(APP_VERSION)) }
+        destination.write(bytes)
+        mutableBackup.value = BackupState(message = BackupMessage.EXPORTED)
+    }
+
+    fun readBackup(source: BackupSource) = backupOperation {
+        val pending = withContext(Dispatchers.Default) { BackupFormat.decode(source.read()) }
+        mutableBackup.value = BackupState(pending = pending)
+    }
+
+    fun confirmRestore() {
+        val pending = mutableBackup.value.pending ?: return
+        backupOperation {
+            backups.restoreBackup(pending)
+            mutableBackup.value = BackupState(message = BackupMessage.RESTORED)
+        }
+    }
+
+    fun dismissBackup() {
+        if (!mutableBackup.value.busy) mutableBackup.value = BackupState()
+    }
+
+    fun documentPickerError() {
+        mutableBackup.value = BackupState(error = BackupError.IO)
+    }
+
+    private fun backupOperation(block: suspend () -> Unit) {
+        if (mutableBackup.value.busy) return
+        mutableBackup.value = mutableBackup.value.copy(busy = true, message = null, error = null)
+        viewModelScope.launch {
+            try {
+                block()
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                println("Manual backup failed: $error")
+                mutableBackup.value = BackupState(error = (error as? BackupException)?.error ?: BackupError.IO)
+            }
+        }
+    }
+
     val notifyAt80: StateFlow<Boolean?> =
         repository.observeNotifyAt80().stateIn(viewModelScope, SharingStarted.Eagerly, null)
 

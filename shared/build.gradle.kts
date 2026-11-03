@@ -3,6 +3,7 @@ import groovy.json.JsonOutput
 import groovy.json.JsonSlurper
 
 plugins {
+    alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.aboutlibraries)
     alias(libs.plugins.sqldelight)
     alias(libs.plugins.kotlin.multiplatform)
@@ -95,9 +96,11 @@ kotlin {
         androidMain { kotlin.srcDir("src/jvmAndroidMain/kotlin") }
         jvmMain { kotlin.srcDir("src/jvmAndroidMain/kotlin") }
         androidMain.dependencies { implementation(libs.sqldelight.android.driver) }
+        androidMain.dependencies { implementation(libs.androidx.activity) }
         iosMain.dependencies { implementation(libs.sqldelight.native.driver) }
         jvmMain.dependencies { implementation(libs.sqldelight.sqlite.driver) }
         commonMain.dependencies {
+            implementation(libs.kotlinx.serialization.json)
             implementation(libs.aboutlibraries.core)
             implementation(libs.aboutlibraries.compose.m3)
             implementation(libs.sqldelight.runtime)

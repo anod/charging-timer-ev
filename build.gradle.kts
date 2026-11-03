@@ -5,6 +5,7 @@ import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 
 plugins {
+    alias(libs.plugins.kotlin.serialization) apply false
     alias(libs.plugins.aboutlibraries) apply false
     // this is necessary to avoid the plugins to be loaded multiple times
     // in each subproject's classloader

@@ -1,4 +1,20 @@
 <resources>
+    <string name="backup_title">Backup &amp; restore</string>
+    <string name="backup_export">Export backup</string>
+    <string name="backup_restore">Restore from backup</string>
+    <string name="backup_stop_first">Stop the current session first</string>
+    <string name="backup_working">Working…</string>
+    <string name="backup_confirm_title">Restore backup?</string>
+    <string name="backup_details">Exported %1$s\nApp version %2$s\n%3$d presets · %4$d sessions</string>
+    <string name="backup_replace_warning">Replaces all presets and history on this device. No timer will resume.</string>
+    <string name="backup_exported">Backup saved</string>
+    <string name="backup_restored">Backup restored</string>
+    <string name="backup_newer_version">This backup needs a newer app version</string>
+    <string name="backup_too_large">Backup exceeds the 16 MiB limit</string>
+    <string name="backup_invalid_json">Cannot read backup: invalid or incomplete JSON</string>
+    <string name="backup_invalid_data">Cannot restore backup: invalid or missing values</string>
+    <string name="backup_io_error">Could not complete the backup operation. Check document access and try again.</string>
+    <string name="backup_preferences_error">Presets and history restored, but preferences could not be saved. Try restoring again.</string>
     <string name="app_title">Charging Timer for EV</string>
     <string name="history_title">Charging history</string>
     <string name="history_empty">No past sessions yet</string>

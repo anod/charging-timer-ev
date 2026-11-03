@@ -8,6 +8,7 @@ import info.anodsplace.evtimer.db.Charge_session
 import info.anodsplace.evtimer.db.ChargingDatabase
 import info.anodsplace.evtimer.db.Preset
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.emitAll
@@ -56,7 +57,7 @@ class ChargingRepositoryImpl(
     private val database: ChargingDatabase,
     private val clock: Clock,
     private val restoreState: StorageRestoreState
-) : ChargingRepository, PresetRepository, ChargingHistoryRepository {
+) : ChargingRepository, PresetRepository, ChargingHistoryRepository, ManualBackupRepository {
     private val queries = database.storageQueries
     private val mutex = Mutex()
     private var initialized = false
@@ -374,6 +375,103 @@ class ChargingRepositoryImpl(
         transaction {
             require(queries.history().executeAsList().any { it.id == id }) { "Unknown completed session: $id" }
             queries.reviewSession(actualPercent?.toDouble(), reviewed, id)
+        }
+    }
+
+    override suspend fun exportBackup(appVersion: String): ManualBackup {
+        initialize()
+        return withContext(Dispatchers.Default) {
+            mutex.withLock {
+                val prefs = dataStore.data.first()
+                database.transactionWithResult {
+                    val options = queries.allOptions().executeAsList().groupBy { it.preset_id }
+                    val segments = queries.backupSegments().executeAsList().groupBy { it.session_id }
+                    ManualBackup(
+                        BackupFormat.FORMAT, BackupFormat.VERSION, clock.now().toString(), appVersion,
+                        BackupPreferences(
+                            prefs[SessionPreferences.selectedPreset] ?: CUSTOM_ID,
+                            SessionPreferences.readSettings(prefs).startPercent,
+                            prefs[SessionPreferences.notifyAt80] ?: true,
+                            prefs[SessionPreferences.draftValues]?.let(::decodePresetDraft)?.let {
+                                BackupDraft(
+                                    requireNotNull(prefs[SessionPreferences.draftPreset]),
+                                    it.batteryCapacity, it.chargingPower, it.maxPercent, it.availablePowers
+                                )
+                            }
+                        ),
+                        queries.allPresets().executeAsList().map {
+                            BackupPreset(it.id, it.name, it.battery_capacity, it.charging_power,
+                                it.target_percent, options[it.id].orEmpty().map { option -> option.power_kw },
+                                it.position)
+                        },
+                        queries.backupSessions().executeAsList().map {
+                            BackupSession(it.id, it.battery_capacity, it.start_percent, it.target_percent,
+                                it.efficiency, segments[it.id].orEmpty().map { segment ->
+                                    BackupSegment(segment.started_at, segment.power_kw)
+                                }, it.preset_id, it.preset_name, it.ended_at, it.end_percent,
+                                it.actual_percent, it.reviewed, it.interrupted, it.preset_edited)
+                        }
+                    )
+                }
+            }
+        }
+    }
+
+    override suspend fun restoreBackup(backup: ManualBackup) {
+        withContext(Dispatchers.Default) { BackupFormat.validate(backup) }
+        initialize()
+        withContext(Dispatchers.Default) {
+            mutex.withLock {
+                if (queries.activeSession().executeAsOneOrNull() != null) {
+                    throw BackupException(BackupError.SESSION_RUNNING, "Stop the current session first")
+                }
+                val now = clock.now().toEpochMilliseconds()
+                val newest = backup.sessions.maxWithOrNull(
+                    compareBy<BackupSession> { it.endedAt ?: maxOf(now, it.segments.last().startedAt) }.thenBy { it.id }
+                )?.id
+                database.transaction {
+                    queries.setCurrentSession(null)
+                    // Explicit child deletes also work with drivers that disable foreign-key enforcement.
+                    queries.clearBackupSegments()
+                    queries.clearBackupSessions()
+                    queries.clearBackupOptions()
+                    queries.clearBackupPresets()
+                    backup.presets.forEach {
+                        queries.importBackupPreset(it.id, it.name, it.batteryCapacity, it.chargingPower,
+                            it.targetPercent, it.position)
+                        it.powerOptions.forEachIndexed { index, power -> queries.putOption(it.id, index.toLong(), power) }
+                    }
+                    backup.sessions.forEach {
+                        queries.importBackupSession(it.id, it.batteryCapacity, it.startPercent, it.targetPercent,
+                            it.efficiency, it.presetId, it.presetName,
+                            it.endedAt ?: maxOf(now, it.segments.last().startedAt),
+                            if (it.endedAt == null) null else it.endPercent, it.actualPercent,
+                            it.reviewed || it.id == newest, it.interrupted || it.endedAt == null, it.presetEdited)
+                        it.segments.forEach { segment -> queries.putSegment(it.id, segment.startedAt, segment.powerKw) }
+                    }
+                }
+                try {
+                    dataStore.edit {
+                        it[SessionPreferences.selectedPreset] = backup.preferences.selectedPresetId
+                            .takeIf { id -> backup.presets.any { preset -> preset.id == id } }
+                            ?: queries.allPresets().executeAsList().first().id
+                        it[SessionPreferences.startPercent] = backup.preferences.startPercent
+                        it[SessionPreferences.notifyAt80] = backup.preferences.notifyAt80
+                        it.remove(SessionPreferences.draftPreset)
+                        it.remove(SessionPreferences.draftValues)
+                        backup.preferences.draft?.let { draft ->
+                            it[SessionPreferences.draftPreset] = draft.presetId
+                            it[SessionPreferences.draftValues] = draft.settings(backup.preferences.startPercent).encodeDraft()
+                        }
+                        SessionPreferences.clearStructuredData(it)
+                    }
+                } catch (error: CancellationException) {
+                    throw error
+                } catch (error: Exception) {
+                    throw BackupException(BackupError.PREFERENCES,
+                        "Presets and history committed, but preferences could not be saved", error)
+                }
+            }
         }
     }
 
