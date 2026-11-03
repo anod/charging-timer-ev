@@ -91,6 +91,12 @@ kotlin {
 
     jvm()
 
+    @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
+    wasmJs {
+        browser()
+        binaries.executable()
+    }
+
     sourceSets {
         commonMain { kotlin.srcDir(generateBuildInfo) }
         androidMain { kotlin.srcDir("src/jvmAndroidMain/kotlin") }

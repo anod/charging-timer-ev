@@ -1,10 +1,5 @@
 package info.anodsplace.evtimer
 
-import info.anodsplace.evtimer.data.ChargingRepository
-import info.anodsplace.evtimer.data.ChargingRepositoryImpl
-import info.anodsplace.evtimer.data.PresetRepository
-import info.anodsplace.evtimer.data.ChargingHistoryRepository
-import info.anodsplace.evtimer.db.ChargingDatabase
 import info.anodsplace.evtimer.data.ChargingService
 import info.anodsplace.evtimer.data.ChargingServiceImpl
 import info.anodsplace.evtimer.data.ConfigurationViewModel
@@ -25,18 +20,12 @@ import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 
 expect val platformModule: org.koin.core.module.Module
+expect val storageModule: org.koin.core.module.Module
 
 @OptIn(ExperimentalTime::class)
 val commonModule = module {
     single<Clock> { Clock.System }
     single { CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate) }
-    single { ChargingDatabase(get()) }
-    singleOf(::ChargingRepositoryImpl) {
-        bind<ChargingRepository>()
-        bind<PresetRepository>()
-        bind<ChargingHistoryRepository>()
-        bind<info.anodsplace.evtimer.data.ManualBackupRepository>()
-    }
     singleOf(::ChargingServiceImpl) {
         bind<ChargingService>()
     }
@@ -50,7 +39,7 @@ val uiModule = module {
     viewModelOf(::NavigationViewModel)
 }
 
-fun appModules() = listOf(commonModule, platformModule, uiModule)
+fun appModules() = listOf(commonModule, storageModule, platformModule, uiModule)
 
 fun initKoin(koinAppDeclaration: KoinAppDeclaration? = null) {
     startKoin {

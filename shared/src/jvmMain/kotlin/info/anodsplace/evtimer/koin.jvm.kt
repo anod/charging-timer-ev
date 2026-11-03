@@ -1,9 +1,16 @@
 package info.anodsplace.evtimer
 
 import info.anodsplace.evtimer.data.ClockTimeFormatter
+import info.anodsplace.evtimer.data.ChargingHistoryRepository
+import info.anodsplace.evtimer.data.ChargingRepository
+import info.anodsplace.evtimer.data.ChargingRepositoryImpl
 import info.anodsplace.evtimer.data.DesktopClockTimeFormatter
+import info.anodsplace.evtimer.data.ManualBackupRepository
+import info.anodsplace.evtimer.data.PresetRepository
 import info.anodsplace.evtimer.data.createDataStore
 import org.koin.core.module.Module
+import org.koin.core.module.dsl.bind
+import org.koin.core.module.dsl.singleOf
 import org.koin.dsl.module
 import app.cash.sqldelight.db.SqlDriver
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
@@ -23,6 +30,7 @@ actual val platformModule: Module = module {
             os.contains("mac") -> File(File(System.getProperty("user.home"), "Library"), "Application Support")
             else -> File(System.getenv("XDG_DATA_HOME") ?: File(File(System.getProperty("user.home"), ".local"), "share").path)
         }
+
         val directory = File(root, "charging-timer-ev")
         check(directory.isDirectory || directory.mkdirs()) { "Cannot create app data directory: $directory" }
         JdbcSqliteDriver(
@@ -33,4 +41,14 @@ actual val platformModule: Module = module {
     }
     single<ClockTimeFormatter> { DesktopClockTimeFormatter() }
     single { createDataStore() }
+}
+
+actual val storageModule: Module = module {
+    single { ChargingDatabase(get()) }
+    singleOf(::ChargingRepositoryImpl) {
+        bind<ChargingRepository>()
+        bind<PresetRepository>()
+        bind<ChargingHistoryRepository>()
+        bind<ManualBackupRepository>()
+    }
 }
