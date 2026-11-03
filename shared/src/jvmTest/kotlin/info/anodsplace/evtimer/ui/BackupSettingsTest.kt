@@ -4,13 +4,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
-import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
-import androidx.compose.ui.test.printToString
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import info.anodsplace.evtimer.data.BackupError
 import info.anodsplace.evtimer.data.BackupMessage
@@ -60,12 +58,11 @@ class BackupSettingsTest {
                 BackupFormat.validate(pending)
                 state.value = BackupState(pending = pending)
             }
-            onNodeWithText("Exported $date\nApp version 1.0\n$counts")
-                .assertExists(onAllNodes(isRoot()).printToString(maxDepth = 10))
+            onNodeWithText("Exported $date\nApp version 1.0\n$counts").assertExists()
             onNodeWithText(exportedAt, substring = true).assertDoesNotExist()
             onNodeWithText("Restore backup?").assertExists()
             onNodeWithText("Replaces all presets and history on this device. No timer will resume.").assertExists()
-            onNodeWithText("Restore from backup").assertIsEnabled()
+            onAllNodesWithText("Restore from backup")[1].assertIsEnabled()
         }
     }
 

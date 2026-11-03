@@ -7,12 +7,12 @@
     <string name="backup_confirm_title">Restore backup?</string>
     <string name="backup_details">Exported %1$s\nApp version %2$s\n%3$s · %4$s</string>
     <plurals name="backup_preset_count">
-        <item quantity="one">%d preset</item>
-        <item quantity="other">%d presets</item>
+        <item quantity="one">%1$d preset</item>
+        <item quantity="other">%1$d presets</item>
     </plurals>
     <plurals name="backup_session_count">
-        <item quantity="one">%d session</item>
-        <item quantity="other">%d sessions</item>
+        <item quantity="one">%1$d session</item>
+        <item quantity="other">%1$d sessions</item>
     </plurals>
     <string name="backup_replace_warning">Replaces all presets and history on this device. No timer will resume.</string>
     <string name="backup_exported">Backup saved</string>
