@@ -43,18 +43,6 @@ async function waitForRecord(page, accept = record => record !== null) {
             const context = await browser.newContext({
                 colorScheme, locale: "en-US", viewport: { width: 1100, height: 800 }
             });
-            await context.addInitScript(() => {
-                Intl.Locale = new Proxy(Intl.Locale, {
-                    construct(target, args) {
-                        try {
-                            return Reflect.construct(target, args);
-                        } catch (error) {
-                            console.error("Intl.Locale rejected:", JSON.stringify(args), navigator.languages);
-                            throw error;
-                        }
-                    }
-                });
-            });
             const page = await context.newPage();
             const errors = [];
             page.on("pageerror", error => errors.push(error.message));
@@ -77,10 +65,11 @@ async function waitForRecord(page, accept = record => record !== null) {
             await page.waitForTimeout(3000);
             await page.screenshot({ path: path.join(screenshots, `storage-${colorScheme}.png`) });
 
-            // Compose's accessibility DOM proxies are not pointer hit targets.
+            // Transparent semantics proxies share the canvas control's bounds but
+            // have pointer-events:none. Send trusted pointer input through to the canvas.
             const [download] = await Promise.all([
                 page.waitForEvent("download"),
-                page.getByRole("button", { name: "Export backup", exact: true }).press("Enter", { timeout: 10_000 })
+                page.getByRole("button", { name: "Export backup", exact: true }).click({ force: true, timeout: 10_000 })
             ]);
             assert.equal(await download.failure(), null);
             const exported = JSON.parse(fs.readFileSync(await download.path(), "utf8"));
@@ -97,7 +86,7 @@ async function waitForRecord(page, accept = record => record !== null) {
                 '"segments":[{"startedAt":100,"powerKw":11,"efficiency":0.85}]}]');
             const [chooser] = await Promise.all([
                 page.waitForEvent("filechooser"),
-                page.getByRole("button", { name: "Import backup", exact: true }).press("Enter", { timeout: 10_000 })
+                page.getByRole("button", { name: "Import backup", exact: true }).click({ force: true, timeout: 10_000 })
             ]);
             await chooser.setFiles({
                 name: "backup.json", mimeType: "application/json", buffer: Buffer.from(imported)
@@ -105,7 +94,7 @@ async function waitForRecord(page, accept = record => record !== null) {
             await page.getByRole("button", { name: "Replace data", exact: true }).waitFor();
             // Merely reading the file must not mutate persisted data.
             assert.equal(await page.evaluate(async () => JSON.parse(await evTimerStorage.read()).revision), initial.revision);
-            await page.getByRole("button", { name: "Replace data", exact: true }).press("Enter", { timeout: 10_000 });
+            await page.getByRole("button", { name: "Replace data", exact: true }).click({ force: true, timeout: 10_000 });
             const committed = await waitForRecord(page, record => record?.payload.includes("Imported car"));
             assert.notEqual(committed, null, "Confirmed import must commit the selected backup");
             assert.ok(committed.payload.includes('"id":9007199254740993'));

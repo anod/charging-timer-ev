@@ -178,6 +178,10 @@ Every update reads the committed record and checks its revision again inside
 the write transaction. Concurrent tab writes fail explicitly rather than
 overwriting unseen edits. The screen's counts refresh on load/import, not
 automatically across tabs. There is no memory or localStorage fallback.
+This intentionally simple backend rewrites the complete state document for each
+mutation. The codec runs on the browser main thread; large imports/exports can
+briefly pause rendering. The 16 MiB file limit is not a peak-memory or latency
+guarantee. There is no worker-thread or incremental-storage implementation.
 Unavailable/denied/blocked storage, quota errors, corrupt/unsupported internal
 documents and conflicting revisions are errors, never default-data recovery.
 Fresh defaults are published only after their first IndexedDB commit succeeds.
