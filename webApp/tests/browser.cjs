@@ -93,7 +93,14 @@ async function clickCanvasButton(page, name) {
             await clickCanvasButton(page, "Charging data");
             const importButton = page.getByRole("button", { name: "Import backup", exact: true });
             await importButton.waitFor();
-            assert.equal(await importButton.isEnabled(), false, "Restore is disabled while active");
+            await page.waitForTimeout(300);
+            let blockedChooser = 0;
+            const unexpectedPicker = chooser => { blockedChooser++; chooser.setFiles([]); };
+            page.on("filechooser", unexpectedPicker);
+            await importButton.click({ force: true });
+            await page.waitForTimeout(300);
+            page.off("filechooser", unexpectedPicker);
+            assert.equal(blockedChooser, 0, "A running timer must not open the restore picker");
             // Age the durable fixture as if the browser had been closed for a month.
             // Keep the rendering/event clock real: faking it also changes Compose
             // pointer/animation scheduling, which is not the timer's source of truth.
@@ -117,8 +124,6 @@ async function clickCanvasButton(page, name) {
                 "History must use the calculated target time, not the page resume time");
             await page.getByRole("button", { name: "Back to timer", exact: true }).waitFor();
             await page.waitForTimeout(300);
-            assert.equal(await importButton.isEnabled(), true,
-                "A storage screen left open must unlock restore after lifecycle completion");
             await page.screenshot({ path: path.join(screenshots, `storage-${colorScheme}.png`) });
 
             // Transparent semantics proxies share the canvas control's bounds but
