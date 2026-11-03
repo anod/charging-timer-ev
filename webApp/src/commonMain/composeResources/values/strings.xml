@@ -4,6 +4,8 @@
     <string name="web_storage_unavailable">Browser storage could not be opened. No charging data is available.</string>
     <string name="web_storage_description">Charging timers, presets and history are saved in this browser.</string>
     <string name="web_timer_back">Back to timer</string>
+    <string name="web_target_complete">Estimated target of %1$s% reached at %2$s. Check your vehicle for its actual charge.</string>
+    <string name="web_completion_dismiss">Dismiss completion</string>
     <string name="web_foreground_limit">Estimates catch up when you reopen this page. Notifications require permission and a visible page; no alerts are guaranteed while backgrounded or closed.</string>
     <string name="web_notifications_enable">Enable foreground notifications</string>
     <string name="web_notifications_disable">Disable foreground notifications</string>

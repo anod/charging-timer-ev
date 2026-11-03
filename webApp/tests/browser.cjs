@@ -78,6 +78,7 @@ async function clickCanvasButton(page, name) {
             await page.waitForSelector("canvas");
             // Compose's first frame and asynchronously loaded text resources must finish.
             await page.waitForTimeout(3000);
+            await page.screenshot({ path: path.join(screenshots, `configuration-${colorScheme}.png`) });
             await clickCanvasButton(page, "Start Timer");
             const started = await waitForRecord(page, record => JSON.parse(record?.payload || "{}").activeSession != null);
             assert.notEqual(started, null, "Start must commit an active snapshot");

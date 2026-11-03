@@ -145,6 +145,21 @@ internal fun BrowserTimerApp() {
                         Text(stringResource(Res.string.web_storage_retry))
                     }
                 }
+                state?.let { loaded ->
+                    val completed = loaded.backup.sessions.firstOrNull {
+                        it.id == loaded.notificationSessionId && !it.reviewed &&
+                            it.endedAt == it.snapshot().targetTime()
+                    }
+                    if (completed != null) {
+                        Text(stringResource(Res.string.web_target_complete,
+                            formatLocaleNumber(completed.targetPercent.toFloat(), 0, 1),
+                            formatter.format(requireNotNull(completed.endedAt))),
+                            Modifier.padding(horizontal = 16.dp))
+                        TextButton(onClick = {
+                            scope.launch { operation { runtime.acknowledgeCompletion() } }
+                        }) { Text(stringResource(Res.string.web_completion_dismiss)) }
+                    }
+                }
                 Box(Modifier.weight(1f).fillMaxWidth()) {
                     if (storageOpen) BrowserStorageScreen(storage)
                     else state?.let { loaded ->

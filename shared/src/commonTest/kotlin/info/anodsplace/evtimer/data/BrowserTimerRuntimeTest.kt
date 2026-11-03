@@ -79,6 +79,27 @@ class BrowserTimerRuntimeTest {
     }
 
     @Test
+    fun importedConsentedReadingsUseExistingCalibrationAndFreezeEverySegment() = runTest {
+        val runtime = configured()
+        runtime.storage.update { state ->
+            state.copy(backup = state.backup.copy(sessions = listOf(BackupSession(
+                id = 1, batteryCapacity = 100.0, startPercent = 20.0, targetPercent = 90.0,
+                efficiency = 1.0, presetId = CUSTOM_PRESET_ID, presetName = "Default",
+                segments = listOf(BackupSegment(clock.epoch - 7_200_000, 10.0, 1.0)),
+                endedAt = clock.epoch - 3_600_000, endPercent = 30.0, actualPercent = 28.0,
+                reviewed = true, calibrationEnabled = true
+            ))))
+        }
+        val active = assertNotNull(runtime.start().activeSession)
+        assertEquals(0.94f, active.efficiency.toFloat(), 0.00001f)
+        assertEquals(active.efficiency, active.segments.single().efficiency)
+        clock.epoch += 3_600_000
+        val changed = assertNotNull(runtime.changePower(20f).activeSession)
+        assertEquals(1.0, changed.segments.last().efficiency)
+        assertEquals(active.segments.single(), runtime().reconcile().activeSession?.segments?.first())
+    }
+
+    @Test
     fun backwardsClockCannotDecreaseBelowStartOrMakeDuplicateIds() = runTest {
         val runtime = configured()
         val first = assertNotNull(runtime.start().activeSession)

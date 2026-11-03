@@ -23,7 +23,10 @@ class BrowserTimerRuntime(
         val before = state.configuration()
         val settings = before.settings
         val after = when (event) {
-            is ConfigurationViewEvent.SelectPreset -> before.reduce(PresetEvent.Select(event.id))
+            is ConfigurationViewEvent.SelectPreset -> {
+                require(before.presets.any { it.id == event.id }) { "Unknown preset: ${event.id}" }
+                before.reduce(PresetEvent.Select(event.id))
+            }
             ConfigurationViewEvent.UpdatePreset -> before.reduce(PresetEvent.Update)
             ConfigurationViewEvent.ResetPreset -> before.reduce(PresetEvent.Reset)
             is ConfigurationViewEvent.SaveAsPreset -> before.reduce(PresetEvent.SaveNew(
@@ -52,11 +55,13 @@ class BrowserTimerRuntime(
         // History IDs must remain unique even after a backwards system clock adjustment.
         val id = maxOf(now, (state.backup.sessions.maxOfOrNull { it.id } ?: 0L) + 1L)
         val calibration = state.calibration(configuration)
+        val factor = calibration.factor(configuration.selectedId, settings.chargingPower)
         val snapshot = ChargingSessionSnapshot.from(settings, now).copy(
             presetId = configuration.selectedId,
             presetName = configuration.selected.name,
             presetEdited = configuration.isEdited,
-            efficiency = calibration.factor(configuration.selectedId, settings.chargingPower)
+            efficiency = factor,
+            segments = listOf(PowerSegment(now, settings.chargingPower, factor))
         )
         state.copy(
             activeSession = snapshot.backupSession(id),
@@ -92,6 +97,12 @@ class BrowserTimerRuntime(
         state.withConfiguration(configuration.reduce(PresetEvent.Edit(
             configuration.settings.withAddedPower(powerKw)
         )))
+    }
+
+    suspend fun acknowledgeCompletion(): BrowserState = storage.update { state ->
+        state.copy(backup = state.backup.copy(sessions = state.backup.sessions.map {
+            if (it.id == state.notificationSessionId) it.copy(reviewed = true) else it
+        }))
     }
 
     private fun newPresetId(state: BrowserState): String {
