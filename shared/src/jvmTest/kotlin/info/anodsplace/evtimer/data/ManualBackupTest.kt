@@ -229,7 +229,7 @@ class ManualBackupTest {
                 sample.copy(sessions = listOf(session.copy(segments = emptyList()))),
                 sample.copy(sessions = listOf(session.copy(segments = listOf(BackupSegment(1, 0.0))))),
                 sample.copy(sessions = listOf(session.copy(segments = listOf(BackupSegment(1, 7.0), BackupSegment(1, 11.0)))))
-            ) + listOf(0.0, -0.1, 1.01, Double.NaN, Double.POSITIVE_INFINITY).map { factor ->
+            ) + listOf(0.0, -0.1, 1.01, 1e-100, Double.NaN, Double.POSITIVE_INFINITY).map { factor ->
                 sample.copy(sessions = listOf(session.copy(segments = listOf(
                     session.segments.first().copy(efficiency = factor)
                 ))))

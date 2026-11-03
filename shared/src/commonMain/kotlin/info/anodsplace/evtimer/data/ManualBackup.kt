@@ -246,7 +246,7 @@ object BackupFormat {
             valid(it.actualPercent == null || percent(it.actualPercent), "actual percentage")
             valid(it.segments.isNotEmpty() && it.segments.all { segment -> positive(segment.powerKw) } &&
                 it.segments.all { segment -> segment.efficiency == null ||
-                    (segment.efficiency.isFinite() && segment.efficiency > 0.0 && segment.efficiency <= 1.0) } &&
+                    (positive(segment.efficiency) && segment.efficiency <= 1.0) } &&
                 (backup.formatVersion != 1 || (it.segments.all { segment -> segment.efficiency == null } &&
                     !it.calibrationEnabled)) &&
                 (1 until it.segments.size).all { index ->

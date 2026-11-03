@@ -144,6 +144,21 @@ class EndSummaryScreenTest {
     }
 
     @Test
+    fun fractionalPrefillRoundTripsWhenOnlyConsentChanges() = runDesktopComposeUiTest {
+        var saved: Pair<Float?, Boolean>? = null
+        val entry = readingEntry().copy(actualPercent = 28.54f)
+        setContent {
+            MaterialTheme {
+                CarReadingDialog(entry, {}, { _, actual, consent -> saved = actual to consent })
+            }
+        }
+        onNodeWithText("28.54").assertExists()
+        onNodeWithText("Read when timer stopped").performClick()
+        onNodeWithText("Save").performClick()
+        runOnIdle { assertEquals(28.54f to true, saved) }
+    }
+
+    @Test
     fun shareUsesCompactPlainTextAndDoneIsExplicit() = runDesktopComposeUiTest {
         var shared = ""
         var done = false
