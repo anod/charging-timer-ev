@@ -65,6 +65,7 @@ async function waitForRecord(page, accept = record => record !== null) {
             await page.screenshot({ path: path.join(screenshots, `startup-${colorScheme}.png`) });
             fs.writeFileSync(path.join(screenshots, `semantics-${colorScheme}.txt`),
                 await page.locator("body").ariaSnapshot());
+            fs.writeFileSync(path.join(screenshots, `dom-${colorScheme}.html`), await page.content());
             assert.deepEqual(errors, []);
             assert.notEqual(initial, null, "Wasm must durably initialize IndexedDB before the UI is usable");
             const payload = JSON.parse(initial.payload);
@@ -76,9 +77,11 @@ async function waitForRecord(page, accept = record => record !== null) {
             await page.waitForTimeout(3000);
             await page.screenshot({ path: path.join(screenshots, `storage-${colorScheme}.png`) });
 
-            const downloadEvent = page.waitForEvent("download");
-            await page.getByRole("button", { name: "Export backup", exact: true }).click();
-            const download = await downloadEvent;
+            // Compose's accessibility DOM proxies are not pointer hit targets.
+            const [download] = await Promise.all([
+                page.waitForEvent("download"),
+                page.getByRole("button", { name: "Export backup", exact: true }).press("Enter", { timeout: 10_000 })
+            ]);
             assert.equal(await download.failure(), null);
             const exported = JSON.parse(fs.readFileSync(await download.path(), "utf8"));
             assert.equal(exported.formatVersion, 2);
@@ -92,15 +95,17 @@ async function waitForRecord(page, accept = record => record !== null) {
                 '"startPercent":20,"targetPercent":80,"efficiency":0.9,"endedAt":300,' +
                 '"actualPercent":78.5,"calibrationEnabled":true,' +
                 '"segments":[{"startedAt":100,"powerKw":11,"efficiency":0.85}]}]');
-            const chooserEvent = page.waitForEvent("filechooser");
-            await page.getByRole("button", { name: "Import backup", exact: true }).click();
-            await (await chooserEvent).setFiles({
+            const [chooser] = await Promise.all([
+                page.waitForEvent("filechooser"),
+                page.getByRole("button", { name: "Import backup", exact: true }).press("Enter", { timeout: 10_000 })
+            ]);
+            await chooser.setFiles({
                 name: "backup.json", mimeType: "application/json", buffer: Buffer.from(imported)
             });
             await page.getByRole("button", { name: "Replace data", exact: true }).waitFor();
             // Merely reading the file must not mutate persisted data.
             assert.equal(await page.evaluate(async () => JSON.parse(await evTimerStorage.read()).revision), initial.revision);
-            await page.getByRole("button", { name: "Replace data", exact: true }).click();
+            await page.getByRole("button", { name: "Replace data", exact: true }).press("Enter", { timeout: 10_000 });
             const committed = await waitForRecord(page, record => record?.payload.includes("Imported car"));
             assert.notEqual(committed, null, "Confirmed import must commit the selected backup");
             assert.ok(committed.payload.includes('"id":9007199254740993'));
