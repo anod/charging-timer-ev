@@ -35,6 +35,14 @@ async function clickCanvasButton(page, name) {
     await button.click({ force: true, timeout: 10_000 });
 }
 
+async function waitForAccessibleText(page, text) {
+    const deadline = Date.now() + 10_000;
+    while (!(await page.locator("body").ariaSnapshot()).includes(text)) {
+        assert.ok(Date.now() < deadline, `Accessible UI must contain: ${text}`);
+        await page.waitForTimeout(100);
+    }
+}
+
 (async () => {
     fs.mkdirSync(screenshots, { recursive: true });
     const server = http.createServer((request, response) => {
@@ -188,11 +196,12 @@ async function clickCanvasButton(page, name) {
             locale: "en-US", viewport: { width: 1100, height: 800 }
         });
         await notificationContext.addInitScript(() => {
-            globalThis.notificationTest = { permission: "denied", requests: 0, attempts: 0, fail: true };
+            globalThis.notificationTest = { permission: "denied", requests: 0, attempts: 0, fail: true, rejectPermission: false };
             globalThis.Notification = class {
                 static get permission() { return notificationTest.permission; }
                 static async requestPermission() {
                     notificationTest.requests++;
+                    if (notificationTest.rejectPermission) throw new Error("Permission request failed");
                     return notificationTest.permission;
                 }
                 constructor() {
@@ -202,6 +211,8 @@ async function clickCanvasButton(page, name) {
             };
         });
         const notificationPage = await notificationContext.newPage();
+        const notificationErrors = [];
+        notificationPage.on("pageerror", error => notificationErrors.push(error.message));
         notificationPage.on("console", message => console.log(`[notifications] ${message.type()}: ${message.text()}`));
         await notificationPage.goto(origin);
         assert.notEqual(await waitForRecord(notificationPage), null);
@@ -211,9 +222,17 @@ async function clickCanvasButton(page, name) {
             "Startup must not request notification permission");
         await clickCanvasButton(notificationPage, "Enable foreground notifications");
         await notificationPage.waitForFunction(() => notificationTest.requests === 1);
+        await notificationPage.waitForTimeout(300);
         await notificationPage.screenshot({ path: path.join(screenshots, "notification-permission.png") });
-        await notificationPage.getByText(/^A notification could not be delivered or permission was denied/).waitFor();
+        fs.writeFileSync(path.join(screenshots, "notification-semantics.txt"), await notificationPage.locator("body").ariaSnapshot());
+        await waitForAccessibleText(notificationPage, "A notification could not be delivered or permission was denied");
         assert.equal(JSON.parse((await waitForRecord(notificationPage)).payload).notificationsEnabled, false);
+        await notificationPage.evaluate(() => { notificationTest.rejectPermission = true; });
+        await clickCanvasButton(notificationPage, "Enable foreground notifications");
+        await notificationPage.waitForFunction(() => notificationTest.requests === 2);
+        await waitForAccessibleText(notificationPage, "A notification could not be delivered or permission was denied");
+        assert.equal(JSON.parse((await waitForRecord(notificationPage)).payload).notificationsEnabled, false);
+        await notificationPage.evaluate(() => { notificationTest.rejectPermission = false; });
         await notificationPage.evaluate(() => { notificationTest.permission = "granted"; });
         await clickCanvasButton(notificationPage, "Enable foreground notifications");
         assert.notEqual(await waitForRecord(notificationPage, record =>
@@ -233,8 +252,8 @@ async function clickCanvasButton(page, name) {
             const state = JSON.parse(record?.payload || "{}");
             return state.activeSession === null && state.completionNotificationAttempted === true;
         }), null, "Completion and its notification claim must persist even when notification construction fails");
-        await notificationPage.getByText(/^A notification could not be delivered or permission was denied/).waitFor();
-        assert.equal(await notificationPage.evaluate(() => notificationTest.requests), 2);
+        await waitForAccessibleText(notificationPage, "A notification could not be delivered or permission was denied");
+        assert.equal(await notificationPage.evaluate(() => notificationTest.requests), 3);
         assert.equal(await notificationPage.evaluate(() => notificationTest.attempts), 1);
         await notificationPage.screenshot({ path: path.join(screenshots, "notification-failure.png") });
         await notificationPage.reload();
@@ -242,6 +261,7 @@ async function clickCanvasButton(page, name) {
         assert.equal(await notificationPage.evaluate(() => notificationTest.requests), 0);
         assert.equal(await notificationPage.evaluate(() => notificationTest.attempts), 0,
             "Reload must not re-attempt an already-claimed notification");
+        assert.deepEqual(notificationErrors, [], "Notification failures must be handled, not escape the Wasm boundary");
         await notificationContext.close();
         console.log("Real Chromium: shared timer UI, durable start/reload, epoch catch-up/completion, backup roundtrip, IndexedDB conflicts and light/dark screenshots passed");
     } finally {
