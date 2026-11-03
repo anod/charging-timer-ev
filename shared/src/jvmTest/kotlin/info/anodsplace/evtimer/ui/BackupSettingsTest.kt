@@ -61,7 +61,7 @@ class BackupSettingsTest {
                 state.value = BackupState(pending = pending)
             }
             onNodeWithText("Exported $date\nApp version 1.0\n$counts")
-                .assertExists(onAllNodes(isRoot()).printToString())
+                .assertExists(onAllNodes(isRoot()).printToString(maxDepth = 10))
             onNodeWithText(exportedAt, substring = true).assertDoesNotExist()
             onNodeWithText("Restore backup?").assertExists()
             onNodeWithText("Replaces all presets and history on this device. No timer will resume.").assertExists()
