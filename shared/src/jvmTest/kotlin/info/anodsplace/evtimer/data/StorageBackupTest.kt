@@ -46,7 +46,13 @@ class StorageBackupTest {
                     driver.execute(null, "UPDATE charge_session SET efficiency=1 WHERE id=123", 0)
                     kotlin.test.assertFails { driver.execute(null, "UPDATE charge_session SET efficiency=1.01 WHERE id=123", 0) }
                     queries.putSegment(123L, 789L, 18.0, 0.8)
-                    kotlin.test.assertFails { queries.putSegment(123L, 900L, 18.0, 1.01) }
+                    for (factor in listOf(0f, -0.1f, 1.01f, Float.NaN, Float.POSITIVE_INFINITY)) {
+                        kotlin.test.assertFailsWith<IllegalArgumentException> {
+                            val segment = PowerSegment(900L, 18f, factor)
+                            queries.putSegment(123L, segment.startedAt, segment.powerKw.toDouble(), segment.efficiency?.toDouble())
+                        }
+                    }
+                    assertEquals(listOf(123L, 456L, 789L), queries.segments(123L).executeAsList().map { it.started_at })
                     kotlin.test.assertFails {
                         queries.putSession(124L, 60.0, 20.0, 90.0, 1.0, null, null, true, false)
                     }

@@ -110,6 +110,8 @@ nonblank stored names, non-empty positive power options and ordered
 segments, finite positive capacity/power, percentages in `[0,100]`, and
 snapshot efficiency in `(0,1]`; nullable segment efficiency, when present, is
 also in `(0,1]`.
+Segment bounds are enforced at the Kotlin model and backup-import boundaries,
+not by a database CHECK; the session efficiency CHECK remains in place.
 Numeric values must also be representable by the app's
 Float-based calculator. An end timestamp cannot precede the last segment.
 Emoji, including joined sequences, are preserved without normalization.

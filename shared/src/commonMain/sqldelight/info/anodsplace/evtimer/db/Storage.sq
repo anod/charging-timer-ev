@@ -40,7 +40,7 @@ CREATE TABLE power_segment (
     session_id INTEGER NOT NULL REFERENCES charge_session(id) ON DELETE CASCADE,
     started_at INTEGER NOT NULL,
     power_kw REAL NOT NULL CHECK (power_kw > 0),
-    efficiency REAL CHECK (efficiency > 0 AND efficiency <= 1),
+    efficiency REAL,
     PRIMARY KEY (session_id, started_at)
 );
 
