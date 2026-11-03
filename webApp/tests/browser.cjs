@@ -90,10 +90,17 @@ async function clickCanvasButton(page, name) {
             const reloaded = await waitForRecord(page);
             assert.deepEqual(JSON.parse(reloaded.payload).activeSession, active,
                 "Reload must resume the persisted snapshot rather than restarting the timer");
-            // Simulate a closed/suspended page by advancing wall-clock time without
-            // running any ticks. pageshow must catch up and finish at the target epoch.
-            await page.clock.install();
-            await page.clock.setSystemTime(new Date(active.segments[0].startedAt + 30 * 24 * 3_600_000));
+            // Age the durable fixture as if the browser had been closed for a month.
+            // Keep the rendering/event clock real: faking it also changes Compose
+            // pointer/animation scheduling, which is not the timer's source of truth.
+            await page.evaluate(async () => {
+                const record = JSON.parse(await evTimerStorage.read());
+                const state = JSON.parse(record.payload);
+                for (const segment of state.activeSession.segments) {
+                    segment.startedAt -= 30 * 24 * 3_600_000;
+                }
+                await evTimerStorage.write(record.revision, JSON.stringify(state));
+            });
             await page.evaluate(() => window.dispatchEvent(new Event("pageshow")));
             const completed = await waitForRecord(page, record => {
                 const state = JSON.parse(record?.payload || "{}");
@@ -102,9 +109,11 @@ async function clickCanvasButton(page, name) {
             assert.notEqual(completed, null, "Resume must complete an elapsed timer");
             const history = JSON.parse(completed.payload).backup.sessions[0];
             assert.equal(history.endPercent, active.targetPercent);
-            assert.ok(history.endedAt < active.segments[0].startedAt + 30 * 24 * 3_600_000,
+            assert.ok(history.endedAt < active.segments[0].startedAt,
                 "History must use the calculated target time, not the page resume time");
             await clickCanvasButton(page, "Charging data");
+            await page.getByRole("button", { name: "Back to timer", exact: true }).waitFor();
+            await page.waitForTimeout(300);
             await page.screenshot({ path: path.join(screenshots, `storage-${colorScheme}.png`) });
 
             // Transparent semantics proxies share the canvas control's bounds but
