@@ -161,7 +161,7 @@ internal fun BrowserTimerApp() {
                     }
                 }
                 Box(Modifier.weight(1f).fillMaxWidth()) {
-                    if (storageOpen) BrowserStorageScreen(storage)
+                    if (storageOpen) BrowserStorageScreen(storage, state)
                     else state?.let { loaded ->
                         val running = loaded.runningViewState(now, formatter)
                         if (running != null) {

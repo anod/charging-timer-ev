@@ -44,7 +44,7 @@ fun main() {
 }
 
 @Composable
-internal fun BrowserStorageScreen(storage: BrowserStorage) {
+internal fun BrowserStorageScreen(storage: BrowserStorage, currentState: BrowserState?) {
     val scope = rememberCoroutineScope()
     var state by remember { mutableStateOf<BrowserState?>(null) }
     var pending by remember { mutableStateOf<ManualBackup?>(null) }
@@ -69,6 +69,9 @@ internal fun BrowserStorageScreen(storage: BrowserStorage) {
     }
 
     LaunchedEffect(storage) { operation { state = storage.load() } }
+    LaunchedEffect(currentState) {
+        if (currentState != null) state = currentState
+    }
 
     MaterialTheme(colorScheme = if (isSystemInDarkTheme()) darkColorScheme() else lightColorScheme()) {
         Surface(Modifier.fillMaxSize()) {

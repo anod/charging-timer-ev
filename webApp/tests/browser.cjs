@@ -90,6 +90,10 @@ async function clickCanvasButton(page, name) {
             const reloaded = await waitForRecord(page);
             assert.deepEqual(JSON.parse(reloaded.payload).activeSession, active,
                 "Reload must resume the persisted snapshot rather than restarting the timer");
+            await clickCanvasButton(page, "Charging data");
+            const importButton = page.getByRole("button", { name: "Import backup", exact: true });
+            await importButton.waitFor();
+            assert.equal(await importButton.isEnabled(), false, "Restore is disabled while active");
             // Age the durable fixture as if the browser had been closed for a month.
             // Keep the rendering/event clock real: faking it also changes Compose
             // pointer/animation scheduling, which is not the timer's source of truth.
@@ -111,9 +115,10 @@ async function clickCanvasButton(page, name) {
             assert.equal(history.endPercent, active.targetPercent);
             assert.ok(history.endedAt < active.segments[0].startedAt,
                 "History must use the calculated target time, not the page resume time");
-            await clickCanvasButton(page, "Charging data");
             await page.getByRole("button", { name: "Back to timer", exact: true }).waitFor();
             await page.waitForTimeout(300);
+            assert.equal(await importButton.isEnabled(), true,
+                "A storage screen left open must unlock restore after lifecycle completion");
             await page.screenshot({ path: path.join(screenshots, `storage-${colorScheme}.png`) });
 
             // Transparent semantics proxies share the canvas control's bounds but
@@ -192,12 +197,16 @@ async function clickCanvasButton(page, name) {
             };
         });
         const notificationPage = await notificationContext.newPage();
+        notificationPage.on("console", message => console.log(`[notifications] ${message.type()}: ${message.text()}`));
         await notificationPage.goto(origin);
         assert.notEqual(await waitForRecord(notificationPage), null);
         await notificationPage.getByRole("button", { name: "Start Timer", exact: true }).waitFor();
+        await notificationPage.waitForTimeout(3000);
         assert.equal(await notificationPage.evaluate(() => notificationTest.requests), 0,
             "Startup must not request notification permission");
         await clickCanvasButton(notificationPage, "Enable foreground notifications");
+        await notificationPage.waitForFunction(() => notificationTest.requests === 1);
+        await notificationPage.screenshot({ path: path.join(screenshots, "notification-permission.png") });
         await notificationPage.getByText(/^A notification could not be delivered or permission was denied/).waitFor();
         assert.equal(JSON.parse((await waitForRecord(notificationPage)).payload).notificationsEnabled, false);
         await notificationPage.evaluate(() => { notificationTest.permission = "granted"; });
