@@ -38,8 +38,8 @@ class ChargingCalibrationTest {
 
     @Test
     fun samplesClampToSeventyThroughOneHundredPercentAndRequireEligibleReadings() {
-        assertEquals(0.7, ChargingCalibration.sample(entry(actual = 21f)), 1e-8)
-        assertEquals(0.7, ChargingCalibration.sample(entry(actual = 27f)), 1e-6)
+        assertEquals(0.7, requireNotNull(ChargingCalibration.sample(entry(actual = 21f))), 1e-8)
+        assertEquals(0.7, requireNotNull(ChargingCalibration.sample(entry(actual = 27f))), 1e-6)
         assertEquals(1.0, ChargingCalibration.sample(entry(actual = 30.5f)))
         assertEquals(1.0, ChargingCalibration.sample(entry(actual = 100f)))
         for (excluded in listOf(
