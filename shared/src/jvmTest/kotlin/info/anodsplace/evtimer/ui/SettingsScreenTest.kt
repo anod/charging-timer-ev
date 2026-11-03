@@ -13,6 +13,8 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import info.anodsplace.evtimer.data.ChargingPreset
+import info.anodsplace.evtimer.data.ChargingSettings
 
 @OptIn(ExperimentalTestApi::class)
 class SettingsScreenTest {

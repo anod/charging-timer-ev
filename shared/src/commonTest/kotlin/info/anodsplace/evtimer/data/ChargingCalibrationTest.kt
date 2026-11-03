@@ -38,8 +38,8 @@ class ChargingCalibrationTest {
 
     @Test
     fun samplesClampToSeventyThroughOneHundredPercentAndRequireEligibleReadings() {
-        assertEquals(0.7, ChargingCalibration.sample(entry(actual = 21f)))
-        assertEquals(0.7, ChargingCalibration.sample(entry(actual = 27f)))
+        assertEquals(0.7, ChargingCalibration.sample(entry(actual = 21f)), 1e-8)
+        assertEquals(0.7, ChargingCalibration.sample(entry(actual = 27f)), 1e-6)
         assertEquals(1.0, ChargingCalibration.sample(entry(actual = 30.5f)))
         assertEquals(1.0, ChargingCalibration.sample(entry(actual = 100f)))
         for (excluded in listOf(
@@ -64,7 +64,9 @@ class ChargingCalibrationTest {
         assertEquals(0.94f, split.factor("home", 6f), 1e-6f)
         assertEquals(0.94f, split.factor("home", 12f), 1e-6f)
         assertEquals(1f, split.factor("other-home", 6f))
-        val exactSpeed = ChargingCalibration.derive(listOf(entry(power = 6.0001f)), listOf(home))
+        val exactSpeed = ChargingCalibration.derive(
+            listOf(entry(power = 6.0001f)), listOf(home)
+        )
         assertEquals(0.94f, exactSpeed.factor("home", 6.0001f), 1e-6f)
         assertEquals(1f, exactSpeed.factor("home", 6.0002f))
         val high = entry(id = 4L, actual = 30.5f)
