@@ -16,8 +16,10 @@
     <string name="reading_save_failed">Could not save the reading. Try again.</string>
     <string name="calibration_info">Estimate information for %1$s</string>
     <string name="calibration_speed">%1$s kW</string>
-    <string name="calibration_factor_count_one">Estimate factor %1$s% · %2$d reading</string>
-    <string name="calibration_factor_count_other">Estimate factor %1$s% · %2$d readings</string>
+    <plurals name="calibration_factor_count">
+        <item quantity="one">Estimate factor %1$s% · %2$d reading</item>
+        <item quantity="other">Estimate factor %1$s% · %2$d readings</item>
+    </plurals>
     <string name="calibration_reset_speed">Reset</string>
     <string name="calibration_reset_speed_title">Reset %1$s at %2$s kW?</string>
     <string name="calibration_reset_speed_message">Keep car readings. Return this estimate factor to 100%.</string>

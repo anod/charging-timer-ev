@@ -54,6 +54,7 @@ import info.anodsplace.evtimer.data.PresetNameError
 import info.anodsplace.evtimer.data.normalizeAndValidatePresetName
 import info.anodsplace.evtimer.generated.resources.*
 import org.jetbrains.compose.resources.stringResource
+import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.painterResource
 import kotlin.math.roundToInt
 import kotlinx.coroutines.CancellationException
@@ -231,10 +232,11 @@ internal fun PresetManagement(
                             Column(Modifier.weight(1f)) {
                                 Text(stringResource(Res.string.calibration_speed,
                                     formatLocaleNumber(power, 0, 6)))
-                                Text(stringResource(
-                                    if (estimate.eligibleCount == 1) Res.string.calibration_factor_count_one
-                                    else Res.string.calibration_factor_count_other,
-                                    formatLocaleNumber(estimate.factor * 100f, 0, 1), estimate.eligibleCount
+                                Text(pluralStringResource(
+                                    Res.plurals.calibration_factor_count,
+                                    estimate.eligibleCount,
+                                    formatLocaleNumber(estimate.factor * 100f, 0, 1),
+                                    estimate.eligibleCount
                                 ),
                                     style = MaterialTheme.typography.bodySmall)
                             }

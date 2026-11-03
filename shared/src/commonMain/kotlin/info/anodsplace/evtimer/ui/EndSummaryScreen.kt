@@ -180,7 +180,9 @@ internal fun CarReadingDialog(
     onDismiss: () -> Unit,
     onSave: suspend (Long, Float?, Boolean) -> Unit
 ) {
-    var text by rememberSaveable(entry.id) { mutableStateOf(entry.actualPercent?.toString().orEmpty()) }
+    var text by rememberSaveable(entry.id) {
+        mutableStateOf(entry.actualPercent?.let { formatLocaleNumber(it, 0, 1) }.orEmpty())
+    }
     var consent by rememberSaveable(entry.id) { mutableStateOf(entry.calibrationEnabled) }
     var busy by remember { mutableStateOf(false) }
     var failed by remember { mutableStateOf(false) }

@@ -121,7 +121,8 @@ class EndSummaryScreenTest {
         setContent {
             MaterialTheme { CarReadingDialog(entry, {}, { _, _, _ -> }) }
         }
-        onNodeWithText("28.0").assertExists()
+        onNodeWithText("28").assertExists()
+        onNodeWithText("28.0").assertDoesNotExist()
         onNodeWithText("Read when timer stopped").assertIsNotEnabled().assertIsOff()
         onNodeWithText("Interrupted sessions are not used for calibration.")
             .assertExists()
