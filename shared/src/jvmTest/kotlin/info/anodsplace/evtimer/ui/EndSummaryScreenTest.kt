@@ -129,6 +129,21 @@ class EndSummaryScreenTest {
     }
 
     @Test
+    fun wholeNumberPrefillOmitsTrailingDecimalAndCanBeSaved() = runDesktopComposeUiTest {
+        var saved: Float? = null
+        val entry = readingEntry().copy(actualPercent = 80f)
+        setContent {
+            MaterialTheme {
+                CarReadingDialog(entry, {}, { _, actual, _ -> saved = actual })
+            }
+        }
+        onNodeWithText("80").assertExists()
+        onNodeWithText("80.0").assertDoesNotExist()
+        onNodeWithText("Save").performClick()
+        runOnIdle { assertEquals(80f, saved) }
+    }
+
+    @Test
     fun shareUsesCompactPlainTextAndDoneIsExplicit() = runDesktopComposeUiTest {
         var shared = ""
         var done = false
