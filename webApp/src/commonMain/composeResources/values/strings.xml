@@ -1,3 +1,15 @@
 <resources>
-    <string name="web_storage_unavailable">Web storage is not available yet. Your charging data will not be saved.</string>
+    <string name="web_storage_title">Charging data</string>
+    <string name="web_storage_description">Browser storage and backup are ready. The charging timer will be connected in the next web release.</string>
+    <string name="web_storage_privacy">Data stays in this browser on this site. Clearing site data or leaving private browsing can erase it. Export a backup and keep the unencrypted file somewhere private.</string>
+    <string name="web_storage_counts">Saved presets: %1$d, history entries: %2$d</string>
+    <string name="web_backup_export">Export backup</string>
+    <string name="web_backup_import">Import backup</string>
+    <string name="web_storage_error">Storage or file operation failed. Your action was not confirmed. Close other tabs and retry; do not clear site data. Check browser download permissions if exporting.</string>
+    <string name="web_storage_retry">Reload storage</string>
+    <string name="web_backup_download_requested">Download requested. Check your browser downloads to confirm the file was saved.</string>
+    <string name="web_backup_confirm_title">Replace browser data?</string>
+    <string name="web_backup_confirm">This backup contains %1$d presets and %2$d history entries. It will replace all presets, preferences and history in this browser. Unfinished imported sessions become interrupted history, never running timers.</string>
+    <string name="web_backup_replace">Replace data</string>
+    <string name="web_backup_cancel">Cancel</string>
 </resources>
