@@ -5,7 +5,15 @@
     <string name="backup_stop_first">Stop the current session first</string>
     <string name="backup_working">Working…</string>
     <string name="backup_confirm_title">Restore backup?</string>
-    <string name="backup_details">Exported %1$s\nApp version %2$s\n%3$d presets · %4$d sessions</string>
+    <string name="backup_details">Exported %1$s\nApp version %2$s\n%3$s · %4$s</string>
+    <plurals name="backup_preset_count">
+        <item quantity="one">%d preset</item>
+        <item quantity="other">%d presets</item>
+    </plurals>
+    <plurals name="backup_session_count">
+        <item quantity="one">%d session</item>
+        <item quantity="other">%d sessions</item>
+    </plurals>
     <string name="backup_replace_warning">Replaces all presets and history on this device. No timer will resume.</string>
     <string name="backup_exported">Backup saved</string>
     <string name="backup_restored">Backup restored</string>

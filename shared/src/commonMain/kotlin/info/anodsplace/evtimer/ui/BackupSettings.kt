@@ -19,9 +19,12 @@ import info.anodsplace.evtimer.data.BackupError
 import info.anodsplace.evtimer.data.BackupMessage
 import info.anodsplace.evtimer.data.BackupState
 import info.anodsplace.evtimer.data.SettingsViewModel
+import info.anodsplace.evtimer.data.formatSessionDate
 import info.anodsplace.evtimer.data.rememberBackupPicker
 import info.anodsplace.evtimer.generated.resources.*
+import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
+import kotlin.time.Instant
 
 @Composable
 fun BackupSettings(viewModel: SettingsViewModel) {
@@ -88,8 +91,13 @@ internal fun BackupSettingsContent(
             title = { Text(stringResource(Res.string.backup_confirm_title)) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text(stringResource(Res.string.backup_details, pending.exportedAt, pending.appVersion,
-                        pending.presets.size, pending.sessions.size))
+                    Text(stringResource(
+                        Res.string.backup_details,
+                        formatSessionDate(Instant.parse(pending.exportedAt).toEpochMilliseconds()),
+                        pending.appVersion,
+                        pluralStringResource(Res.plurals.backup_preset_count, pending.presets.size, pending.presets.size),
+                        pluralStringResource(Res.plurals.backup_session_count, pending.sessions.size, pending.sessions.size)
+                    ))
                     Text(stringResource(Res.string.backup_replace_warning))
                 }
             },

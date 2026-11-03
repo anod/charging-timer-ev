@@ -12,12 +12,60 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import info.anodsplace.evtimer.data.BackupError
 import info.anodsplace.evtimer.data.BackupMessage
+import info.anodsplace.evtimer.data.BackupFormat
+import info.anodsplace.evtimer.data.BackupPreferences
+import info.anodsplace.evtimer.data.BackupPreset
+import info.anodsplace.evtimer.data.BackupSegment
+import info.anodsplace.evtimer.data.BackupSession
 import info.anodsplace.evtimer.data.BackupState
+import info.anodsplace.evtimer.data.ManualBackup
+import info.anodsplace.evtimer.data.formatSessionDate
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.time.Instant
 
 @OptIn(ExperimentalTestApi::class)
 class BackupSettingsTest {
+    @Test
+    fun restoreDialogFormatsExportTimeLikeHistoryAndPluralizesCounts() = runDesktopComposeUiTest {
+        val exportedAt = "2026-11-02T21:45:18.009978Z"
+        val backup = ManualBackup(
+            BackupFormat.FORMAT, BackupFormat.VERSION, exportedAt, "1.0",
+            BackupPreferences("preset-0", 20f),
+            listOf(BackupPreset("preset-0", "Home", 60.0, 7.0, 80.0, listOf(7.0))),
+            listOf(BackupSession(1, 60.0, 20.0, 80.0, 1.0, listOf(BackupSegment(1, 7.0))))
+        )
+        val state = mutableStateOf(BackupState(pending = backup))
+        setContent {
+            AppTheme {
+                BackupSettingsContent(state.value, false, {}, {}, {}, {})
+            }
+        }
+        val date = formatSessionDate(Instant.parse(exportedAt).toEpochMilliseconds())
+        val cases = listOf(
+            Triple(1, 1, "1 preset · 1 session"),
+            Triple(3, 1, "3 presets · 1 session"),
+            Triple(1, 3, "1 preset · 3 sessions"),
+            Triple(3, 3, "3 presets · 3 sessions"),
+            Triple(1, 0, "1 preset · 0 sessions")
+        )
+        for ((presets, sessions, counts) in cases) {
+            runOnIdle {
+                val pending = backup.copy(
+                    presets = List(presets) { backup.presets.single().copy(id = "preset-$it") },
+                    sessions = List(sessions) { backup.sessions.single().copy(id = it + 1L) }
+                )
+                BackupFormat.validate(pending)
+                state.value = BackupState(pending = pending)
+            }
+            onNodeWithText("Exported $date\nApp version 1.0\n$counts").assertExists()
+            onNodeWithText(exportedAt, substring = true).assertDoesNotExist()
+            onNodeWithText("Restore backup?").assertExists()
+            onNodeWithText("Replaces all presets and history on this device. No timer will resume.").assertExists()
+            onNodeWithText("Restore from backup").assertIsEnabled()
+        }
+    }
+
     @Test
     fun groupedBackupRowsRespectRunningAndBusyStatesWithoutHidingOtherRoutes() = runDesktopComposeUiTest {
         val state = mutableStateOf(BackupState())
