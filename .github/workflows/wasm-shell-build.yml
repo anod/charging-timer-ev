@@ -8,6 +8,7 @@ on:
       - "webApp/**"
       - "shared/**"
       - "storage/**"
+      - "database/**"
       - "lib/**"
       - "gradle/**"
       - "settings.gradle.kts"

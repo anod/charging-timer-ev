@@ -208,7 +208,9 @@ cache or deployment is included. Foreground-only notifications are described bel
 
 The shared module now has a Wasm target. Platform-only storage, ViewModels and
 native app wiring live in `platformMain`; Android/iOS/JVM still use those same
-implementations. Browser configuration and running screens are the existing
+implementations. The unchanged SQLDelight schema generation is isolated in the
+native-targeted `:database` module so the browser never resolves a SQL runtime.
+Browser configuration and running screens are the existing
 stateless shared composables. `BrowserTimerRuntime` reuses `ChargingCalculator`,
 saved epoch snapshots, per-segment efficiencies and history-derived calibration.
 Presets/drafts and timestamped speed changes commit through `BrowserStorage`.

@@ -5,7 +5,6 @@ import groovy.json.JsonSlurper
 plugins {
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.aboutlibraries)
-    alias(libs.plugins.sqldelight)
     alias(libs.plugins.kotlin.multiplatform)
     alias(libs.plugins.kotlin.multiplatform.android.library)
     alias(libs.plugins.composeMultiplatform)
@@ -117,6 +116,7 @@ kotlin {
         iosMain.dependencies { implementation(libs.sqldelight.native.driver) }
         jvmMain.dependencies { implementation(libs.sqldelight.sqlite.driver) }
         platformMain.dependencies {
+            api(project(":database"))
             implementation(libs.kotlinx.serialization.json)
             implementation(libs.aboutlibraries.core)
             implementation(libs.aboutlibraries.compose.m3)
@@ -154,17 +154,6 @@ kotlin {
         jvmTest.dependencies {
             implementation(libs.compose.uiTest)
             implementation(compose.desktop.currentOs)
-        }
-    }
-}
-
-sqldelight {
-    databases {
-        create("ChargingDatabase") {
-            packageName.set("info.anodsplace.evtimer.db")
-            verifyMigrations.set(true)
-            schemaOutputDirectory.set(file("src/commonMain/sqldelight/databases"))
-            dialect(libs.sqldelight.dialect)
         }
     }
 }

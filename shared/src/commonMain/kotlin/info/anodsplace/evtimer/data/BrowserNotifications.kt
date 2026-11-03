@@ -46,9 +46,10 @@ class BrowserNotifications(
                 ?: state.backup.sessions.firstOrNull { it.id == state.notificationSessionId }
                 ?: return null
             val snapshot = session.snapshot()
+            val endedAt = session.endedAt
             return when {
                 now >= snapshot.targetTime() &&
-                    (session.endedAt == null || session.endedAt >= snapshot.targetTime()) ->
+                    (endedAt == null || endedAt >= snapshot.targetTime()) ->
                     BrowserAlert.COMPLETE.takeUnless { state.completionNotificationAttempted }
                 session.endedAt == null && state.backup.preferences.notifyAt80 &&
                     ChargingCalculator.estimateMilestone(snapshot, now)?.reached == true ->
