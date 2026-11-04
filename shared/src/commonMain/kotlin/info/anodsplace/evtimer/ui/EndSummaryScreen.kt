@@ -73,7 +73,7 @@ private fun summaryPresetName(summary: ChargingSummary): String =
 @Composable
 fun EndSummaryScreen(
     summary: ChargingSummary,
-    onShare: (String) -> ShareResult,
+    onShare: ((String) -> ShareResult)?,
     onDone: () -> Unit,
     modifier: Modifier = Modifier,
     entry: ChargingHistoryEntry? = null,
@@ -151,7 +151,7 @@ fun EndSummaryScreen(
                 OutlinedButton(onClick = onDone, modifier = Modifier.weight(1f)) {
                     Text(stringResource(Res.string.summary_done))
                 }
-                Button(onClick = {
+                if (onShare != null) Button(onClick = {
                     scope.launch {
                         try {
                             if (onShare(shareText) == ShareResult.Copied) snackbar.showSnackbar(copied)

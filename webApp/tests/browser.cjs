@@ -137,6 +137,11 @@ async function waitForAccessibleText(page, text) {
             assert.equal(history.endPercent, active.targetPercent);
             assert.ok(history.endedAt < active.segments[0].startedAt,
                 "History must use the calculated target time, not the page resume time");
+            await clickCanvasButton(page, "Back to timer");
+            await waitForAccessibleText(page, "Charge summary");
+            await waitForAccessibleText(page, "60% → 100%");
+            await clickCanvasButton(page, "Done");
+            await clickCanvasButton(page, "Charging data");
             await page.getByRole("button", { name: "Back to timer", exact: true }).waitFor();
             await page.waitForTimeout(300);
             await page.screenshot({ path: path.join(screenshots, `storage-${colorScheme}.png`) });
@@ -196,6 +201,79 @@ async function waitForAccessibleText(page, text) {
             await page.reload();
             await page.waitForFunction(() => !!globalThis.evTimerStorage);
             assert.equal(await page.evaluate(async () => JSON.parse(await evTimerStorage.read()).revision), next.revision);
+            assert.deepEqual(errors, []);
+            await context.close();
+        }
+        for (const [device, viewport] of [
+            ["phone", { width: 390, height: 844 }],
+            ["desktop", { width: 1100, height: 900 }]
+        ]) {
+            const context = await browser.newContext({ locale: "en-US", viewport });
+            const page = await context.newPage();
+            const errors = [];
+            page.on("pageerror", error => errors.push(error.message));
+            await page.goto(origin);
+            assert.notEqual(await waitForRecord(page), null);
+            await page.waitForTimeout(3000);
+            await clickCanvasButton(page, "Start Timer");
+            assert.notEqual(await waitForRecord(page, record =>
+                JSON.parse(record?.payload || "{}").activeSession != null), null);
+            // End a persisted one-hour charge, using real event/rendering time.
+            await page.evaluate(async () => {
+                const record = JSON.parse(await evTimerStorage.read());
+                const state = JSON.parse(record.payload);
+                for (const segment of state.activeSession.segments) segment.startedAt -= 3_600_000;
+                await evTimerStorage.write(record.revision, JSON.stringify(state));
+                window.dispatchEvent(new Event("pageshow"));
+            });
+            await waitForAccessibleText(page, "Charging in Progress");
+            // Stop is below the fold on a phone; scroll the actual Compose canvas.
+            await page.mouse.move(viewport.width / 2, viewport.height - 100);
+            await page.mouse.wheel(0, 900);
+            await page.waitForTimeout(500);
+            await clickCanvasButton(page, "Stop Timer");
+            const ended = await waitForRecord(page, record => {
+                const state = JSON.parse(record?.payload || "{}");
+                return state.activeSession === null && state.backup?.sessions.length === 1;
+            });
+            assert.notEqual(ended, null);
+            const saved = JSON.parse(ended.payload).backup.sessions[0];
+            assert.ok(saved.endedAt - saved.segments[0].startedAt >= 3_600_000);
+            assert.ok(saved.endPercent > 60 && saved.endPercent < 100);
+            const endText = new Intl.NumberFormat("en-US", { maximumFractionDigits: 1 }).format(saved.endPercent);
+            const energy = new Intl.NumberFormat("en-US", { maximumFractionDigits: 1 })
+                .format(saved.batteryCapacity * (saved.endPercent - saved.startPercent) / 100);
+            const verifySummary = async () => {
+                await waitForAccessibleText(page, "Charge summary");
+                await waitForAccessibleText(page, `60% → ${endText}%`);
+                await waitForAccessibleText(page, `${energy} kWh`);
+                await waitForAccessibleText(page, "Elapsed Time");
+                await waitForAccessibleText(page, "1h");
+                await waitForAccessibleText(page, "Average power");
+                await waitForAccessibleText(page, "11 kW");
+            };
+            await verifySummary();
+            await page.screenshot({ path: path.join(screenshots, `summary-${device}.png`) });
+            await page.reload();
+            await verifySummary();
+            await clickCanvasButton(page, "Done");
+            await clickCanvasButton(page, "Charging history");
+            await waitForAccessibleText(page, `60% → ${endText}%`);
+            await waitForAccessibleText(page, `${energy} kWh`);
+            await page.screenshot({ path: path.join(screenshots, `history-${device}.png`) });
+            await page.reload();
+            await clickCanvasButton(page, "Charging history");
+            await waitForAccessibleText(page, `60% → ${endText}%`);
+            await waitForAccessibleText(page, `${energy} kWh`);
+            const card = page.getByRole("button").filter({ hasText: `60% → ${endText}%` }).first();
+            const bounds = await card.boundingBox();
+            assert.ok(bounds);
+            await page.mouse.click(bounds.x + bounds.width / 3, bounds.y + bounds.height / 2);
+            await verifySummary();
+            await clickCanvasButton(page, "Done");
+            await waitForAccessibleText(page, `${energy} kWh`);
+            assert.deepEqual(JSON.parse((await waitForRecord(page)).payload).backup.sessions[0],
+                { ...saved, reviewed: true }, "History display and reload must preserve saved values");
             assert.deepEqual(errors, []);
             await context.close();
         }
@@ -264,7 +342,7 @@ async function waitForAccessibleText(page, text) {
         assert.equal(await notificationPage.evaluate(() => notificationTest.attempts), 1);
         await notificationPage.screenshot({ path: path.join(screenshots, "notification-failure.png") });
         await notificationPage.reload();
-        await notificationPage.getByRole("button", { name: "Start Timer", exact: true }).waitFor();
+        await waitForAccessibleText(notificationPage, "Charge summary");
         assert.equal(await notificationPage.evaluate(() => notificationTest.requests), 0);
         assert.equal(await notificationPage.evaluate(() => notificationTest.attempts), 0,
             "Reload must not re-attempt an already-claimed notification");

@@ -51,6 +51,28 @@ class BrowserTimerRuntimeTest {
     }
 
     @Test
+    fun stoppedSummaryAndHistoryRemainSavedUntilExplicitAcknowledgmentOrDeletion() = runTest {
+        val runtime = configured()
+        runtime.start()
+        clock.epoch += 3_600_000L
+        val stopped = runtime.stop()
+        val entry = stopped.historyEntries().single()
+        assertFalse(entry.reviewed)
+        assertEquals(30f, entry.endPercent)
+        assertEquals(10f, entry.summary().energyKwh)
+        assertEquals(3_600_000L, entry.summary().durationMillis)
+        assertEquals(entry, runtime().reconcile().historyEntries().single())
+        val acknowledged = runtime.acknowledgeCompletion(entry.id).historyEntries().single()
+        assertEquals(entry.copy(reviewed = true), acknowledged)
+        store.failWrite = true
+        assertFailsWith<IllegalStateException> { runtime.deleteHistory(entry.id) }
+        assertEquals(acknowledged, runtime().reconcile().historyEntries().single())
+        store.failWrite = false
+        assertTrue(runtime.deleteHistory(entry.id).historyEntries().isEmpty())
+        assertTrue(runtime().reconcile().historyEntries().isEmpty())
+    }
+
+    @Test
     fun repeatedStartCannotResetAnExistingTimer() = runTest {
         val runtime = configured()
         val started = runtime.start()

@@ -239,8 +239,12 @@ constructor failures and asynchronous notification errors are shown explicitly.
 iOS Safari may expose permission APIs yet reject foreground notification
 construction; the timer and backup still work. There is deliberately no service
 worker, push, background alarm, offline cache or background/closed-page guarantee.
-Browser history is retained/exportable here; native history/review/learning
-management screens are not wired into the browser in this layer.
+Browser stop and target completion open the shared summary using saved history
+values. An unacknowledged current summary reopens on reload. **Charging history**
+shows saved sessions newest-first, opens their summaries, and supports confirmed
+deletion through revision-checked IndexedDB. Opening a historical summary does
+not change its review state; Done returns to the list. Browser car-reading/learning
+management and summary sharing remain outside this layer.
 
 ## Database alignment and compatibility
 

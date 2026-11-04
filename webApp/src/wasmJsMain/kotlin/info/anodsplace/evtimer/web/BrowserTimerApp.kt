@@ -11,6 +11,8 @@ import info.anodsplace.evtimer.data.*
 import info.anodsplace.evtimer.ui.AppTheme
 import info.anodsplace.evtimer.ui.ConfigurationScreen
 import info.anodsplace.evtimer.ui.RunningTimerScreen
+import info.anodsplace.evtimer.ui.HistoryScreen
+import info.anodsplace.evtimer.ui.EndSummaryScreen
 import info.anodsplace.evtimer.web.generated.resources.*
 import kotlinx.browser.document
 import kotlinx.browser.window
@@ -37,6 +39,8 @@ internal fun BrowserTimerApp() {
     var state by remember { mutableStateOf<BrowserState?>(null) }
     var now by remember { mutableLongStateOf(Clock.System.now().toEpochMilliseconds()) }
     var storageOpen by remember { mutableStateOf(false) }
+    var historyOpen by remember { mutableStateOf(false) }
+    var summaryId by remember { mutableStateOf<Long?>(null) }
     var busy by remember { mutableStateOf(false) }
     var failed by remember { mutableStateOf(false) }
     var notificationFailed by remember { mutableStateOf(false) }
@@ -110,8 +114,11 @@ internal fun BrowserTimerApp() {
         Surface(Modifier.fillMaxSize()) {
             Column(Modifier.fillMaxSize()) {
                 FlowRow(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    TextButton(onClick = { storageOpen = !storageOpen }) {
+                    TextButton(onClick = { storageOpen = !storageOpen; historyOpen = false; summaryId = null }) {
                         Text(stringResource(if (storageOpen) Res.string.web_timer_back else Res.string.web_storage_title))
+                    }
+                    TextButton(onClick = { historyOpen = !historyOpen; storageOpen = false; summaryId = null }) {
+                        Text(stringResource(if (historyOpen) Res.string.web_timer_back else Res.string.web_history))
                     }
                     TextButton(enabled = !busy && state != null, onClick = {
                         // Permission must be requested before suspension, within trusted user activation.
@@ -145,26 +152,36 @@ internal fun BrowserTimerApp() {
                         Text(stringResource(Res.string.web_storage_retry))
                     }
                 }
-                state?.let { loaded ->
-                    val completed = loaded.backup.sessions.firstOrNull {
-                        it.id == loaded.notificationSessionId && !it.reviewed &&
-                            it.endedAt == it.snapshot().targetTime()
-                    }
-                    if (completed != null) {
-                        Text(stringResource(Res.string.web_target_complete,
-                            formatLocaleNumber(completed.targetPercent.toFloat(), 0, 1),
-                            formatter.format(requireNotNull(completed.endedAt))),
-                            Modifier.padding(horizontal = 16.dp))
-                        TextButton(onClick = {
-                            scope.launch { operation { runtime.acknowledgeCompletion() } }
-                        }) { Text(stringResource(Res.string.web_completion_dismiss)) }
-                    }
-                }
                 Box(Modifier.weight(1f).fillMaxWidth()) {
                     if (storageOpen) BrowserStorageScreen(storage, state)
                     else state?.let { loaded ->
+                        val entries = loaded.historyEntries()
+                        val summaryEntry = entries.firstOrNull { it.id == summaryId }
+                            ?: if (!historyOpen) entries.firstOrNull {
+                                it.id == loaded.notificationSessionId && !it.reviewed
+                            } else null
                         val running = loaded.runningViewState(now, formatter)
-                        if (running != null) {
+                        if (summaryEntry != null) {
+                            EndSummaryScreen(summaryEntry.summary(), onShare = null, onDone = {
+                                scope.launch {
+                                    operation {
+                                        if (summaryId == null) runtime.acknowledgeCompletion(summaryEntry.id)
+                                        summaryId = null
+                                    }
+                                }
+                            })
+                        } else if (historyOpen) {
+                            HistoryScreen(entries,
+                                onOpenSummary = { summaryId = it.id },
+                                onDelete = { id ->
+                                    // Let HistoryScreen report failures; do not turn a failed write into success.
+                                    mutex.withLock {
+                                        runtime.deleteHistory(id)
+                                        refresh()
+                                    }
+                                },
+                                onBack = { historyOpen = false })
+                        } else if (running != null) {
                             RunningTimerScreen(running, { event ->
                                 scope.launch {
                                     operation {

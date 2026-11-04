@@ -7,6 +7,12 @@ Startup, page visibility, focus and page restoration reconcile persisted epoch
 timestamps; a JavaScript ticker is only a foreground display refresh, never the
 source of elapsed time. Completed history ends at the calculated target time,
 not the time the browser reopens.
+Stopping or completing a browser charge opens the shared charge summary from
+saved values; an unacknowledged summary survives reload. **Charging history**
+opens the newest-first saved list, with summary details and confirmed deletion.
+Summary Done returns to history when opened there, or acknowledges a newly
+ended charge. Browser car-reading/learning management and sharing remain outside
+this layer; imported calibration data still informs estimates.
 Foreground notifications require an explicit permission-button action. They
 are attempted only on visible pages; no alert is promised while backgrounded,
 suspended or closed. Browser support varies (notably iOS Safari), and failures

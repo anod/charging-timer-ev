@@ -99,10 +99,14 @@ class BrowserTimerRuntime(
         )))
     }
 
-    suspend fun acknowledgeCompletion(): BrowserState = storage.update { state ->
+    suspend fun acknowledgeCompletion(id: Long? = null): BrowserState = storage.update { state ->
         state.copy(backup = state.backup.copy(sessions = state.backup.sessions.map {
-            if (it.id == state.notificationSessionId) it.copy(reviewed = true) else it
+            if (it.id == (id ?: state.notificationSessionId)) it.copy(reviewed = true) else it
         }))
+    }
+
+    suspend fun deleteHistory(id: Long): BrowserState = storage.update { state ->
+        state.copy(backup = state.backup.copy(sessions = state.backup.sessions.filterNot { it.id == id }))
     }
 
     private fun newPresetId(state: BrowserState): String {
@@ -168,13 +172,15 @@ private fun BrowserState.finish(active: BackupSession, endedAt: Long): BrowserSt
 )
 
 private fun BrowserState.calibration(configuration: PresetConfiguration) = ChargingCalibration.derive(
-    backup.sessions.map {
-        ChargingHistoryEntry(it.id, it.snapshot(), requireNotNull(it.endedAt), it.endPercent?.toFloat(),
-            it.actualPercent?.toFloat(), it.reviewed, it.interrupted, it.calibrationEnabled)
-    },
+    historyEntries(),
     configuration.presets,
     mapOf(configuration.selectedId to configuration.settings.batteryCapacity)
 )
+
+fun BrowserState.historyEntries(): List<ChargingHistoryEntry> = backup.sessions.map {
+    ChargingHistoryEntry(it.id, it.snapshot(), requireNotNull(it.endedAt), it.endPercent?.toFloat(),
+        it.actualPercent?.toFloat(), it.reviewed, it.interrupted, it.calibrationEnabled)
+}.sortedByDescending { it.endedAt }
 
 fun BrowserState.runningViewState(now: Long, formatter: ClockTimeFormatter): RunningViewState? {
     val active = activeSession ?: return null
