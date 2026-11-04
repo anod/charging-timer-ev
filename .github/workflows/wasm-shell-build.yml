@@ -1,10 +1,14 @@
-name: Build Wasm web shell
+name: Build and deploy PWA
 
 on:
+  push:
+    branches: [ main ]
   pull_request:
     branches: [ "**" ]
     paths:
       - ".github/workflows/wasm-shell-build.yml"
+      - "docs/privacy.md"
+      - "docs/web-app.md"
       - "webApp/**"
       - "shared/**"
       - "storage/**"
@@ -35,6 +39,9 @@ jobs:
           java-version: "21"
           distribution: temurin
 
+      - name: Record checkout SHA
+        run: git log -1 --format=%H
+
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v6
 
@@ -50,20 +57,32 @@ jobs:
         working-directory: webApp
         run: npm ci --ignore-scripts && npm test
 
+      - name: Check for hardcoded UI strings
+        run: python3 scripts/check_hardcoded_ui_strings.py
+
       - name: Test portable backup and browser state
         run: ./gradlew :storage:jvmTest :shared:jvmTest --tests '*ManualBackupTest' --tests '*BrowserStorageTest' --tests '*BackupCompatibilityTest' --tests '*BrowserTimerRuntimeTest' --tests '*BrowserNotificationsTest' --tests '*ChargingCalculatorTest' --tests '*ChargingServiceTest' --tests '*ChargingViewModelTest' --tests '*TimeProgressTest'
 
       - name: Build Wasm web shell
         run: ./gradlew :webApp:wasmJsBrowserDistribution
 
+      - name: Package complete Pages site and privacy policy
+        working-directory: webApp
+        run: npm run package:pages
+
       - name: Verify real browser persistence and capture light/dark UI
         working-directory: webApp
         run: npx playwright install --with-deps chromium && npm run test:browser
 
-      - name: Verify production PWA offline and safe updates
+      - name: Verify exact Pages site in Chromium at project path
         working-directory: webApp
         timeout-minutes: 5
-        run: npm run test:pwa
+        run: npm run test:pwa -- build/pages
+
+      - name: Upload verified Pages site
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: webApp/build/pages
 
       - name: Upload browser build and evidence
         if: always()
@@ -76,3 +95,21 @@ jobs:
             storage/build/test-results
             shared/build/test-results
             webApp/package-lock.json
+
+  deploy:
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    needs: wasm
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    concurrency:
+      group: github-pages-deployment
+      cancel-in-progress: false
+    steps:
+      - name: Deploy verified site to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

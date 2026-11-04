@@ -1,4 +1,8 @@
-This is a Kotlin Multiplatform project targeting Android, iOS, Desktop (JVM).
+This is a Kotlin Multiplatform project targeting Android, iOS, Desktop (JVM) and Web (Wasm).
+
+The installable web app is deployed to <https://anod.github.io/charging-timer-ev/>
+after the PWA stack is merged and the owner enables GitHub Actions Pages.
+See [installation, browser support, limitations and deployment](docs/web-app.md).
 
 The staged `webApp` uses Compose/Wasm and IndexedDB for browser storage and
 manual backup import/export. The timer reuses the shared configuration/running
@@ -22,7 +26,8 @@ model and is re-exported by `shared`. Native storage remains SQLDelight/DataStor
 See [the browser storage contract and limitations](docs/backup-format.md#browser-storage-stack-layer-2)
 and [timer/notification behavior](docs/backup-format.md#browser-timer-and-foreground-notifications-stack-layer-3).
 Heavy Wasm builds and Chromium light/dark screenshots run in the existing Wasm
-CI workflow, with no Pages deployment or offline service worker in this layer.
+CI workflow. A service worker caches the complete production shell for offline
+use; the verified Pages artifact deploys only from `main`.
 
 The running charging screen shows the remaining duration alongside the estimated finish time
 in the local time zone. Clock times use platform time preferences (the device's 12/24-hour
