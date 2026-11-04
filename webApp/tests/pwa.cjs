@@ -61,7 +61,8 @@ async function controlled(page, url) {
     fs.cpSync(distribution, a, { recursive: true });
     fs.cpSync(distribution, b, { recursive: true });
     // Same marketing version and filenames, different content => different worker.
-    fs.appendFileSync(path.join(b, "index.html"), "\n<!-- distribution B -->\n");
+    fs.writeFileSync(path.join(b, "index.html"),
+        fs.readFileSync(path.join(b, "index.html"), "utf8").replace("<html ", '<html data-shell="B" '));
     const versionA = prepare(a);
     const versionB = prepare(b);
     assert.notEqual(versionA, versionB);
@@ -159,13 +160,14 @@ async function controlled(page, url) {
         // A remains in control through reload even with B fully installed.
         await page.reload();
         await status(page, "update");
-        assert.ok(!(await page.content()).includes("distribution B"));
+        assert.equal(await page.locator("html").getAttribute("data-shell"), null);
         assert.deepEqual((await state(page)).activeSession, aged);
         const other = await context.newPage();
         await other.goto(url);
         await state(other);
         await page.close();
-        assert.ok(!(await other.content()).includes("distribution B"), "A second open window also delays B");
+        assert.equal(await other.locator("html").getAttribute("data-shell"), null,
+            "A second open window also delays B");
         let bWorker;
         for (const candidate of context.serviceWorkers()) {
             if (await candidate.evaluate(() => VERSION) === versionB) bWorker = candidate;
@@ -183,7 +185,7 @@ async function controlled(page, url) {
         const next = await context.newPage();
         await next.goto(url);
         await status(next, "ready");
-        assert.ok((await next.content()).includes("distribution B"));
+        assert.equal(await next.locator("html").getAttribute("data-shell"), "B");
         assert.deepEqual((await state(next)).activeSession, aged);
         assert.deepEqual((await state(next)).backup, before.backup);
         assert.equal((await next.evaluate(() => caches.keys())).filter(n => n.endsWith(versionA)).length, 0);
