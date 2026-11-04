@@ -34,5 +34,6 @@ plugins {
 
 include(":androidApp")
 include(":desktopApp")
+include(":webApp")
 include(":shared")
 include(":lib:viewmodel", ":lib:permissions")
