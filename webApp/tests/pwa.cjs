@@ -143,7 +143,8 @@ async function controlled(page, url) {
             const policy = await page.evaluate(async () => (await fetch("privacy.html")).text());
             assert.ok(policy.includes("<!doctype html>"));
             assert.ok(policy.includes("EV Charging Timer privacy policy"));
-            assert.ok(policy.includes("project's GitHub issues"));
+            assert.equal(policy, fs.readFileSync(path.join(distribution, "privacy.html"), "utf8"),
+                "The server must serve the exact packaged privacy page");
             assert.equal(await page.evaluate(async () => {
                 const names = (await caches.keys()).filter(n => n.startsWith("ev-timer-shell:"));
                 for (const name of names) {
@@ -155,6 +156,8 @@ async function controlled(page, url) {
             const policyPage = await context.newPage();
             await policyPage.goto(url + "privacy.html");
             await policyPage.getByRole("heading", { name: "EV Charging Timer privacy policy", exact: true }).waitFor();
+            assert.equal(await policyPage.getByRole("link", { name: "project's GitHub issues" })
+                .getAttribute("href"), "https://github.com/anod/charging-timer-ev/issues");
             await policyPage.close();
             fs.writeFileSync(path.join(evidence, "pages-site-inventory.json"),
                 JSON.stringify(fs.readdirSync(distribution, { recursive: true }).filter(name =>
