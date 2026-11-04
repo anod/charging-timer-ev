@@ -100,6 +100,7 @@ kotlin {
         iosMain.dependencies { implementation(libs.sqldelight.native.driver) }
         jvmMain.dependencies { implementation(libs.sqldelight.sqlite.driver) }
         commonMain.dependencies {
+            api(project(":storage"))
             implementation(libs.kotlinx.serialization.json)
             implementation(libs.aboutlibraries.core)
             implementation(libs.aboutlibraries.compose.m3)

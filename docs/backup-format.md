@@ -1,6 +1,7 @@
 # Manual backup format
 
-Android Settings > Backup & restore can export or restore a UTF-8 JSON document.
+Android Settings > Backup & restore and the staged browser storage screen can
+export or restore the same UTF-8 JSON document.
 The Android-only section reuses Settings' tonal group and transparent icon rows,
 with an inset divider between Export and Restore. History and preset-management
 navigation remain in the Charging group; no animated background runs in Settings.
@@ -152,6 +153,58 @@ section yet.
 `ManualBackupTest` includes SQLite table/column and DataStore key coverage guards.
 New persisted fields must be covered by this format or explicitly excluded with
 a reason. Android Auto Backup and device-transfer rules are unchanged.
+
+## Browser storage (stack layer 2)
+
+The portable `:storage` module owns the existing v2 codec and settings model.
+`:shared` re-exports these types; Android/iOS/JVM still use the same SQLDelight
+and DataStore implementation. No native migration or backup-rule change is needed.
+The browser does not use a SQLDelight worker or pretend synchronous browser I/O.
+`BrowserStorage` exposes suspending load/update/import/export operations over
+`BrowserDocumentStore`; a later runtime adapter can map the existing repository
+interfaces onto this API without blocking the browser thread.
+
+IndexedDB database `ev-charging-timer`, version 1, store `state`, key `app` holds
+a revision token and an opaque JSON string. The internal envelope contains
+`schemaVersion: 1`, the v2 backup document, and an optional `activeSession`.
+The active session is preserved by load/update but excluded from manual export;
+it prevents restore. This layer never starts or reconciles a timer. Only the
+backup/storage screen is enabled until the timer/runtime stack layer.
+
+Preferences, drafts, preset order/options, all history fields, learning consent
+and segment efficiencies commit together in a strict-durability IndexedDB
+transaction. Writes resolve on transaction completion, not request success.
+Every update reads the committed record and checks its revision again inside
+the write transaction. Concurrent tab writes fail explicitly rather than
+overwriting unseen edits. The screen's counts refresh on load/import, not
+automatically across tabs. There is no memory or localStorage fallback.
+This intentionally simple backend rewrites the complete state document for each
+mutation. The codec runs on the browser main thread; large imports/exports can
+briefly pause rendering. The 16 MiB file limit is not a peak-memory or latency
+guarantee. There is no worker-thread or incremental-storage implementation.
+Unavailable/denied/blocked storage, quota errors, corrupt/unsupported internal
+documents and conflicting revisions are errors, never default-data recovery.
+Fresh defaults are published only after their first IndexedDB commit succeeds.
+
+Browser import uses the unchanged reader, 16 MiB byte limit and strict UTF-8
+decoding. Cancel leaves data alone. Replacement requires confirmation and
+normalizes unfinished history, newest review and missing selection exactly as
+native restore does. Unlike SQL + DataStore, the browser replacement is one
+atomic transaction. Failed validation or a failed/aborted commit leaves the
+previous record intact. JavaScript never parses the backup payload, preserving
+Kotlin Long IDs/timestamps beyond JavaScript's safe integer range.
+
+Export creates a JSON Blob and requests a download only after successful
+load/encoding. Browsers cannot confirm a user's final file save through the
+anchor-download API: the UI explicitly says **Download requested**, not saved.
+Check the browser's downloads and permissions. Picker and download initiation
+errors are surfaced; downloaded files are unencrypted.
+
+IndexedDB is scoped to the site's origin/browser profile. Clearing site data,
+private-browsing teardown, browser eviction or changing hosting origin can lose
+data. It is not Android Auto Backup, cloud sync, or guaranteed archival storage;
+export private backups before moving sites/devices. No service worker, offline
+cache, notifications or deployment is included in this layer.
 
 ## Database alignment and compatibility
 

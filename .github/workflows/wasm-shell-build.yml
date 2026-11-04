@@ -2,11 +2,12 @@ name: Build Wasm web shell
 
 on:
   pull_request:
-    branches: [ main, master ]
+    branches: [ "**" ]
     paths:
       - ".github/workflows/wasm-shell-build.yml"
       - "webApp/**"
       - "shared/**"
+      - "storage/**"
       - "lib/**"
       - "gradle/**"
       - "settings.gradle.kts"
@@ -38,5 +39,33 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+
+      - name: Test IndexedDB transactions
+        working-directory: webApp
+        run: npm ci --ignore-scripts && npm test
+
+      - name: Test portable backup and browser state
+        run: ./gradlew :storage:jvmTest :shared:jvmTest --tests '*ManualBackupTest' --tests '*BrowserStorageTest' --tests '*BackupCompatibilityTest'
+
       - name: Build Wasm web shell
         run: ./gradlew :webApp:wasmJsBrowserDistribution
+
+      - name: Verify real browser persistence and capture light/dark UI
+        working-directory: webApp
+        run: npx playwright install --with-deps chromium && npm run test:browser
+
+      - name: Upload browser build and evidence
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: browser-storage-evidence
+          path: |
+            webApp/build/dist/wasmJs/productionExecutable
+            webApp/build/browser-evidence
+            storage/build/test-results
+            shared/build/test-results
+            webApp/package-lock.json

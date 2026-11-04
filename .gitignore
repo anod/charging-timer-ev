@@ -35,3 +35,4 @@ play-service-account*.json
 *.hprof
 .DS_Store
 .kotlin
+node_modules/

@@ -1,5 +1,14 @@
 This is a Kotlin Multiplatform project targeting Android, iOS, Desktop (JVM).
 
+The staged `webApp` uses Compose/Wasm and IndexedDB for browser storage and
+manual backup import/export. It currently exposes storage/backup management,
+not the charging timer; timer/runtime integration is the next stack layer.
+The portable `storage` module owns the unchanged v2 backup codec and settings
+model and is re-exported by `shared`. Native storage remains SQLDelight/DataStore.
+See [the browser storage contract and limitations](docs/backup-format.md#browser-storage-stack-layer-2).
+Heavy Wasm builds and Chromium light/dark screenshots run in the existing Wasm
+CI workflow, with no Pages deployment or offline service worker in this layer.
+
 The running charging screen shows the remaining duration alongside the estimated finish time
 in the local time zone. Clock times use platform time preferences (the device's 12/24-hour
 setting on Android and iOS, and the locale's short time format on desktop). The Android
