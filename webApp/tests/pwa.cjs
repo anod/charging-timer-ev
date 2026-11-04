@@ -14,7 +14,11 @@ const mime = { ".wasm": "application/wasm", ".js": "application/javascript",
 const prefix = "/charging-timer-ev/";
 
 async function state(page) {
-    await page.waitForFunction(async () => globalThis.evTimerStorage && await evTimerStorage.read());
+    await page.waitForFunction(async () => {
+        if (!globalThis.evTimerStorage) return false;
+        const record = JSON.parse(await evTimerStorage.read());
+        return record !== null && typeof record.payload === "string";
+    });
     return page.evaluate(async () => JSON.parse(JSON.parse(await evTimerStorage.read()).payload));
 }
 
@@ -36,8 +40,13 @@ async function status(page, expected) {
 }
 
 async function labels(page, ...texts) {
+    const deadline = Date.now() + 30_000;
     for (const text of texts) {
-        await page.getByText(text, { exact: true }).waitFor();
+        // Compose merges some row labels and values into one semantics node.
+        while (!(await page.locator("body").ariaSnapshot()).includes(text)) {
+            assert.ok(Date.now() < deadline, `Visible semantics must contain: ${text}`);
+            await page.waitForTimeout(100);
+        }
     }
     // Let Compose paint the frame corresponding to the populated semantics.
     await page.evaluate(() => new Promise(resolve =>
@@ -105,6 +114,7 @@ async function controlled(page, url) {
         const context = await browser.newContext({ locale: "en-US" });
         const page = await context.newPage();
         await controlled(page, url);
+        console.log("PWA: initial controlled shell");
         const cdp = await context.newCDPSession(page);
         const appManifest = await cdp.send("Page.getAppManifest");
         assert.deepEqual(appManifest.errors, []);
@@ -150,6 +160,7 @@ async function controlled(page, url) {
         assert.deepEqual(offline.backup, before.backup);
         assert.equal(await page.evaluate(() => navigator.onLine), false);
         await setOffline(context, false);
+        console.log("PWA: offline active snapshot retained");
 
         // A failed B install must leave A and IndexedDB usable, with no partial B cache.
         serving = b;
@@ -181,15 +192,13 @@ async function controlled(page, url) {
             if (await candidate.evaluate(() => VERSION) === versionB) bWorker = candidate;
         }
         assert.ok(bWorker);
-        const activation = bWorker.evaluate(() => new Promise(resolve => {
-            const waiting = self.registration.waiting;
-            if (!waiting) { resolve(); return; }
-            waiting.addEventListener("statechange", () => {
-                if (waiting.state === "activated") resolve();
-            });
-        }));
         await other.close();
-        await activation;
+        const deadline = Date.now() + 30_000;
+        while (!await bWorker.evaluate(() => self.registration.waiting === null &&
+            self.registration.active?.state === "activated")) {
+            assert.ok(Date.now() < deadline, "B must activate after the last A window closes");
+            await new Promise(resolve => setTimeout(resolve, 100));
+        }
         const next = await context.newPage();
         await next.goto(url);
         await status(next, "ready");
@@ -197,6 +206,7 @@ async function controlled(page, url) {
         assert.deepEqual((await state(next)).activeSession, aged);
         assert.deepEqual((await state(next)).backup, before.backup);
         assert.equal((await next.evaluate(() => caches.keys())).filter(n => n.endsWith(versionA)).length, 0);
+        console.log("PWA: failed precache and multi-window waiting update verified");
 
         // Missing and corrupted entries recover only from matching, verified network bytes.
         await next.evaluate(async () => {
@@ -237,6 +247,7 @@ async function controlled(page, url) {
         await next.goto(url + "privacy.html");
         assert.ok((await next.content()).includes(`Privacy ${privacyRevision}`));
         await context.close();
+        console.log("PWA: cache repair and privacy isolation verified");
 
         // Persisted browser profile survives an actual context/browser-profile reopen.
         const profile = path.join(temporary, "profile");
@@ -255,6 +266,7 @@ async function controlled(page, url) {
         assert.deepEqual((await state(tab)).backup, persistedBackup);
         await persistent.close();
         networkOffline = false;
+        console.log("PWA: browser-profile restart verified offline");
 
         for (const colorScheme of ["light", "dark"]) {
             for (const [device, viewport] of [
@@ -264,22 +276,34 @@ async function controlled(page, url) {
                 const shot = await shotContext.newPage();
                 await controlled(shot, url);
                 await labels(shot, "Ready for offline use.", "Start Timer", "Charging data",
-                    "Charging history", "Enable foreground notifications");
+                    "Charging history", "Enable foreground notifications", "Charging Timer for EV",
+                    "Default", "\u25be Start", "\u25be Charging Power");
                 await shot.screenshot({ path: path.join(evidence, `pwa-ready-${device}-${colorScheme}.png`) });
                 await start(shot);
                 await setOffline(shotContext, true);
                 await shot.reload();
                 await labels(shot, "Ready for offline use.", "Charging in Progress", "Charging data",
-                    "Charging history", "Enable foreground notifications");
+                    "Charging history", "Enable foreground notifications", "Estimated charging time",
+                    "Charging Speed", "Current %", "Target %", "Time Remaining", "Time to 80%", "Elapsed Time");
                 await shot.screenshot({ path: path.join(evidence, `pwa-running-offline-${device}-${colorScheme}.png`) });
                 await setOffline(shotContext, false);
                 serving = a;
+                fail = "icons/icon-192.png";
+                await shot.evaluate(() => navigator.serviceWorker.getRegistration().then(r => r.update()));
+                await status(shot, "error");
+                await labels(shot, "Offline setup or update failed. Reconnect and reopen to retry. Keep a backup; do not clear site data.",
+                    "Charging in Progress", "Charging data", "Charging history", "Estimated charging time",
+                    "Charging Speed", "Current %", "Target %", "Time Remaining", "Time to 80%", "Elapsed Time");
+                await shot.screenshot({ path: path.join(evidence, `pwa-error-${device}-${colorScheme}.png`) });
+                fail = null;
                 await shot.evaluate(() => navigator.serviceWorker.getRegistration().then(r => r.update()));
                 await status(shot, "update");
                 await labels(shot, "Update ready. Close all timer tabs and installed windows, then reopen. Saved timers and data stay intact.",
-                    "Charging in Progress", "Charging data", "Charging history");
+                    "Charging in Progress", "Charging data", "Charging history", "Estimated charging time",
+                    "Charging Speed", "Current %", "Target %", "Time Remaining", "Time to 80%", "Elapsed Time");
                 await shot.screenshot({ path: path.join(evidence, `pwa-update-${device}-${colorScheme}.png`) });
                 await shotContext.close();
+                console.log(`PWA: ${device} ${colorScheme} ready/offline/error/update evidence captured`);
                 serving = b;
             }
         }
