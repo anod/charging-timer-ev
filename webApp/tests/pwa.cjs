@@ -277,6 +277,26 @@ async function controlled(page, url) {
         assert.equal(await local.evaluate(() => navigator.serviceWorker.getRegistration().then(r => r.scope)),
             origin + "/");
         await localContext.close();
+        const failedContext = await browser.newContext({ locale: "en-US" });
+        fail = "sw.js";
+        const failed = await failedContext.newPage();
+        await failed.goto(url);
+        await status(failed, "error");
+        await labels(failed, "Offline setup or update failed. Reconnect and reopen to retry. Keep a backup; do not clear site data.");
+        const stillUsable = await start(failed);
+        assert.deepEqual((await state(failed)).activeSession, stillUsable,
+            "Registration failure must not stop the online workflow or clear data");
+        await failedContext.close();
+        fail = null;
+        const insecureContext = await browser.newContext();
+        await insecureContext.addInitScript(() => {
+            Object.defineProperty(globalThis, "isSecureContext", { value: false });
+        });
+        const insecure = await insecureContext.newPage();
+        await insecure.goto(url);
+        await status(insecure, "unsupported");
+        assert.equal(await insecure.evaluate(() => navigator.serviceWorker.getRegistrations().then(r => r.length)), 0);
+        await insecureContext.close();
         console.log("Production Chromium PWA: installability, root/project scopes, offline active timer, " +
             "profile restart, safe waiting update, failed precache, corruption recovery and privacy isolation passed");
     } finally {

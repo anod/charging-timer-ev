@@ -61,10 +61,10 @@ self.addEventListener("fetch", event => {
     const expected = urls.get(url.href);
     if (!expected) return;
     event.respondWith((async () => {
-        const cache = await caches.open(CACHE);
-        const cached = await cache.match(url.href);
-        if (await verified(cached, expected)) return cached;
         try {
+            const cache = await caches.open(CACHE);
+            const cached = await cache.match(url.href);
+            if (await verified(cached, expected)) return cached;
             const response = await fetch(url.href, { cache: "no-store" });
             if (!await verified(response, expected)) throw new Error("Shell version mismatch");
             await cache.put(url.href, response.clone());
