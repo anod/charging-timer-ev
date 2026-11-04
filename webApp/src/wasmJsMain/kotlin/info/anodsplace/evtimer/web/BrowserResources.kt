@@ -7,12 +7,12 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.testTag
 import info.anodsplace.evtimer.generated.resources.Res as SharedRes
 import info.anodsplace.evtimer.generated.resources.allPluralStringResources as sharedPlurals
 import info.anodsplace.evtimer.generated.resources.allStringResources as sharedStrings
 import info.anodsplace.evtimer.ui.AppTheme
 import info.anodsplace.evtimer.web.generated.resources.*
+import kotlinx.browser.document
 import kotlinx.coroutines.CancellationException
 import org.jetbrains.compose.resources.ExperimentalResourceApi
 import org.jetbrains.compose.resources.getPluralString
@@ -22,6 +22,10 @@ import org.jetbrains.compose.resources.getString
 @Composable
 internal fun BrowserResources(content: @Composable () -> Unit) {
     var ready by remember { mutableStateOf(false) }
+    DisposableEffect(ready) {
+        document.body?.setAttribute("aria-busy", (!ready).toString())
+        onDispose { document.body?.removeAttribute("aria-busy") }
+    }
     LaunchedEffect(Unit) {
         try {
             // Web stringResource initially returns "". Warm each cached item, not
@@ -40,7 +44,7 @@ internal fun BrowserResources(content: @Composable () -> Unit) {
     }
     AppTheme {
         if (ready) content()
-        else Surface(Modifier.fillMaxSize().testTag("resource-loading")) {
+        else Surface(Modifier.fillMaxSize()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator()
             }

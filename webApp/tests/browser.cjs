@@ -96,21 +96,32 @@ async function capture(page, name, labels) {
         let releaseResources;
         const resourcesReady = new Promise(resolve => { releaseResources = resolve; });
         let resourceRequests = 0;
+        loadingPage.on("pageerror", error => console.error("Loading state:", error));
         await loadingPage.route(/\.cvr(?:\?|$)/, async route => {
             resourceRequests++;
             await resourcesReady;
             await route.continue();
         });
         await loadingPage.goto(origin);
-        await loadingPage.getByRole("progressbar").waitFor();
+        // Compose draws progress on its canvas but does not publish an HTML
+        // progressbar role. aria-busy tracks the actual resource gate instead.
+        await loadingPage.locator("body[aria-busy=true]").waitFor();
+        await loadingPage.waitForSelector("canvas");
+        const requestDeadline = Date.now() + 10_000;
+        while (!resourceRequests && Date.now() < requestDeadline) await loadingPage.waitForTimeout(50);
+        fs.writeFileSync(path.join(screenshots, "loading-semantics.txt"), await loadingPage.locator("body").ariaSnapshot());
+        fs.writeFileSync(path.join(screenshots, "loading-dom.html"), await loadingPage.content());
         assert.ok(resourceRequests > 0, "Test must hold an actual resource request");
         for (let frame = 0; frame < 5; frame++) {
+            assert.equal(await loadingPage.locator("body").getAttribute("aria-busy"), "true");
             const snapshot = await loadingPage.locator("body").ariaSnapshot();
             assert.ok(!snapshot.includes("button") && !snapshot.includes("Charging"),
                 `Before resources load, only the text-free loading state is allowed: ${snapshot}`);
             await loadingPage.evaluate(() => new Promise(requestAnimationFrame));
         }
+        await capture(loadingPage, "startup-loading", []);
         releaseResources();
+        await loadingPage.locator("body[aria-busy=false]").waitFor();
         for (const label of configurationLabels) await waitForAccessibleText(loadingPage, label);
         await loadingContext.close();
         for (const colorScheme of ["light", "dark"]) {
