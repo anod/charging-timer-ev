@@ -190,18 +190,18 @@ async function controlled(page, url) {
         await page.close();
         assert.equal(await other.locator("html").getAttribute("data-shell"), null,
             "A second open window also delays B");
-        let bWorker;
-        for (const candidate of context.serviceWorkers()) {
-            if (await candidate.evaluate(() => VERSION) === versionB) bWorker = candidate;
-        }
-        assert.ok(bWorker);
+        // Observe through an out-of-scope page, not a Playwright worker target:
+        // redundant/terminated worker targets can stall evaluation on Linux.
+        const observer = await context.newPage();
+        await observer.goto(origin + "/privacy.html");
+        assert.equal(await observer.evaluate(() => navigator.serviceWorker.controller), null);
+        await observer.evaluate(async appUrl => {
+            globalThis.updateRegistration = await navigator.serviceWorker.getRegistration(appUrl);
+        }, url);
+        assert.equal(await observer.evaluate(() => updateRegistration.waiting?.state), "installed");
         await other.close();
-        const deadline = Date.now() + 30_000;
-        while (!await bWorker.evaluate(() => self.registration.waiting === null &&
-            self.registration.active?.state === "activated")) {
-            assert.ok(Date.now() < deadline, "B must activate after the last A window closes");
-            await new Promise(resolve => setTimeout(resolve, 100));
-        }
+        await observer.waitForFunction(() => updateRegistration.waiting === null &&
+            updateRegistration.active?.state === "activated", null, { timeout: 30_000 });
         const next = await context.newPage();
         await next.goto(url);
         await status(next, "ready");
@@ -209,6 +209,7 @@ async function controlled(page, url) {
         assert.deepEqual((await state(next)).activeSession, aged);
         assert.deepEqual((await state(next)).backup, before.backup);
         assert.equal((await next.evaluate(() => caches.keys())).filter(n => n.endsWith(versionA)).length, 0);
+        await observer.close();
         console.log("PWA: failed precache and multi-window waiting update verified");
 
         // Missing and corrupted entries recover only from matching, verified network bytes.
