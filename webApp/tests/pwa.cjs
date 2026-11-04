@@ -12,6 +12,16 @@ const mime = { ".wasm": "application/wasm", ".js": "application/javascript",
     ".mjs": "application/javascript", ".html": "text/html", ".png": "image/png",
     ".webmanifest": "application/manifest+json", ".json": "application/json" };
 const prefix = "/charging-timer-ev/";
+const observed = new WeakSet();
+
+function observe(page) {
+    if (observed.has(page)) return;
+    observed.add(page);
+    page.on("pageerror", error => console.error("PWA page error:", error.message));
+    page.on("console", message => {
+        if (message.type() === "error") console.error("PWA console:", message.text());
+    });
+}
 
 async function state(page, accept = () => true) {
     const deadline = Date.now() + 120_000;
@@ -24,6 +34,8 @@ async function state(page, accept = () => true) {
         if (value !== null && accept(value)) return value;
         await page.waitForTimeout(100);
     }
+    fs.writeFileSync(path.join(evidence, "pwa-failure-dom.html"), await page.content());
+    await page.screenshot({ path: path.join(evidence, "pwa-failure.png") });
     assert.fail("Expected persisted browser state was not committed");
 }
 
@@ -57,6 +69,7 @@ async function labels(page, ...texts) {
 }
 
 async function controlled(page, url) {
+    observe(page);
     await page.goto(url);
     await status(page, "ready");
     await page.evaluate(() => navigator.serviceWorker.ready);
@@ -107,6 +120,7 @@ async function controlled(page, url) {
     const origin = `http://127.0.0.1:${server.address().port}`;
     const url = origin + prefix;
     const browser = await chromium.launch();
+    const profiles = new Set();
     const setOffline = async (context, value) => {
         // Also sever the server connection: browser offline emulation alone can
         // leave worker-originated requests online in some Chromium versions.
@@ -255,20 +269,25 @@ async function controlled(page, url) {
 
         // Persisted browser profile survives an actual context/browser-profile reopen.
         const profile = path.join(temporary, "profile");
-        let persistent = await chromium.launchPersistentContext(profile, { headless: true });
+        let persistent = await chromium.launchPersistentContext(profile, { headless: true, locale: "en-US" });
+        profiles.add(persistent);
         let tab = persistent.pages()[0];
         await controlled(tab, url);
         const persistedActive = await start(tab);
         const persistedBackup = (await state(tab)).backup;
         await persistent.close();
+        profiles.delete(persistent);
         networkOffline = true;
-        persistent = await chromium.launchPersistentContext(profile, { headless: true, offline: true });
+        persistent = await chromium.launchPersistentContext(profile, { headless: true, offline: true, locale: "en-US" });
+        profiles.add(persistent);
         tab = persistent.pages()[0];
+        observe(tab);
         await tab.goto(url);
         await tab.getByText("Charging in Progress", { exact: true }).waitFor();
         assert.deepEqual((await state(tab)).activeSession, persistedActive);
         assert.deepEqual((await state(tab)).backup, persistedBackup);
         await persistent.close();
+        profiles.delete(persistent);
         networkOffline = false;
         console.log("PWA: browser-profile restart verified offline");
 
@@ -340,7 +359,9 @@ async function controlled(page, url) {
         console.log("Production Chromium PWA: installability, root/project scopes, offline active timer, " +
             "profile restart, safe waiting update, failed precache, corruption recovery and privacy isolation passed");
     } finally {
+        await Promise.all([...profiles].map(context => context.close()));
         await browser.close();
+        server.closeAllConnections();
         await new Promise(resolve => server.close(resolve));
         fs.rmSync(temporary, { recursive: true, force: true });
     }
