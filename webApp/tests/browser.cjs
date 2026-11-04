@@ -50,6 +50,26 @@ async function waitForAccessibleText(page, text) {
     }
 }
 
+const configurationLabels = ["Charging Timer for EV", "Battery: 83 kWh", "Max: 100%",
+    "Start", "Charging Power", "3.6 kW", "7.0 kW", "11.0 kW", "22.0 kW", "Start Timer"];
+const runningLabels = ["Charging in Progress", "Charging Speed", "Current %", "Target %",
+    "Time Remaining", "Time to 80%", "Elapsed Time", "Stop Timer"];
+const summaryLabels = ["Charge summary", "Estimated at timer stop", "Default", "Elapsed Time",
+    "Energy added", "Average power", "Charging speeds", "Done"];
+const storageLabels = ["Charging data", "Charging timers, presets and history are saved in this browser.",
+    "Export backup", "Import backup"];
+
+async function capture(page, name, labels) {
+    for (const label of labels) await waitForAccessibleText(page, label);
+    // Let recomposed text reach the canvas, then clear the pointer/ripple from navigation.
+    await page.mouse.move(0, 0);
+    await page.waitForTimeout(300);
+    await page.evaluate(() => new Promise(resolve =>
+        requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    for (const label of labels) await waitForAccessibleText(page, label);
+    await page.screenshot({ path: path.join(screenshots, `${name}.png`) });
+}
+
 (async () => {
     fs.mkdirSync(screenshots, { recursive: true });
     const server = http.createServer((request, response) => {
@@ -69,9 +89,46 @@ async function waitForAccessibleText(page, text) {
     const browser = await chromium.launch({ headless: true });
     try {
         const origin = `http://127.0.0.1:${server.address().port}`;
+        // A cold page must not compose any labelled controls while .cvr string
+        // resources are withheld. This tests the real network boundary, not a timer.
+        const loadingContext = await browser.newContext({ locale: "en-US" });
+        const loadingPage = await loadingContext.newPage();
+        let releaseResources;
+        const resourcesReady = new Promise(resolve => { releaseResources = resolve; });
+        let resourceRequests = 0;
+        const loadingErrors = [];
+        loadingPage.on("pageerror", error => loadingErrors.push(error.message));
+        await loadingPage.route(/\.cvr(?:\?|$)/, async route => {
+            resourceRequests++;
+            await resourcesReady;
+            await route.continue();
+        });
+        await loadingPage.goto(origin);
+        // Compose draws progress on its canvas but does not publish an HTML
+        // progressbar role. aria-busy tracks the actual resource gate instead.
+        await loadingPage.locator("body[aria-busy=true]").waitFor();
+        await loadingPage.waitForSelector("canvas");
+        const requestDeadline = Date.now() + 10_000;
+        while (!resourceRequests && Date.now() < requestDeadline) await loadingPage.waitForTimeout(50);
+        fs.writeFileSync(path.join(screenshots, "loading-semantics.txt"), await loadingPage.locator("body").ariaSnapshot());
+        fs.writeFileSync(path.join(screenshots, "loading-dom.html"), await loadingPage.content());
+        assert.ok(resourceRequests > 0, "Test must hold an actual resource request");
+        for (let frame = 0; frame < 5; frame++) {
+            assert.equal(await loadingPage.locator("body").getAttribute("aria-busy"), "true");
+            const snapshot = await loadingPage.locator("body").ariaSnapshot();
+            assert.equal(snapshot.trim(), "",
+                "Before resources load, no text or controls may be exposed");
+            await loadingPage.evaluate(() => new Promise(requestAnimationFrame));
+        }
+        await capture(loadingPage, "startup-loading", []);
+        releaseResources();
+        await loadingPage.locator("body[aria-busy=false]").waitFor();
+        for (const label of configurationLabels) await waitForAccessibleText(loadingPage, label);
+        assert.deepEqual(loadingErrors, [], "Resource loading must finish without unhandled errors");
+        await loadingContext.close();
         for (const colorScheme of ["light", "dark"]) {
             const context = await browser.newContext({
-                colorScheme, locale: "en-US", viewport: { width: 1100, height: 800 }
+                colorScheme, locale: "en-US", viewport: { width: 1100, height: 900 }
             });
             const page = await context.newPage();
             const errors = [];
@@ -80,7 +137,7 @@ async function waitForAccessibleText(page, text) {
             await page.goto(origin);
             console.log("Browser language preferences:", await page.evaluate(() => navigator.languages));
             const initial = await waitForRecord(page);
-            await page.screenshot({ path: path.join(screenshots, `startup-${colorScheme}.png`) });
+            await capture(page, `startup-${colorScheme}`, configurationLabels);
             fs.writeFileSync(path.join(screenshots, `semantics-${colorScheme}.txt`),
                 await page.locator("body").ariaSnapshot());
             fs.writeFileSync(path.join(screenshots, `dom-${colorScheme}.html`), await page.content());
@@ -93,13 +150,13 @@ async function waitForAccessibleText(page, text) {
             await page.waitForSelector("canvas");
             // Compose's first frame and asynchronously loaded text resources must finish.
             await page.waitForTimeout(3000);
-            await page.screenshot({ path: path.join(screenshots, `configuration-${colorScheme}.png`) });
+            await capture(page, `configuration-${colorScheme}`, configurationLabels);
             await clickCanvasButton(page, "Start Timer");
             const started = await waitForRecord(page, record => JSON.parse(record?.payload || "{}").activeSession != null);
             assert.notEqual(started, null, "Start must commit an active snapshot");
             const active = JSON.parse(started.payload).activeSession;
             await page.getByText("Charging in Progress", { exact: true }).waitFor();
-            await page.screenshot({ path: path.join(screenshots, `running-${colorScheme}.png`) });
+            await capture(page, `running-${colorScheme}`, runningLabels);
             await page.reload();
             await page.getByText("Charging in Progress", { exact: true }).waitFor();
             const reloaded = await waitForRecord(page);
@@ -144,7 +201,7 @@ async function waitForAccessibleText(page, text) {
             await clickCanvasButton(page, "Charging data");
             await page.getByRole("button", { name: "Back to timer", exact: true }).waitFor();
             await page.waitForTimeout(300);
-            await page.screenshot({ path: path.join(screenshots, `storage-${colorScheme}.png`) });
+            await capture(page, `storage-${colorScheme}`, storageLabels);
 
             // Transparent semantics proxies share the canvas control's bounds but
             // have pointer-events:none. Send trusted pointer input through to the canvas.
@@ -209,14 +266,20 @@ async function waitForAccessibleText(page, text) {
             ["phone", { width: 390, height: 844 }],
             ["desktop", { width: 1100, height: 900 }]
         ]) {
-            const context = await browser.newContext({ locale: "en-US", viewport });
+          for (const colorScheme of ["light", "dark"]) {
+            const evidence = `${device}-${colorScheme}`;
+            const context = await browser.newContext({ locale: "en-US", viewport, colorScheme });
             const page = await context.newPage();
             const errors = [];
             page.on("pageerror", error => errors.push(error.message));
             await page.goto(origin);
             assert.notEqual(await waitForRecord(page), null);
             await page.waitForTimeout(3000);
-            await page.screenshot({ path: path.join(screenshots, `configuration-${device}.png`) });
+            await capture(page, `startup-${evidence}`, configurationLabels);
+            await capture(page, `configuration-${evidence}`, configurationLabels);
+            await clickCanvasButton(page, "Charging data");
+            await capture(page, `storage-${evidence}`, storageLabels);
+            await clickCanvasButton(page, "Back to timer");
             await clickCanvasButton(page, "Start Timer");
             assert.notEqual(await waitForRecord(page, record =>
                 JSON.parse(record?.payload || "{}").activeSession != null), null);
@@ -229,11 +292,12 @@ async function waitForAccessibleText(page, text) {
                 window.dispatchEvent(new Event("pageshow"));
             });
             await waitForAccessibleText(page, "Charging in Progress");
-            await page.screenshot({ path: path.join(screenshots, `running-${device}.png`) });
+            await capture(page, `running-${evidence}`, runningLabels);
             // Stop is below the fold on a phone; scroll the actual Compose canvas.
             await page.mouse.move(viewport.width / 2, viewport.height - 100);
             await page.mouse.wheel(0, 900);
             await page.waitForTimeout(500);
+            if (device === "phone") await capture(page, `running-controls-${evidence}`, runningLabels);
             await clickCanvasButton(page, "Stop Timer");
             const ended = await waitForRecord(page, record => {
                 const state = JSON.parse(record?.payload || "{}");
@@ -256,14 +320,15 @@ async function waitForAccessibleText(page, text) {
                 await waitForAccessibleText(page, "11 kW");
             };
             await verifySummary();
-            await page.screenshot({ path: path.join(screenshots, `summary-${device}.png`) });
+            await capture(page, `summary-${evidence}`, summaryLabels);
             await page.reload();
             await verifySummary();
             await clickCanvasButton(page, "Done");
             await clickCanvasButton(page, "Charging history");
             await waitForAccessibleText(page, `60% → ${endText}%`);
             await waitForAccessibleText(page, `${energy} kWh`);
-            await page.screenshot({ path: path.join(screenshots, `history-${device}.png`) });
+            await capture(page, `history-${evidence}`, ["Charging history", "Default", `60% → ${endText}%`,
+                `${energy} kWh`, "1h 0m", "avg 11 kW"]);
             await page.reload();
             await clickCanvasButton(page, "Charging history");
             await waitForAccessibleText(page, `60% → ${endText}%`);
@@ -279,6 +344,7 @@ async function waitForAccessibleText(page, text) {
                 { ...saved, reviewed: true }, "History display and reload must preserve saved values");
             assert.deepEqual(errors, []);
             await context.close();
+          }
         }
         const notificationContext = await browser.newContext({
             locale: "en-US", viewport: { width: 1100, height: 800 }
@@ -311,7 +377,8 @@ async function waitForAccessibleText(page, text) {
         await clickCanvasButton(notificationPage, "Enable foreground notifications");
         await notificationPage.waitForFunction(() => notificationTest.requests === 1);
         await notificationPage.waitForTimeout(300);
-        await notificationPage.screenshot({ path: path.join(screenshots, "notification-permission.png") });
+        await capture(notificationPage, "notification-permission",
+            [...configurationLabels, "A notification could not be delivered or permission was denied"]);
         fs.writeFileSync(path.join(screenshots, "notification-semantics.txt"), await notificationPage.locator("body").ariaSnapshot());
         await waitForAccessibleText(notificationPage, "A notification could not be delivered or permission was denied");
         assert.equal(JSON.parse((await waitForRecord(notificationPage)).payload).notificationsEnabled, false);
@@ -343,7 +410,8 @@ async function waitForAccessibleText(page, text) {
         await waitForAccessibleText(notificationPage, "A notification could not be delivered or permission was denied");
         assert.equal(await notificationPage.evaluate(() => notificationTest.requests), 3);
         assert.equal(await notificationPage.evaluate(() => notificationTest.attempts), 1);
-        await notificationPage.screenshot({ path: path.join(screenshots, "notification-failure.png") });
+        await capture(notificationPage, "notification-failure",
+            [...summaryLabels, "A notification could not be delivered or permission was denied"]);
         await notificationPage.reload();
         await waitForAccessibleText(notificationPage, "Charge summary");
         assert.equal(await notificationPage.evaluate(() => notificationTest.requests), 0);

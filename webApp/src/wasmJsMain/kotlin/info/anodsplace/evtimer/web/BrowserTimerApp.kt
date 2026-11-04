@@ -120,7 +120,7 @@ internal fun BrowserTimerApp() {
     AppTheme {
         Surface(Modifier.fillMaxSize()) {
             Column(Modifier.fillMaxSize()) {
-                FlowRow(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                FlowRow(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     TextButton(onClick = { storageOpen = !storageOpen; historyOpen = false; summaryId = null }) {
                         Text(stringResource(if (storageOpen) Res.string.web_timer_back else Res.string.web_storage_title))
                     }
