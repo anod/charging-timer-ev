@@ -91,12 +91,13 @@ async function capture(page, name, labels) {
         const origin = `http://127.0.0.1:${server.address().port}`;
         // A cold page must not compose any labelled controls while .cvr string
         // resources are withheld. This tests the real network boundary, not a timer.
-        const loadingContext = await browser.newContext();
+        const loadingContext = await browser.newContext({ locale: "en-US" });
         const loadingPage = await loadingContext.newPage();
         let releaseResources;
         const resourcesReady = new Promise(resolve => { releaseResources = resolve; });
         let resourceRequests = 0;
-        loadingPage.on("pageerror", error => console.error("Loading state:", error));
+        const loadingErrors = [];
+        loadingPage.on("pageerror", error => loadingErrors.push(error.message));
         await loadingPage.route(/\.cvr(?:\?|$)/, async route => {
             resourceRequests++;
             await resourcesReady;
@@ -115,14 +116,15 @@ async function capture(page, name, labels) {
         for (let frame = 0; frame < 5; frame++) {
             assert.equal(await loadingPage.locator("body").getAttribute("aria-busy"), "true");
             const snapshot = await loadingPage.locator("body").ariaSnapshot();
-            assert.ok(!snapshot.includes("button") && !snapshot.includes("Charging"),
-                `Before resources load, only the text-free loading state is allowed: ${snapshot}`);
+            assert.equal(snapshot.trim(), "",
+                "Before resources load, no text or controls may be exposed");
             await loadingPage.evaluate(() => new Promise(requestAnimationFrame));
         }
         await capture(loadingPage, "startup-loading", []);
         releaseResources();
         await loadingPage.locator("body[aria-busy=false]").waitFor();
         for (const label of configurationLabels) await waitForAccessibleText(loadingPage, label);
+        assert.deepEqual(loadingErrors, [], "Resource loading must finish without unhandled errors");
         await loadingContext.close();
         for (const colorScheme of ["light", "dark"]) {
             const context = await browser.newContext({
