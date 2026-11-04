@@ -1,8 +1,9 @@
 {
   "private": true,
   "scripts": {
-    "test": "node --test tests/indexeddb.test.cjs tests/notifications.test.cjs",
-    "test:browser": "node tests/browser.cjs"
+    "test": "node --test tests/indexeddb.test.cjs tests/notifications.test.cjs tests/pwa-unit.test.cjs",
+    "test:browser": "node tests/browser.cjs",
+    "test:pwa": "node tests/pwa.cjs"
   },
   "devDependencies": {
     "fake-indexeddb": "6.2.4",

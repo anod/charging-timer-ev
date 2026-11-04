@@ -59,6 +59,10 @@ jobs:
         working-directory: webApp
         run: npx playwright install --with-deps chromium && npm run test:browser
 
+      - name: Verify production PWA offline and safe updates
+        working-directory: webApp
+        run: npm run test:pwa
+
       - name: Upload browser build and evidence
         if: always()
         uses: actions/upload-artifact@v6

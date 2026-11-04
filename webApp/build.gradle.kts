@@ -31,6 +31,16 @@ kotlin {
         binaries.executable()
     }
 
+    tasks.named("wasmJsBrowserDistribution") {
+        inputs.files(fileTree("pwa"))
+        doLast {
+            providers.exec {
+                commandLine("node", "pwa/prepare.cjs",
+                    layout.buildDirectory.dir("dist/wasmJs/productionExecutable").get().asFile.absolutePath)
+            }.result.get().assertNormalExitValue()
+        }
+    }
+
     sourceSets {
         commonMain { kotlin.srcDir(generateBuildInfo) }
         commonMain.dependencies {

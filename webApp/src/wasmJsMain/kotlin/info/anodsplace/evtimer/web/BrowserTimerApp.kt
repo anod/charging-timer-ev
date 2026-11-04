@@ -29,6 +29,9 @@ import kotlin.time.Clock
 @JsFun("(epoch) => new Date(epoch).toLocaleTimeString(undefined, {hour:'numeric',minute:'2-digit'})")
 private external fun localClock(epoch: Double): String
 
+@JsFun("() => globalThis.evTimerPwa?.status() ?? 'unsupported'")
+private external fun pwaStatus(): String
+
 @Composable
 internal fun BrowserTimerApp() {
     val storage = remember { BrowserStorage(IndexedDbStore()) }
@@ -44,6 +47,7 @@ internal fun BrowserTimerApp() {
     var busy by remember { mutableStateOf(false) }
     var failed by remember { mutableStateOf(false) }
     var notificationFailed by remember { mutableStateOf(false) }
+    var offlineStatus by remember { mutableStateOf(pwaStatus()) }
     val completeTitle = stringResource(Res.string.web_notification_complete)
     val milestoneTitle = stringResource(Res.string.web_notification_milestone)
     val notificationBody = stringResource(Res.string.web_notification_body)
@@ -91,6 +95,8 @@ internal fun BrowserTimerApp() {
         }
     }
     DisposableEffect(runtime, notifications) {
+        val pwaChanged: (Event) -> Unit = { offlineStatus = pwaStatus() }
+        window.addEventListener("ev-timer-pwa-status", pwaChanged)
         val resume: (Event) -> Unit = {
             if (browser.isForeground()) scope.launch { operation() }
         }
@@ -103,6 +109,7 @@ internal fun BrowserTimerApp() {
         }
         window.addEventListener("ev-timer-notification-error", notificationError)
         onDispose {
+            window.removeEventListener("ev-timer-pwa-status", pwaChanged)
             document.removeEventListener("visibilitychange", resume)
             window.removeEventListener("pageshow", resume)
             window.removeEventListener("focus", resume)
@@ -141,6 +148,16 @@ internal fun BrowserTimerApp() {
                 }
                 Text(stringResource(Res.string.web_foreground_limit),
                     modifier = Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodySmall)
+                Text(stringResource(when (offlineStatus) {
+                    "ready" -> Res.string.web_offline_ready
+                    "update" -> Res.string.web_offline_update
+                    "error" -> Res.string.web_offline_error
+                    "unsupported" -> Res.string.web_offline_unsupported
+                    else -> Res.string.web_offline_loading
+                }), modifier = Modifier.padding(horizontal = 16.dp),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (offlineStatus == "error") MaterialTheme.colorScheme.error
+                        else MaterialTheme.colorScheme.onSurface)
                 if (notificationFailed) {
                     Text(stringResource(Res.string.web_notifications_error),
                         Modifier.padding(16.dp), color = MaterialTheme.colorScheme.error)
