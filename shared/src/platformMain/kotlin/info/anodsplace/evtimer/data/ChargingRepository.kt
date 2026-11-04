@@ -10,39 +10,6 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 
-interface ChargingRepository {
-    suspend fun saveSettings(settings: ChargingSettings)
-    fun observeSettings(): Flow<ChargingSettings>
-    fun observeNotifyAt80(): Flow<Boolean>
-    suspend fun setNotifyAt80(enabled: Boolean)
-    suspend fun createSnapshot(startedAt: Long): ChargingSessionSnapshot =
-        ChargingSessionSnapshot.from(observeSettings().first(), startedAt)
-    suspend fun efficiencyFor(presetId: String?, batteryCapacity: Float, powerKw: Float): Float = 1f
-    suspend fun changePower(session: ChargingSession, changedAt: Long, powerKw: Float) {
-        val snapshot = session.snapshot ?: return
-        val efficiency = efficiencyFor(snapshot.presetId, snapshot.batteryCapacity, powerKw)
-        val updated = snapshot.withPower(changedAt, powerKw, efficiency) ?: return
-        saveSession(session.copy(snapshot = updated))
-    }
-
-    // Session
-    suspend fun saveSession(session: ChargingSession)
-    fun observeSession(): Flow<ChargingSession>
-}
-
-// Session state representing currently running charging process
-// Persisted to survive process death
-data class ChargingSession(
-    val isRunning: Boolean = false,
-    val snapshot: ChargingSessionSnapshot? = null
-) {
-    init {
-        require(!isRunning || snapshot != null) { "A running session requires a snapshot" }
-    }
-
-    val startTime: Long get() = snapshot?.startTime ?: 0L
-}
-
 internal object SessionPreferences {
     val notifyAt80 = booleanPreferencesKey("notify_at_80")
     val selectedPreset = stringPreferencesKey("selected_preset")

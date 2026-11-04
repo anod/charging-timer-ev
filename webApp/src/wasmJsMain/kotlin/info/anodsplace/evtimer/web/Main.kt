@@ -2,7 +2,6 @@
 
 package info.anodsplace.evtimer.web
 
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -18,8 +17,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
@@ -27,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.ComposeViewport
 import info.anodsplace.evtimer.data.*
+import info.anodsplace.evtimer.ui.AppTheme
 import info.anodsplace.evtimer.web.generated.resources.*
 import kotlinx.browser.document
 import kotlinx.coroutines.CancellationException
@@ -39,13 +37,12 @@ import kotlin.js.toJsString
 @OptIn(ExperimentalComposeUiApi::class)
 fun main() {
     ComposeViewport(document.body ?: error("Browser document body is unavailable")) {
-        BrowserStorageScreen()
+        BrowserResources { BrowserTimerApp() }
     }
 }
 
 @Composable
-private fun BrowserStorageScreen() {
-    val storage = remember { BrowserStorage(IndexedDbStore()) }
+internal fun BrowserStorageScreen(storage: BrowserStorage, currentState: BrowserState?) {
     val scope = rememberCoroutineScope()
     var state by remember { mutableStateOf<BrowserState?>(null) }
     var pending by remember { mutableStateOf<ManualBackup?>(null) }
@@ -70,8 +67,11 @@ private fun BrowserStorageScreen() {
     }
 
     LaunchedEffect(storage) { operation { state = storage.load() } }
+    LaunchedEffect(currentState) {
+        if (currentState != null) state = currentState
+    }
 
-    MaterialTheme(colorScheme = if (isSystemInDarkTheme()) darkColorScheme() else lightColorScheme()) {
+    AppTheme {
         Surface(Modifier.fillMaxSize()) {
             Column(
                 Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),

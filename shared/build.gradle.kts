@@ -5,7 +5,6 @@ import groovy.json.JsonSlurper
 plugins {
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.aboutlibraries)
-    alias(libs.plugins.sqldelight)
     alias(libs.plugins.kotlin.multiplatform)
     alias(libs.plugins.kotlin.multiplatform.android.library)
     alias(libs.plugins.composeMultiplatform)
@@ -91,7 +90,24 @@ kotlin {
 
     jvm()
 
+    @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
+    wasmJs { browser() }
+
+    applyDefaultHierarchyTemplate()
+
     sourceSets {
+        val platformMain by creating {
+            dependsOn(commonMain.get())
+        }
+        val platformTest by creating {
+            dependsOn(commonTest.get())
+        }
+        listOf(androidMain.get(), jvmMain.get(), iosMain.get()).forEach {
+            it.dependsOn(platformMain)
+        }
+        listOf(getByName("androidHostTest"), jvmTest.get(), iosTest.get()).forEach {
+            it.dependsOn(platformTest)
+        }
         commonMain { kotlin.srcDir(generateBuildInfo) }
         androidMain { kotlin.srcDir("src/jvmAndroidMain/kotlin") }
         jvmMain { kotlin.srcDir("src/jvmAndroidMain/kotlin") }
@@ -99,8 +115,8 @@ kotlin {
         androidMain.dependencies { implementation(libs.androidx.activity) }
         iosMain.dependencies { implementation(libs.sqldelight.native.driver) }
         jvmMain.dependencies { implementation(libs.sqldelight.sqlite.driver) }
-        commonMain.dependencies {
-            api(project(":storage"))
+        platformMain.dependencies {
+            api(project(":database"))
             implementation(libs.kotlinx.serialization.json)
             implementation(libs.aboutlibraries.core)
             implementation(libs.aboutlibraries.compose.m3)
@@ -108,13 +124,6 @@ kotlin {
             implementation(libs.sqldelight.coroutines)
             implementation(project(":lib:viewmodel"))
 
-            implementation(libs.compose.runtime)
-            implementation(libs.compose.foundation)
-            implementation(libs.compose.material3)
-            implementation(libs.compose.ui)
-            implementation(libs.compose.components.resources)
-            implementation(libs.compose.uiToolingPreview)
-            implementation(libs.compose.animation)
             implementation(libs.androidx.lifecycle.viewmodelCompose)
             implementation(libs.androidx.lifecycle.runtimeCompose)
             implementation(libs.androidx.lifecycle.navigation3)
@@ -125,7 +134,17 @@ kotlin {
             implementation(libs.koin.compose)
             implementation(libs.koin.compose.viewmodel)
             implementation(libs.androidx.datastore.preferences)
-
+        }
+        commonMain.dependencies {
+            api(project(":storage"))
+            implementation(libs.kotlinx.coroutines.core)
+            implementation(libs.compose.runtime)
+            implementation(libs.compose.foundation)
+            implementation(libs.compose.material3)
+            implementation(libs.compose.ui)
+            implementation(libs.compose.components.resources)
+            implementation(libs.compose.uiToolingPreview)
+            implementation(libs.compose.animation)
             implementation(libs.androidx.graphics.shapes)
         }
         commonTest.dependencies {
@@ -135,17 +154,6 @@ kotlin {
         jvmTest.dependencies {
             implementation(libs.compose.uiTest)
             implementation(compose.desktop.currentOs)
-        }
-    }
-}
-
-sqldelight {
-    databases {
-        create("ChargingDatabase") {
-            packageName.set("info.anodsplace.evtimer.db")
-            verifyMigrations.set(true)
-            schemaOutputDirectory.set(file("src/commonMain/sqldelight/databases"))
-            dialect(libs.sqldelight.dialect)
         }
     }
 }

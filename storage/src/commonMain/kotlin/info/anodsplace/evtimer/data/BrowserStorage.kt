@@ -10,7 +10,11 @@ import kotlin.time.Clock
 data class BrowserState(
     val schemaVersion: Int = 1,
     val backup: ManualBackup,
-    val activeSession: BackupSession? = null
+    val activeSession: BackupSession? = null,
+    val notificationsEnabled: Boolean = false,
+    val notificationSessionId: Long? = null,
+    val milestoneNotificationAttempted: Boolean = false,
+    val completionNotificationAttempted: Boolean = false
 )
 
 @Serializable

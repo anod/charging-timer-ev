@@ -18,7 +18,7 @@ class StorageBackupTest {
             val file = File("build/calibration-migration-$foreignKeys.db")
             file.parentFile.mkdirs()
             try {
-                File("src/commonMain/sqldelight/databases/4.db").copyTo(file, overwrite = true)
+                File("../database/src/commonMain/sqldelight/databases/4.db").copyTo(file, overwrite = true)
                 DriverManager.getConnection("jdbc:sqlite:${file.path}").use { connection ->
                     connection.createStatement().use {
                         it.execute("INSERT INTO charge_session(id,battery_capacity,start_percent,target_percent,efficiency,preset_id,preset_name,is_running,preset_edited) VALUES(123,60,20,90,.5,'home','Home',1,1)")
@@ -79,7 +79,7 @@ class StorageBackupTest {
     fun v3BackupMigratesAlphabeticalOrderAndRetainsValuesAndOptions() {
         val file = Files.createTempFile("evtimer-v3-restore", ".db").toFile()
         try {
-            File("src/commonMain/sqldelight/databases/3.db").copyTo(file, overwrite = true)
+            File("../database/src/commonMain/sqldelight/databases/3.db").copyTo(file, overwrite = true)
             DriverManager.getConnection("jdbc:sqlite:${file.path}").use { connection ->
                 connection.createStatement().use {
                     it.execute("PRAGMA user_version=3")
@@ -222,7 +222,7 @@ class StorageBackupTest {
     fun committedV1BackupMigratesOnOpenAndKeepsExistingRows() {
         val file = Files.createTempFile("evtimer-v1-restore", ".db").toFile()
         try {
-            File("src/commonMain/sqldelight/databases/1.db").copyTo(file, overwrite = true)
+            File("../database/src/commonMain/sqldelight/databases/1.db").copyTo(file, overwrite = true)
             DriverManager.getConnection("jdbc:sqlite:${file.path}").use { connection ->
                 connection.createStatement().use {
                     it.execute("PRAGMA user_version=1")
@@ -250,7 +250,7 @@ class StorageBackupTest {
     fun v2BackupMigratesAndKeepsPresetSelectionDataAndSessionIdentity() {
         val file = Files.createTempFile("evtimer-v2-restore", ".db").toFile()
         try {
-            File("src/commonMain/sqldelight/databases/2.db").copyTo(file, overwrite = true)
+            File("../database/src/commonMain/sqldelight/databases/2.db").copyTo(file, overwrite = true)
             DriverManager.getConnection("jdbc:sqlite:${file.path}").use { connection ->
                 connection.createStatement().use {
                     it.execute("PRAGMA user_version=2")

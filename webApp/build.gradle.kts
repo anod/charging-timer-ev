@@ -35,6 +35,7 @@ kotlin {
         commonMain { kotlin.srcDir(generateBuildInfo) }
         commonMain.dependencies {
             implementation(project(":storage"))
+            implementation(project(":shared"))
             implementation(libs.kotlinx.serialization.json)
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.compose.runtime)

@@ -1,11 +1,26 @@
 This is a Kotlin Multiplatform project targeting Android, iOS, Desktop (JVM).
 
 The staged `webApp` uses Compose/Wasm and IndexedDB for browser storage and
-manual backup import/export. It currently exposes storage/backup management,
-not the charging timer; timer/runtime integration is the next stack layer.
+manual backup import/export. The timer reuses the shared configuration/running
+screens, snapshot calculator, timestamped power changes and learned estimates.
+Startup, page visibility, focus and page restoration reconcile persisted epoch
+timestamps; a JavaScript ticker is only a foreground display refresh, never the
+source of elapsed time. Completed history ends at the calculated target time,
+not the time the browser reopens.
+Stopping or completing a browser charge opens the shared charge summary from
+saved values; an unacknowledged summary survives reload. **Charging history**
+opens the newest-first saved list, with summary details and confirmed deletion.
+Summary Done returns to history when opened there, or acknowledges a newly
+ended charge. Browser car-reading/learning management and sharing remain outside
+this layer; imported calibration data still informs estimates.
+Foreground notifications require an explicit permission-button action. They
+are attempted only on visible pages; no alert is promised while backgrounded,
+suspended or closed. Browser support varies (notably iOS Safari), and failures
+are shown without stopping the timer. No service worker/push fallback is used.
 The portable `storage` module owns the unchanged v2 backup codec and settings
 model and is re-exported by `shared`. Native storage remains SQLDelight/DataStore.
-See [the browser storage contract and limitations](docs/backup-format.md#browser-storage-stack-layer-2).
+See [the browser storage contract and limitations](docs/backup-format.md#browser-storage-stack-layer-2)
+and [timer/notification behavior](docs/backup-format.md#browser-timer-and-foreground-notifications-stack-layer-3).
 Heavy Wasm builds and Chromium light/dark screenshots run in the existing Wasm
 CI workflow, with no Pages deployment or offline service worker in this layer.
 

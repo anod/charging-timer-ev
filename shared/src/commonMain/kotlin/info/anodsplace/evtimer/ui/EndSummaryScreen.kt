@@ -73,11 +73,12 @@ private fun summaryPresetName(summary: ChargingSummary): String =
 @Composable
 fun EndSummaryScreen(
     summary: ChargingSummary,
-    onShare: (String) -> ShareResult,
+    onShare: ((String) -> ShareResult)?,
     onDone: () -> Unit,
     modifier: Modifier = Modifier,
     entry: ChargingHistoryEntry? = null,
-    onSaveReading: suspend (Long, Float?, Boolean) -> Unit = { _, _, _ -> }
+    onSaveReading: suspend (Long, Float?, Boolean) -> Unit = { _, _, _ -> },
+    allowReadingEditing: Boolean = true
 ) {
     val shareText = summaryShareText(summary)
     val copied = stringResource(Res.string.summary_copied)
@@ -127,7 +128,7 @@ fun EndSummaryScreen(
                         summary.averageKw?.let {
                             stringResource(Res.string.power_value, formatLocaleNumber(it, 0, 1), stringResource(Res.string.unit_kw))
                         } ?: unknown)
-                    if (entry != null) {
+                    if (entry != null && allowReadingEditing) {
                         TextButton(onClick = { editing = true }) {
                             Text(stringResource(if (entry.actualPercent == null) Res.string.reading_add else Res.string.reading_edit))
                         }
@@ -151,7 +152,7 @@ fun EndSummaryScreen(
                 OutlinedButton(onClick = onDone, modifier = Modifier.weight(1f)) {
                     Text(stringResource(Res.string.summary_done))
                 }
-                Button(onClick = {
+                if (onShare != null) Button(onClick = {
                     scope.launch {
                         try {
                             if (onShare(shareText) == ShareResult.Copied) snackbar.showSnackbar(copied)
@@ -169,7 +170,7 @@ fun EndSummaryScreen(
         }
         SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter))
     }
-    if (editing && entry != null) {
+    if (editing && entry != null && allowReadingEditing) {
         CarReadingDialog(entry, onDismiss = { editing = false }, onSave = onSaveReading)
     }
 }

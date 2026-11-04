@@ -22,17 +22,52 @@ async function waitForRecord(page, accept = record => record !== null) {
 
 async function clickCanvasButton(page, name) {
     const button = page.getByRole("button", { name, exact: true });
-    await button.waitFor();
     const deadline = Date.now() + 10_000;
-    while (!await button.isEnabled()) {
-        assert.ok(Date.now() < deadline, `${name} must become enabled`);
-        await new Promise(resolve => setTimeout(resolve, 50));
+    while (Date.now() < deadline) {
+        await button.waitFor();
+        const before = await button.boundingBox();
+        await button.evaluate(() => new Promise(resolve =>
+            requestAnimationFrame(() => requestAnimationFrame(resolve))));
+        const after = await button.boundingBox();
+        if (before && after && after.width > 0 && after.height > 0 &&
+            ["x", "y", "width", "height"].every(key => Math.abs(before[key] - after[key]) < 0.5) &&
+            await button.isEnabled()) {
+            // Transparent semantics proxies cannot receive pointer events. Click
+            // stable canvas coordinates, not a proxy that may detach during reflow.
+            await page.mouse.click(after.x + after.width / 2, after.y + after.height / 2);
+            return;
+        }
+        await page.waitForTimeout(50);
     }
-    // Semantics layout can precede canvas painting, especially after centered
-    // content reflows. Let the updated bounds reach the rendered canvas.
-    await button.evaluate(() => new Promise(resolve =>
+    assert.fail(`${name} must have stable, enabled canvas bounds`);
+}
+
+async function waitForAccessibleText(page, text) {
+    const deadline = Date.now() + 10_000;
+    while (!(await page.locator("body").ariaSnapshot()).includes(text)) {
+        assert.ok(Date.now() < deadline, `Accessible UI must contain: ${text}`);
+        await page.waitForTimeout(100);
+    }
+}
+
+const configurationLabels = ["Charging Timer for EV", "Battery: 83 kWh", "Max: 100%",
+    "Start", "Charging Power", "3.6 kW", "7.0 kW", "11.0 kW", "22.0 kW", "Start Timer"];
+const runningLabels = ["Charging in Progress", "Charging Speed", "Current %", "Target %",
+    "Time Remaining", "Time to 80%", "Elapsed Time", "Stop Timer"];
+const summaryLabels = ["Charge summary", "Estimated at timer stop", "Default", "Elapsed Time",
+    "Energy added", "Average power", "Charging speeds", "Done"];
+const storageLabels = ["Charging data", "Charging timers, presets and history are saved in this browser.",
+    "Export backup", "Import backup"];
+
+async function capture(page, name, labels) {
+    for (const label of labels) await waitForAccessibleText(page, label);
+    // Let recomposed text reach the canvas, then clear the pointer/ripple from navigation.
+    await page.mouse.move(0, 0);
+    await page.waitForTimeout(300);
+    await page.evaluate(() => new Promise(resolve =>
         requestAnimationFrame(() => requestAnimationFrame(resolve))));
-    await button.click({ force: true, timeout: 10_000 });
+    for (const label of labels) await waitForAccessibleText(page, label);
+    await page.screenshot({ path: path.join(screenshots, `${name}.png`) });
 }
 
 (async () => {
@@ -54,9 +89,46 @@ async function clickCanvasButton(page, name) {
     const browser = await chromium.launch({ headless: true });
     try {
         const origin = `http://127.0.0.1:${server.address().port}`;
+        // A cold page must not compose any labelled controls while .cvr string
+        // resources are withheld. This tests the real network boundary, not a timer.
+        const loadingContext = await browser.newContext({ locale: "en-US" });
+        const loadingPage = await loadingContext.newPage();
+        let releaseResources;
+        const resourcesReady = new Promise(resolve => { releaseResources = resolve; });
+        let resourceRequests = 0;
+        const loadingErrors = [];
+        loadingPage.on("pageerror", error => loadingErrors.push(error.message));
+        await loadingPage.route(/\.cvr(?:\?|$)/, async route => {
+            resourceRequests++;
+            await resourcesReady;
+            await route.continue();
+        });
+        await loadingPage.goto(origin);
+        // Compose draws progress on its canvas but does not publish an HTML
+        // progressbar role. aria-busy tracks the actual resource gate instead.
+        await loadingPage.locator("body[aria-busy=true]").waitFor();
+        await loadingPage.waitForSelector("canvas");
+        const requestDeadline = Date.now() + 10_000;
+        while (!resourceRequests && Date.now() < requestDeadline) await loadingPage.waitForTimeout(50);
+        fs.writeFileSync(path.join(screenshots, "loading-semantics.txt"), await loadingPage.locator("body").ariaSnapshot());
+        fs.writeFileSync(path.join(screenshots, "loading-dom.html"), await loadingPage.content());
+        assert.ok(resourceRequests > 0, "Test must hold an actual resource request");
+        for (let frame = 0; frame < 5; frame++) {
+            assert.equal(await loadingPage.locator("body").getAttribute("aria-busy"), "true");
+            const snapshot = await loadingPage.locator("body").ariaSnapshot();
+            assert.equal(snapshot.trim(), "",
+                "Before resources load, no text or controls may be exposed");
+            await loadingPage.evaluate(() => new Promise(requestAnimationFrame));
+        }
+        await capture(loadingPage, "startup-loading", []);
+        releaseResources();
+        await loadingPage.locator("body[aria-busy=false]").waitFor();
+        for (const label of configurationLabels) await waitForAccessibleText(loadingPage, label);
+        assert.deepEqual(loadingErrors, [], "Resource loading must finish without unhandled errors");
+        await loadingContext.close();
         for (const colorScheme of ["light", "dark"]) {
             const context = await browser.newContext({
-                colorScheme, locale: "en-US", viewport: { width: 1100, height: 800 }
+                colorScheme, locale: "en-US", viewport: { width: 1100, height: 900 }
             });
             const page = await context.newPage();
             const errors = [];
@@ -65,7 +137,7 @@ async function clickCanvasButton(page, name) {
             await page.goto(origin);
             console.log("Browser language preferences:", await page.evaluate(() => navigator.languages));
             const initial = await waitForRecord(page);
-            await page.screenshot({ path: path.join(screenshots, `startup-${colorScheme}.png`) });
+            await capture(page, `startup-${colorScheme}`, configurationLabels);
             fs.writeFileSync(path.join(screenshots, `semantics-${colorScheme}.txt`),
                 await page.locator("body").ariaSnapshot());
             fs.writeFileSync(path.join(screenshots, `dom-${colorScheme}.html`), await page.content());
@@ -78,7 +150,58 @@ async function clickCanvasButton(page, name) {
             await page.waitForSelector("canvas");
             // Compose's first frame and asynchronously loaded text resources must finish.
             await page.waitForTimeout(3000);
-            await page.screenshot({ path: path.join(screenshots, `storage-${colorScheme}.png`) });
+            await capture(page, `configuration-${colorScheme}`, configurationLabels);
+            await clickCanvasButton(page, "Start Timer");
+            const started = await waitForRecord(page, record => JSON.parse(record?.payload || "{}").activeSession != null);
+            assert.notEqual(started, null, "Start must commit an active snapshot");
+            const active = JSON.parse(started.payload).activeSession;
+            await page.getByText("Charging in Progress", { exact: true }).waitFor();
+            await capture(page, `running-${colorScheme}`, runningLabels);
+            await page.reload();
+            await page.getByText("Charging in Progress", { exact: true }).waitFor();
+            const reloaded = await waitForRecord(page);
+            assert.deepEqual(JSON.parse(reloaded.payload).activeSession, active,
+                "Reload must resume the persisted snapshot rather than restarting the timer");
+            await clickCanvasButton(page, "Charging data");
+            const importButton = page.getByRole("button", { name: "Import backup", exact: true });
+            await importButton.waitFor();
+            await page.waitForTimeout(300);
+            let blockedChooser = 0;
+            const unexpectedPicker = chooser => { blockedChooser++; chooser.setFiles([]); };
+            page.on("filechooser", unexpectedPicker);
+            await importButton.click({ force: true });
+            await page.waitForTimeout(300);
+            page.off("filechooser", unexpectedPicker);
+            assert.equal(blockedChooser, 0, "A running timer must not open the restore picker");
+            // Age the durable fixture as if the browser had been closed for a month.
+            // Keep the rendering/event clock real: faking it also changes Compose
+            // pointer/animation scheduling, which is not the timer's source of truth.
+            await page.evaluate(async () => {
+                const record = JSON.parse(await evTimerStorage.read());
+                const state = JSON.parse(record.payload);
+                for (const segment of state.activeSession.segments) {
+                    segment.startedAt -= 30 * 24 * 3_600_000;
+                }
+                await evTimerStorage.write(record.revision, JSON.stringify(state));
+            });
+            await page.evaluate(() => window.dispatchEvent(new Event("pageshow")));
+            const completed = await waitForRecord(page, record => {
+                const state = JSON.parse(record?.payload || "{}");
+                return state.activeSession === null && state.backup?.sessions.length === 1;
+            });
+            assert.notEqual(completed, null, "Resume must complete an elapsed timer");
+            const history = JSON.parse(completed.payload).backup.sessions[0];
+            assert.equal(history.endPercent, active.targetPercent);
+            assert.ok(history.endedAt < active.segments[0].startedAt,
+                "History must use the calculated target time, not the page resume time");
+            await clickCanvasButton(page, "Back to timer");
+            await waitForAccessibleText(page, "Charge summary");
+            await waitForAccessibleText(page, "60% → 100%");
+            await clickCanvasButton(page, "Done");
+            await clickCanvasButton(page, "Charging data");
+            await page.getByRole("button", { name: "Back to timer", exact: true }).waitFor();
+            await page.waitForTimeout(300);
+            await capture(page, `storage-${colorScheme}`, storageLabels);
 
             // Transparent semantics proxies share the canvas control's bounds but
             // have pointer-events:none. Send trusted pointer input through to the canvas.
@@ -101,6 +224,7 @@ async function clickCanvasButton(page, name) {
                 '"startPercent":20,"targetPercent":80,"efficiency":0.9,"endedAt":300,' +
                 '"actualPercent":78.5,"calibrationEnabled":true,' +
                 '"segments":[{"startedAt":100,"powerKw":11,"efficiency":0.85}]}]');
+            const beforeImport = await waitForRecord(page);
             const [chooser] = await Promise.all([
                 page.waitForEvent("filechooser"),
                 clickCanvasButton(page, "Import backup")
@@ -110,7 +234,7 @@ async function clickCanvasButton(page, name) {
             });
             await page.getByRole("button", { name: "Replace data", exact: true }).waitFor();
             // Merely reading the file must not mutate persisted data.
-            assert.equal(await page.evaluate(async () => JSON.parse(await evTimerStorage.read()).revision), initial.revision);
+            assert.equal(await page.evaluate(async () => JSON.parse(await evTimerStorage.read()).revision), beforeImport.revision);
             await clickCanvasButton(page, "Replace data");
             const committed = await waitForRecord(page, record => record?.payload.includes("Imported car"));
             assert.notEqual(committed, null, "Confirmed import must commit the selected backup");
@@ -138,7 +262,164 @@ async function clickCanvasButton(page, name) {
             assert.deepEqual(errors, []);
             await context.close();
         }
-        console.log("Real Chromium: Wasm startup, actual backup download/picker/confirmation/v2 restore, IndexedDB reload/two-tab conflict and light/dark screenshots passed");
+        for (const [device, viewport] of [
+            ["phone", { width: 390, height: 844 }],
+            ["desktop", { width: 1100, height: 900 }]
+        ]) {
+          for (const colorScheme of ["light", "dark"]) {
+            const evidence = `${device}-${colorScheme}`;
+            const context = await browser.newContext({ locale: "en-US", viewport, colorScheme });
+            const page = await context.newPage();
+            const errors = [];
+            page.on("pageerror", error => errors.push(error.message));
+            await page.goto(origin);
+            assert.notEqual(await waitForRecord(page), null);
+            await page.waitForTimeout(3000);
+            await capture(page, `startup-${evidence}`, configurationLabels);
+            await capture(page, `configuration-${evidence}`, configurationLabels);
+            await clickCanvasButton(page, "Charging data");
+            await capture(page, `storage-${evidence}`, storageLabels);
+            await clickCanvasButton(page, "Back to timer");
+            await clickCanvasButton(page, "Start Timer");
+            assert.notEqual(await waitForRecord(page, record =>
+                JSON.parse(record?.payload || "{}").activeSession != null), null);
+            // End a persisted one-hour charge, using real event/rendering time.
+            await page.evaluate(async () => {
+                const record = JSON.parse(await evTimerStorage.read());
+                const state = JSON.parse(record.payload);
+                for (const segment of state.activeSession.segments) segment.startedAt -= 3_600_000;
+                await evTimerStorage.write(record.revision, JSON.stringify(state));
+                window.dispatchEvent(new Event("pageshow"));
+            });
+            await waitForAccessibleText(page, "Charging in Progress");
+            await capture(page, `running-${evidence}`, runningLabels);
+            // Stop is below the fold on a phone; scroll the actual Compose canvas.
+            await page.mouse.move(viewport.width / 2, viewport.height - 100);
+            await page.mouse.wheel(0, 900);
+            await page.waitForTimeout(500);
+            if (device === "phone") await capture(page, `running-controls-${evidence}`, runningLabels);
+            await clickCanvasButton(page, "Stop Timer");
+            const ended = await waitForRecord(page, record => {
+                const state = JSON.parse(record?.payload || "{}");
+                return state.activeSession === null && state.backup?.sessions.length === 1;
+            });
+            assert.notEqual(ended, null);
+            const saved = JSON.parse(ended.payload).backup.sessions[0];
+            assert.ok(saved.endedAt - saved.segments[0].startedAt >= 3_600_000);
+            assert.ok(saved.endPercent > 60 && saved.endPercent < 100);
+            const endText = new Intl.NumberFormat("en-US", { maximumFractionDigits: 1 }).format(saved.endPercent);
+            const energy = new Intl.NumberFormat("en-US", { maximumFractionDigits: 1 })
+                .format(saved.batteryCapacity * (saved.endPercent - saved.startPercent) / 100);
+            const verifySummary = async () => {
+                await waitForAccessibleText(page, "Charge summary");
+                await waitForAccessibleText(page, `60% → ${endText}%`);
+                await waitForAccessibleText(page, `${energy} kWh`);
+                await waitForAccessibleText(page, "Elapsed Time");
+                await waitForAccessibleText(page, "1h");
+                await waitForAccessibleText(page, "Average power");
+                await waitForAccessibleText(page, "11 kW");
+            };
+            await verifySummary();
+            await capture(page, `summary-${evidence}`, summaryLabels);
+            await page.reload();
+            await verifySummary();
+            await clickCanvasButton(page, "Done");
+            await clickCanvasButton(page, "Charging history");
+            await waitForAccessibleText(page, `60% → ${endText}%`);
+            await waitForAccessibleText(page, `${energy} kWh`);
+            await capture(page, `history-${evidence}`, ["Charging history", "Default", `60% → ${endText}%`,
+                `${energy} kWh`, "1h 0m", "avg 11 kW"]);
+            await page.reload();
+            await clickCanvasButton(page, "Charging history");
+            await waitForAccessibleText(page, `60% → ${endText}%`);
+            await waitForAccessibleText(page, `${energy} kWh`);
+            const card = page.getByRole("button").filter({ hasText: `60% → ${endText}%` }).first();
+            const bounds = await card.boundingBox();
+            assert.ok(bounds);
+            await page.mouse.click(bounds.x + bounds.width / 3, bounds.y + bounds.height / 2);
+            await verifySummary();
+            await clickCanvasButton(page, "Done");
+            await waitForAccessibleText(page, `${energy} kWh`);
+            assert.deepEqual(JSON.parse((await waitForRecord(page)).payload).backup.sessions[0],
+                { ...saved, reviewed: true }, "History display and reload must preserve saved values");
+            assert.deepEqual(errors, []);
+            await context.close();
+          }
+        }
+        const notificationContext = await browser.newContext({
+            locale: "en-US", viewport: { width: 1100, height: 800 }
+        });
+        await notificationContext.addInitScript(() => {
+            globalThis.notificationTest = { permission: "denied", requests: 0, attempts: 0, fail: true, rejectPermission: false };
+            globalThis.Notification = class {
+                static get permission() { return notificationTest.permission; }
+                static async requestPermission() {
+                    notificationTest.requests++;
+                    if (notificationTest.rejectPermission) throw new Error("Permission request failed");
+                    return notificationTest.permission;
+                }
+                constructor() {
+                    notificationTest.attempts++;
+                    if (notificationTest.fail) throw new Error("Foreground notification constructor unavailable");
+                }
+            };
+        });
+        const notificationPage = await notificationContext.newPage();
+        const notificationErrors = [];
+        notificationPage.on("pageerror", error => notificationErrors.push(error.message));
+        notificationPage.on("console", message => console.log(`[notifications] ${message.type()}: ${message.text()}`));
+        await notificationPage.goto(origin);
+        assert.notEqual(await waitForRecord(notificationPage), null);
+        await notificationPage.getByRole("button", { name: "Start Timer", exact: true }).waitFor();
+        await notificationPage.waitForTimeout(3000);
+        assert.equal(await notificationPage.evaluate(() => notificationTest.requests), 0,
+            "Startup must not request notification permission");
+        await clickCanvasButton(notificationPage, "Enable foreground notifications");
+        await notificationPage.waitForFunction(() => notificationTest.requests === 1);
+        await notificationPage.waitForTimeout(300);
+        await capture(notificationPage, "notification-permission",
+            [...configurationLabels, "A notification could not be delivered or permission was denied"]);
+        fs.writeFileSync(path.join(screenshots, "notification-semantics.txt"), await notificationPage.locator("body").ariaSnapshot());
+        await waitForAccessibleText(notificationPage, "A notification could not be delivered or permission was denied");
+        assert.equal(JSON.parse((await waitForRecord(notificationPage)).payload).notificationsEnabled, false);
+        await notificationPage.evaluate(() => { notificationTest.rejectPermission = true; });
+        await clickCanvasButton(notificationPage, "Enable foreground notifications");
+        await notificationPage.waitForFunction(() => notificationTest.requests === 2);
+        await waitForAccessibleText(notificationPage, "A notification could not be delivered or permission was denied");
+        assert.equal(JSON.parse((await waitForRecord(notificationPage)).payload).notificationsEnabled, false);
+        await notificationPage.evaluate(() => { notificationTest.rejectPermission = false; });
+        await notificationPage.evaluate(() => { notificationTest.permission = "granted"; });
+        await clickCanvasButton(notificationPage, "Enable foreground notifications");
+        assert.notEqual(await waitForRecord(notificationPage, record =>
+            JSON.parse(record?.payload || "{}").notificationsEnabled === true), null);
+        await notificationPage.getByRole("button", { name: "Disable foreground notifications", exact: true }).waitFor();
+        await clickCanvasButton(notificationPage, "Start Timer");
+        assert.notEqual(await waitForRecord(notificationPage, record =>
+            JSON.parse(record?.payload || "{}").activeSession != null), null);
+        await notificationPage.evaluate(async () => {
+            const record = JSON.parse(await evTimerStorage.read());
+            const state = JSON.parse(record.payload);
+            for (const segment of state.activeSession.segments) segment.startedAt -= 30 * 24 * 3_600_000;
+            await evTimerStorage.write(record.revision, JSON.stringify(state));
+            window.dispatchEvent(new Event("pageshow"));
+        });
+        assert.notEqual(await waitForRecord(notificationPage, record => {
+            const state = JSON.parse(record?.payload || "{}");
+            return state.activeSession === null && state.completionNotificationAttempted === true;
+        }), null, "Completion and its notification claim must persist even when notification construction fails");
+        await waitForAccessibleText(notificationPage, "A notification could not be delivered or permission was denied");
+        assert.equal(await notificationPage.evaluate(() => notificationTest.requests), 3);
+        assert.equal(await notificationPage.evaluate(() => notificationTest.attempts), 1);
+        await capture(notificationPage, "notification-failure",
+            [...summaryLabels, "A notification could not be delivered or permission was denied"]);
+        await notificationPage.reload();
+        await waitForAccessibleText(notificationPage, "Charge summary");
+        assert.equal(await notificationPage.evaluate(() => notificationTest.requests), 0);
+        assert.equal(await notificationPage.evaluate(() => notificationTest.attempts), 0,
+            "Reload must not re-attempt an already-claimed notification");
+        assert.deepEqual(notificationErrors, [], "Notification failures must be handled, not escape the Wasm boundary");
+        await notificationContext.close();
+        console.log("Real Chromium: shared timer UI, durable start/reload, epoch catch-up/completion, backup roundtrip, IndexedDB conflicts and light/dark screenshots passed");
     } finally {
         await browser.close();
         await new Promise(resolve => server.close(resolve));
