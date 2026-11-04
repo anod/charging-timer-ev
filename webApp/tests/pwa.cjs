@@ -69,8 +69,10 @@ async function controlled(page, url) {
     assert.equal(prepare(b), versionB, "Build version must be deterministic");
     let serving = a;
     let fail = null;
+    let networkOffline = false;
     let privacyRevision = 1;
     const server = http.createServer((request, response) => {
+        if (networkOffline) { request.socket.destroy(); return; }
         const url = new URL(request.url, "http://localhost");
         const relative = url.pathname.startsWith(prefix) ? url.pathname.slice(prefix.length) :
             url.pathname.slice(1);
@@ -93,6 +95,12 @@ async function controlled(page, url) {
     const origin = `http://127.0.0.1:${server.address().port}`;
     const url = origin + prefix;
     const browser = await chromium.launch();
+    const setOffline = async (context, value) => {
+        // Also sever the server connection: browser offline emulation alone can
+        // leave worker-originated requests online in some Chromium versions.
+        networkOffline = value;
+        await context.setOffline(value);
+    };
     try {
         const context = await browser.newContext({ locale: "en-US" });
         const page = await context.newPage();
@@ -134,14 +142,14 @@ async function controlled(page, url) {
         });
         const aged = (await state(page)).activeSession;
         assert.equal(aged.segments[0].startedAt, active.segments[0].startedAt - 60_000);
-        await context.setOffline(true);
+        await setOffline(context, true);
         await page.reload();
         await page.getByText("Charging in Progress", { exact: true }).waitFor();
         const offline = await state(page);
         assert.deepEqual(offline.activeSession, aged);
         assert.deepEqual(offline.backup, before.backup);
         assert.equal(await page.evaluate(() => navigator.onLine), false);
-        await context.setOffline(false);
+        await setOffline(context, false);
 
         // A failed B install must leave A and IndexedDB usable, with no partial B cache.
         serving = b;
@@ -209,10 +217,10 @@ async function controlled(page, url) {
             await caches.open(name).then(c => c.put(new URL("icons/icon-192.png", location.href),
                 new Response("corrupt")));
         });
-        await context.setOffline(true);
+        await setOffline(context, true);
         assert.equal(await next.evaluate(async () => (await fetch("icons/icon-192.png")).status), 503);
         await status(next, "error");
-        await context.setOffline(false);
+        await setOffline(context, false);
         assert.equal(await next.evaluate(async () => (await fetch("icons/icon-192.png")).status), 200);
         assert.equal(await next.evaluate(() => caches.has("unrelated-app")), true);
 
@@ -220,11 +228,11 @@ async function controlled(page, url) {
             privacyRevision++;
             assert.ok(await next.evaluate(async p => (await fetch(p)).text(), privacy)
                 .then(text => text.includes(`Privacy ${privacyRevision}`)));
-            await context.setOffline(true);
+            await setOffline(context, true);
             assert.equal(await next.evaluate(async p => {
                 try { await fetch(p); return "cached"; } catch { return "network-only"; }
             }, privacy), "network-only");
-            await context.setOffline(false);
+            await setOffline(context, false);
         }
         await next.goto(url + "privacy.html");
         assert.ok((await next.content()).includes(`Privacy ${privacyRevision}`));
@@ -238,6 +246,7 @@ async function controlled(page, url) {
         const persistedActive = await start(tab);
         const persistedBackup = (await state(tab)).backup;
         await persistent.close();
+        networkOffline = true;
         persistent = await chromium.launchPersistentContext(profile, { headless: true, offline: true });
         tab = persistent.pages()[0];
         await tab.goto(url);
@@ -245,6 +254,7 @@ async function controlled(page, url) {
         assert.deepEqual((await state(tab)).activeSession, persistedActive);
         assert.deepEqual((await state(tab)).backup, persistedBackup);
         await persistent.close();
+        networkOffline = false;
 
         for (const colorScheme of ["light", "dark"]) {
             for (const [device, viewport] of [
@@ -257,12 +267,12 @@ async function controlled(page, url) {
                     "Charging history", "Enable foreground notifications");
                 await shot.screenshot({ path: path.join(evidence, `pwa-ready-${device}-${colorScheme}.png`) });
                 await start(shot);
-                await shotContext.setOffline(true);
+                await setOffline(shotContext, true);
                 await shot.reload();
                 await labels(shot, "Ready for offline use.", "Charging in Progress", "Charging data",
                     "Charging history", "Enable foreground notifications");
                 await shot.screenshot({ path: path.join(evidence, `pwa-running-offline-${device}-${colorScheme}.png`) });
-                await shotContext.setOffline(false);
+                await setOffline(shotContext, false);
                 serving = a;
                 await shot.evaluate(() => navigator.serviceWorker.getRegistration().then(r => r.update()));
                 await status(shot, "update");
