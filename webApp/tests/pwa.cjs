@@ -330,7 +330,7 @@ async function controlled(page, url) {
                 serving = b;
             }
         }
-        const localContext = await browser.newContext();
+        const localContext = await browser.newContext({ locale: "en-US" });
         const local = await localContext.newPage();
         await controlled(local, origin + "/");
         assert.equal(await local.evaluate(() => navigator.serviceWorker.getRegistration().then(r => r.scope)),
@@ -347,7 +347,7 @@ async function controlled(page, url) {
             "Registration failure must not stop the online workflow or clear data");
         await failedContext.close();
         fail = null;
-        const insecureContext = await browser.newContext();
+        const insecureContext = await browser.newContext({ locale: "en-US" });
         await insecureContext.addInitScript(() => {
             Object.defineProperty(globalThis, "isSecureContext", { value: false });
         });
