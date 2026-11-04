@@ -128,7 +128,7 @@ async function capture(page, name, labels) {
         await loadingContext.close();
         for (const colorScheme of ["light", "dark"]) {
             const context = await browser.newContext({
-                colorScheme, locale: "en-US", viewport: { width: 1100, height: 800 }
+                colorScheme, locale: "en-US", viewport: { width: 1100, height: 900 }
             });
             const page = await context.newPage();
             const errors = [];
@@ -297,6 +297,7 @@ async function capture(page, name, labels) {
             await page.mouse.move(viewport.width / 2, viewport.height - 100);
             await page.mouse.wheel(0, 900);
             await page.waitForTimeout(500);
+            if (device === "phone") await capture(page, `running-controls-${evidence}`, runningLabels);
             await clickCanvasButton(page, "Stop Timer");
             const ended = await waitForRecord(page, record => {
                 const state = JSON.parse(record?.payload || "{}");
