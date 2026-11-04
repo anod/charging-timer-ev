@@ -149,7 +149,7 @@ async function controlled(page, url) {
                 const names = (await caches.keys()).filter(n => n.startsWith("ev-timer-shell:"));
                 for (const name of names) {
                     const keys = await (await caches.open(name)).keys();
-                    if (keys.some(r => /privacy/i.test(new URL(r.url).pathname))) return true;
+                    if (keys.some(r => /(^|\/)privacy(?:[./]|$)/i.test(new URL(r.url).pathname))) return true;
                 }
                 return false;
             }), false, "The deployed privacy page must never be precached");
