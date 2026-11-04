@@ -12,8 +12,9 @@ is regenerated and signing credentials are not persisted in that cache.
 1. Create the app in Play Console with the application ID above. Enroll in Play
    App Signing. Generate and securely back up a separate upload keystore outside
    this repository; never commit the keystore or its passwords.
-2. Enable GitHub Pages in repository **Settings > Pages > Deploy from a branch**,
-   select `main` and `/docs`, and save. After deployment, verify that
+2. Enable GitHub Pages in repository **Settings > Pages > Build and deployment > Source**,
+   select **GitHub Actions** (not `main` / `/docs`). Follow the
+   [one-time Pages setup](web-app.md#github-pages-deployment). After deployment, verify that
    <https://anod.github.io/charging-timer-ev/privacy.html> is publicly accessible.
    Enter that URL in Play Console's privacy policy field.
 3. Complete the store listing and App content sections: Data safety (the app

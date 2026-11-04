@@ -29,7 +29,23 @@ encrypted**. The app never uploads them. Anyone with access to the file can read
 it, so choose a trusted location and delete files you no longer need. Restore
 reads only the document you choose and asks before replacing local data.
 
-## Notifications and background operation
+## Browser storage and notifications
+
+The web app stores charging data and preferences locally in the browser's
+IndexedDB for this site. It downloads app assets from GitHub Pages over HTTPS
+and caches the app shell for offline use; it does not upload charging data.
+GitHub Pages processes ordinary website requests under GitHub's privacy policy.
+The privacy policy page is fetched online and is not part of the offline cache.
+
+Browser notifications are optional and foreground-only. No background alarms
+or notifications are promised when the page is hidden, suspended or closed.
+Estimates catch up from saved timestamps when the app is reopened.
+Browser storage eviction, private browsing or clearing site data can lose local
+records. Manual backup export downloads an unencrypted JSON file only on request;
+restore reads the file you select and asks before replacing local data.
+The developer cannot access browser records or backup files.
+
+## Android notifications and background operation
 
 Notification permission lets the app show charging estimates, remaining time,
 and a stop action outside the app. A foreground service keeps a user-started

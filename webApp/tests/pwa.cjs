@@ -6,7 +6,8 @@ const os = require("node:os");
 const path = require("node:path");
 const { prepare } = require("../pwa/prepare.cjs");
 
-const distribution = path.resolve("build/dist/wasmJs/productionExecutable");
+const distribution = path.resolve(process.argv[2] || "build/dist/wasmJs/productionExecutable");
+const pagesSite = process.argv[2] !== undefined;
 const evidence = path.resolve("build/browser-evidence");
 const mime = { ".wasm": "application/wasm", ".js": "application/javascript",
     ".mjs": "application/javascript", ".html": "text/html", ".png": "image/png",
@@ -89,6 +90,9 @@ async function controlled(page, url) {
     fs.writeFileSync(path.join(b, "index.html"),
         fs.readFileSync(path.join(b, "index.html"), "utf8").replace("<html ", '<html data-shell="B" '));
     const versionA = prepare(a);
+    assert.deepEqual(fs.readFileSync(path.join(a, "sw.js")),
+        fs.readFileSync(path.join(distribution, "sw.js")),
+        "The tested worker must be byte-identical to the uploaded worker");
     const versionB = prepare(b);
     assert.notEqual(versionA, versionB);
     assert.equal(prepare(b), versionB, "Build version must be deterministic");
@@ -104,7 +108,10 @@ async function controlled(page, url) {
         response.setHeader("Cache-Control", "no-store");
         if (["privacy", "privacy.html", "privacy/", "docs/privacy.html"].includes(relative)) {
             response.setHeader("Content-Type", "text/html");
-            response.end(`<title>Privacy ${privacyRevision}</title>Privacy ${privacyRevision}`);
+            const policy = pagesSite && relative === "privacy.html" ?
+                fs.readFileSync(path.join(serving, "privacy.html"), "utf8") : "";
+            response.end(policy && privacyRevision === 1 ? policy :
+                `${policy}<title>Privacy ${privacyRevision}</title>Privacy ${privacyRevision}`);
             return;
         }
         if (relative === fail) { response.writeHead(503).end("Simulated partial deployment"); return; }
@@ -131,6 +138,32 @@ async function controlled(page, url) {
         const context = await browser.newContext({ locale: "en-US" });
         const page = await context.newPage();
         await controlled(page, url);
+        assert.equal(await page.evaluate(() => navigator.serviceWorker.getRegistration().then(r => r.scope)), url);
+        if (pagesSite) {
+            const policy = await page.evaluate(async () => (await fetch("privacy.html")).text());
+            assert.ok(policy.includes("<!doctype html>"));
+            assert.ok(policy.includes("EV Charging Timer privacy policy"));
+            assert.equal(policy, fs.readFileSync(path.join(distribution, "privacy.html"), "utf8"),
+                "The server must serve the exact packaged privacy page");
+            assert.equal(await page.evaluate(async () => {
+                const names = (await caches.keys()).filter(n => n.startsWith("ev-timer-shell:"));
+                for (const name of names) {
+                    const keys = await (await caches.open(name)).keys();
+                    if (keys.some(r => /(^|\/)privacy(?:[./]|$)/i.test(new URL(r.url).pathname))) return true;
+                }
+                return false;
+            }), false, "The deployed privacy page must never be precached");
+            const policyPage = await context.newPage();
+            await policyPage.goto(url + "privacy.html");
+            await policyPage.getByRole("heading", { name: "EV Charging Timer privacy policy", exact: true }).waitFor();
+            assert.equal(await policyPage.getByRole("link", { name: "project's GitHub issues" })
+                .getAttribute("href"), "https://github.com/anod/charging-timer-ev/issues");
+            await policyPage.close();
+            fs.writeFileSync(path.join(evidence, "pages-site-inventory.json"),
+                JSON.stringify(fs.readdirSync(distribution, { recursive: true }).filter(name =>
+                    fs.statSync(path.join(distribution, name)).isFile()).sort(), null, 2));
+            console.log("Pages: exact packaged worker, project scope and rendered network-only privacy.html verified");
+        }
         console.log("PWA: initial controlled shell");
         const cdp = await context.newCDPSession(page);
         const appManifest = await cdp.send("Page.getAppManifest");
