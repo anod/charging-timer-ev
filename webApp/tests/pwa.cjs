@@ -35,6 +35,15 @@ async function status(page, expected) {
         { timeout: 120_000 });
 }
 
+async function labels(page, ...texts) {
+    for (const text of texts) {
+        await page.getByText(text, { exact: true }).waitFor();
+    }
+    // Let Compose paint the frame corresponding to the populated semantics.
+    await page.evaluate(() => new Promise(resolve =>
+        requestAnimationFrame(() => requestAnimationFrame(resolve))));
+}
+
 async function controlled(page, url) {
     await page.goto(url);
     await status(page, "ready");
@@ -242,19 +251,21 @@ async function controlled(page, url) {
                 const shotContext = await browser.newContext({ colorScheme, viewport, locale: "en-US" });
                 const shot = await shotContext.newPage();
                 await controlled(shot, url);
-                await shot.waitForTimeout(3000);
+                await labels(shot, "Ready for offline use.", "Start Timer", "Charging data",
+                    "Charging history", "Enable foreground notifications");
                 await shot.screenshot({ path: path.join(evidence, `pwa-ready-${device}-${colorScheme}.png`) });
                 await start(shot);
                 await shotContext.setOffline(true);
                 await shot.reload();
-                await shot.getByText("Charging in Progress", { exact: true }).waitFor();
-                await shot.waitForTimeout(2000);
+                await labels(shot, "Ready for offline use.", "Charging in Progress", "Charging data",
+                    "Charging history", "Enable foreground notifications");
                 await shot.screenshot({ path: path.join(evidence, `pwa-running-offline-${device}-${colorScheme}.png`) });
                 await shotContext.setOffline(false);
                 serving = a;
                 await shot.evaluate(() => navigator.serviceWorker.getRegistration().then(r => r.update()));
                 await status(shot, "update");
-                await shot.waitForTimeout(1000);
+                await labels(shot, "Update ready. Close all timer tabs and installed windows, then reopen. Saved timers and data stay intact.",
+                    "Charging in Progress", "Charging data", "Charging history");
                 await shot.screenshot({ path: path.join(evidence, `pwa-update-${device}-${colorScheme}.png`) });
                 await shotContext.close();
                 serving = b;

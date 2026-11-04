@@ -31,13 +31,20 @@ kotlin {
         binaries.executable()
     }
 
+    abstract class PwaProcess {
+        @get:javax.inject.Inject
+        abstract val execOperations: org.gradle.process.ExecOperations
+    }
+
     tasks.named("wasmJsBrowserDistribution") {
+        val process = objects.newInstance<PwaProcess>()
+        val script = layout.projectDirectory.file("pwa/prepare.cjs").asFile.absolutePath
+        val distribution = layout.buildDirectory.dir("dist/wasmJs/productionExecutable")
         inputs.files(fileTree("pwa"))
         doLast {
-            providers.exec {
-                commandLine("node", "pwa/prepare.cjs",
-                    layout.buildDirectory.dir("dist/wasmJs/productionExecutable").get().asFile.absolutePath)
-            }.result.get().assertNormalExitValue()
+            process.execOperations.exec {
+                commandLine("node", script, distribution.get().asFile.absolutePath)
+            }.assertNormalExitValue()
         }
     }
 
