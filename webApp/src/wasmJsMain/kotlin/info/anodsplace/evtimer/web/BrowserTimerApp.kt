@@ -169,7 +169,7 @@ internal fun BrowserTimerApp() {
                                         summaryId = null
                                     }
                                 }
-                            })
+                            }, entry = summaryEntry, allowReadingEditing = false)
                         } else if (historyOpen) {
                             HistoryScreen(entries,
                                 onOpenSummary = { summaryId = it.id },

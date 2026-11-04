@@ -167,6 +167,7 @@ async function waitForAccessibleText(page, text) {
                 '"startPercent":20,"targetPercent":80,"efficiency":0.9,"endedAt":300,' +
                 '"actualPercent":78.5,"calibrationEnabled":true,' +
                 '"segments":[{"startedAt":100,"powerKw":11,"efficiency":0.85}]}]');
+            const beforeImport = await waitForRecord(page);
             const [chooser] = await Promise.all([
                 page.waitForEvent("filechooser"),
                 clickCanvasButton(page, "Import backup")
@@ -176,7 +177,7 @@ async function waitForAccessibleText(page, text) {
             });
             await page.getByRole("button", { name: "Replace data", exact: true }).waitFor();
             // Merely reading the file must not mutate persisted data.
-            assert.equal(await page.evaluate(async () => JSON.parse(await evTimerStorage.read()).revision), completed.revision);
+            assert.equal(await page.evaluate(async () => JSON.parse(await evTimerStorage.read()).revision), beforeImport.revision);
             await clickCanvasButton(page, "Replace data");
             const committed = await waitForRecord(page, record => record?.payload.includes("Imported car"));
             assert.notEqual(committed, null, "Confirmed import must commit the selected backup");
@@ -215,6 +216,7 @@ async function waitForAccessibleText(page, text) {
             await page.goto(origin);
             assert.notEqual(await waitForRecord(page), null);
             await page.waitForTimeout(3000);
+            await page.screenshot({ path: path.join(screenshots, `configuration-${device}.png`) });
             await clickCanvasButton(page, "Start Timer");
             assert.notEqual(await waitForRecord(page, record =>
                 JSON.parse(record?.payload || "{}").activeSession != null), null);
@@ -227,6 +229,7 @@ async function waitForAccessibleText(page, text) {
                 window.dispatchEvent(new Event("pageshow"));
             });
             await waitForAccessibleText(page, "Charging in Progress");
+            await page.screenshot({ path: path.join(screenshots, `running-${device}.png`) });
             // Stop is below the fold on a phone; scroll the actual Compose canvas.
             await page.mouse.move(viewport.width / 2, viewport.height - 100);
             await page.mouse.wheel(0, 900);
