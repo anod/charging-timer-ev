@@ -13,13 +13,18 @@ const mime = { ".wasm": "application/wasm", ".js": "application/javascript",
     ".webmanifest": "application/manifest+json", ".json": "application/json" };
 const prefix = "/charging-timer-ev/";
 
-async function state(page) {
-    await page.waitForFunction(async () => {
-        if (!globalThis.evTimerStorage) return false;
-        const record = JSON.parse(await evTimerStorage.read());
-        return record !== null && typeof record.payload === "string";
-    });
-    return page.evaluate(async () => JSON.parse(JSON.parse(await evTimerStorage.read()).payload));
+async function state(page, accept = () => true) {
+    const deadline = Date.now() + 120_000;
+    while (Date.now() < deadline) {
+        const value = await page.evaluate(async () => {
+            if (!globalThis.evTimerStorage) return null;
+            const record = JSON.parse(await evTimerStorage.read());
+            return record === null ? null : JSON.parse(record.payload);
+        });
+        if (value !== null && accept(value)) return value;
+        await page.waitForTimeout(100);
+    }
+    assert.fail("Expected persisted browser state was not committed");
 }
 
 async function start(page) {
@@ -29,9 +34,7 @@ async function start(page) {
     const box = await button.boundingBox();
     assert.ok(box);
     await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
-    await page.waitForFunction(async () =>
-        JSON.parse(JSON.parse(await evTimerStorage.read()).payload).activeSession !== null);
-    return (await state(page)).activeSession;
+    return (await state(page, value => value.activeSession !== null)).activeSession;
 }
 
 async function status(page, expected) {
