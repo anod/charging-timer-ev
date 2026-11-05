@@ -348,7 +348,10 @@ async function capture(page, name, labels) {
         });
         const parityPage = await parityContext.newPage();
         const parityErrors = [];
-        parityPage.on("pageerror", error => parityErrors.push(error.message));
+        parityPage.on("pageerror", error => {
+            parityErrors.push(error.message);
+            console.error("Parity page error:", error.stack);
+        });
         await parityPage.goto(origin);
         assert.notEqual(await waitForRecord(parityPage), null);
         await parityPage.evaluate(async () => {
@@ -384,11 +387,13 @@ async function capture(page, name, labels) {
             await parityPage.evaluate(() => document.activeElement?.outerHTML));
         await clickCanvasButton(parityPage, "Save");
         const renamed = await waitForRecord(parityPage, record => record?.payload.includes('"name":"Work"'));
-        console.log("Parity: rename result", await parityPage.locator("body").ariaSnapshot(),
+        console.log("Parity: rename result", parityErrors, await parityPage.locator("body").ariaSnapshot(),
             await parityPage.evaluate(async () => await evTimerStorage.read()));
         assert.notEqual(renamed, null);
         console.log("Parity: rename committed", await parityPage.locator("body").ariaSnapshot());
         await parityPage.screenshot({ path: path.join(screenshots, "rename-after-save.png") });
+        // Dialog disposal returns painting to the parent canvas before its DOM semantics regain focus.
+        await parityPage.mouse.click(8, 300);
         await clickCanvasButton(parityPage, "Back");
         await clickCanvasText(parityPage, "Charging history");
         console.log("Parity: opening saved summary and recording reading");
