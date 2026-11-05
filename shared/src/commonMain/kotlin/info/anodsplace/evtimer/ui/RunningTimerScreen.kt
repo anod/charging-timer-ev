@@ -530,6 +530,7 @@ fun StatRow(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun EditableStatRow(
     label: String,
@@ -538,16 +539,18 @@ fun EditableStatRow(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Row(
+    FlowRow(
         modifier = modifier
             .fillMaxWidth()
             .heightIn(min = 48.dp)
             .clickable(onClickLabel = actionLabel, role = Role.Button, onClick = onClick),
         horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+        itemVerticalAlignment = Alignment.CenterVertically
     ) {
         Text(
             text = label,
+            modifier = Modifier.padding(end = 16.dp),
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )

@@ -62,6 +62,21 @@ class RunningCompactLayoutTest {
     fun narrowLargeTextRtl() = verifyScreen(320, 720, 2f, dark = false, direction = LayoutDirection.Rtl)
 
     @Test
+    fun editableValueMovesBelowItsLabelWithLargeText() = runDesktopComposeUiTest {
+        setContent {
+            CompositionLocalProvider(LocalDensity provides Density(1f, 2f)) {
+                AppTheme(dynamicColor = false) {
+                    EditableStatRow("Charging Speed", "3.6 kW", "Edit", onClick = {}, Modifier.width(240.dp))
+                }
+            }
+        }
+        val label = onNodeWithText("Charging Speed").fetchSemanticsNode().boundsInRoot
+        val value = onNodeWithText("3.6 kW")
+        value.assertFullyRendered(maxLines = 1)
+        assertTrue(value.fetchSemanticsNode().boundsInRoot.top >= label.bottom)
+    }
+
+    @Test
     fun statValueMovesBelowItsLabelInsteadOfBeingSqueezed() = runDesktopComposeUiTest {
         setContent {
             AppTheme(dynamicColor = false) {
@@ -152,6 +167,7 @@ class RunningCompactLayoutTest {
 
         // The end time must be readable before scrolling, not just exist in semantics.
         onNodeWithText(endTime).assertFullyRendered()
+        onNodeWithText("3.6 kW").performScrollTo().assertFullyRendered(maxLines = 1)
         val remaining = onNodeWithText("25h 45m \u00b7 $endTime")
         remaining.performScrollTo()
         ImageIO.write(onNodeWithTag("screen").captureToImage().toAwtImage(), "png", File(directory, "$name-stats.png"))
@@ -161,7 +177,7 @@ class RunningCompactLayoutTest {
         assertEquals(listOf<RunningViewEvent>(RunningViewEvent.StopCharging), events)
     }
 
-    private fun SemanticsNodeInteraction.assertFullyRendered() {
+    private fun SemanticsNodeInteraction.assertFullyRendered(maxLines: Int = Int.MAX_VALUE) {
         assertIsDisplayed()
         val layouts = mutableListOf<TextLayoutResult>()
         performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
@@ -171,6 +187,7 @@ class RunningCompactLayoutTest {
         val widestLine = lines.maxOf { layout.getLineRight(it) - layout.getLineLeft(it) }
         val details = "${layout.layoutInput.text} size=${layout.size} lines=${layout.lineCount} widest=$widestLine"
         assertFalse(lines.any(layout::isLineEllipsized), "Ellipsized text: $details")
+        assertTrue(layout.lineCount <= maxLines, "Text wrapped more than $maxLines line(s): $details")
         assertFalse(layout.didOverflowHeight, "Vertically clipped text: $details")
         val bounds = fetchSemanticsNode().boundsInRoot
         assertTrue(bounds.width >= widestLine - 1f, "Text is horizontally clipped: $details bounds=$bounds")
