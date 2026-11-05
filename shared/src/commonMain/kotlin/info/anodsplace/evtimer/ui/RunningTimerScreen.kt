@@ -56,6 +56,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
@@ -305,7 +307,10 @@ fun RunningTimerScreen(
                 .onSizeChanged { stopBarHeightPx = it.height }
                 .hazeBlur(
                     input = HazeInput.Sources(hazeState),
-                    style = HazeMaterials.thin()
+                    style = HazeMaterials.ultraThin().then {
+                        // Fade the top edge so the blur blends into the content instead of cutting a hard line.
+                        mask(Brush.verticalGradient(0f to Color.Transparent, 0.35f to Color.Black))
+                    }
                 )
                 .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal))
         ) {
