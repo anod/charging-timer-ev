@@ -32,11 +32,13 @@ class SettingsScreenTest {
         var presets = 0
         var history = 0
         var licenses = 0
+        var powers = 0
         setContent {
             MaterialTheme {
                 SettingsScreen(
                     notify.value, { notify.value = it }, {}, { licenses++ }, { presets++ },
-                    onOpenHistory = { history++ }
+                    onOpenHistory = { history++ },
+                    onOpenChargingPowers = { powers++ }
                 )
             }
         }
@@ -44,6 +46,7 @@ class SettingsScreenTest {
         runOnIdle { notify.value = true }
         onNodeWithText("Notify at 80%").assertIsOn().performClick()
         onNodeWithText("Notify at 80%").assertIsOff()
+        onNodeWithText("Charging Power").performScrollTo().performClick()
         onNodeWithText("Presets").performClick()
         onNodeWithText("Charging history").performClick()
         onNodeWithText("Keep at least one preset.").assertDoesNotExist()
@@ -54,6 +57,7 @@ class SettingsScreenTest {
             assertEquals(1, presets)
             assertEquals(1, history)
             assertEquals(1, licenses)
+            assertEquals(1, powers)
         }
     }
 

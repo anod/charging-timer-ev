@@ -72,10 +72,25 @@ fun ChargingTimerApp(
                                     SettingsScreen(
                                         notifyAt80, viewModel::setNotifyAt80,
                                         onOpenPresets = { navigation.navigate(Destination.Presets) },
+                                        onOpenChargingPowers = { navigation.navigate(Destination.ChargingPowers) },
                                         onBack = { navigation.onBack() },
                                         onOpenLicenses = { navigation.navigate(Destination.Licenses) },
                                         backupContent = { BackupSettings(viewModel) },
                                         onOpenHistory = { navigation.navigate(Destination.History) },
+                                        modifier = modifier.windowInsetsPadding(WindowInsets.systemBars)
+                                    )
+                                }
+                                Destination.ChargingPowers -> {
+                                    val viewModel = koinViewModel<SettingsViewModel>()
+                                    val settings by viewModel.settings.collectAsState()
+                                    val loaded = settings
+                                    if (loaded == null) Box(modifier.fillMaxSize())
+                                    else ChargingPowerManagementScreen(
+                                        powers = loaded.availablePowers,
+                                        selectedPower = loaded.chargingPower,
+                                        onAddPower = viewModel::addPower,
+                                        onRemovePower = viewModel::removePower,
+                                        onBack = { navigation.onBack() },
                                         modifier = modifier.windowInsetsPadding(WindowInsets.systemBars)
                                     )
                                 }

@@ -23,7 +23,7 @@ import kotlin.test.assertTrue
 @OptIn(ExperimentalTestApi::class)
 class CustomPowerDialogTest {
     @Test
-    fun configurationRemovalModeDoesNotSelectPowerAndDoneRestoresSelectionChips() = runDesktopComposeUiTest {
+    fun configurationOnlySelectsPowerAndKeepsQuickAdd() = runDesktopComposeUiTest {
         val events = mutableListOf<ConfigurationViewEvent>()
         setContent {
             MaterialTheme {
@@ -34,29 +34,18 @@ class CustomPowerDialogTest {
         onNodeWithText("Remove power options").assertDoesNotExist()
         onNodeWithText("Done").assertDoesNotExist()
         onNodeWithText("11.0 kW").performScrollTo().assertIsSelected()
-        onNodeWithContentDescription("Edit power options").performScrollTo().performClick()
-        onNodeWithContentDescription("Add custom power").assertDoesNotExist()
-        onNodeWithText("11.0 kW \u00D7").performClick()
-        assertEquals(listOf<ConfigurationViewEvent>(ConfigurationViewEvent.RemoveCustomPower(11f)), events)
-        onNodeWithContentDescription("Finish editing power options").performClick()
-        onNodeWithText("11.0 kW").assertIsSelected()
-        onNodeWithContentDescription("Add custom power").assertExists()
-        assertEquals(1, events.size)
-    }
-
-    @Test
-    fun removalModeDisablesLastOption() = runDesktopComposeUiTest {
-        setContent {
-            MaterialTheme {
-                ConfigurationScreen(
-                    ConfigurationViewState(isLoading = false,
-                        settings = ChargingSettings.DEFAULT.copy(availablePowers = listOf(11f))), {})
-            }
-        }
-        onNodeWithContentDescription("Edit power options").performScrollTo().performClick()
-        onNodeWithText("11.0 kW \u00D7").assertIsNotEnabled()
-        onNodeWithContentDescription("Finish editing power options").performClick()
-        onNodeWithText("11.0 kW").assertIsSelected()
+        onNodeWithContentDescription("Edit power options").assertDoesNotExist()
+        onNodeWithContentDescription("Finish editing power options").assertDoesNotExist()
+        onNodeWithContentDescription("Remove 11.0 kW").assertDoesNotExist()
+        onNodeWithText("7.0 kW").performClick()
+        assertEquals(listOf<ConfigurationViewEvent>(ConfigurationViewEvent.UpdateChargingPower(7f)), events)
+        onNodeWithContentDescription("Add custom power").performClick()
+        onNodeWithText("50.0 kW").performScrollTo().performClick()
+        onNodeWithText("Add").performClick()
+        assertEquals(
+            listOf(ConfigurationViewEvent.UpdateChargingPower(7f), ConfigurationViewEvent.AddCustomPower(50f)),
+            events
+        )
     }
 
     @Test

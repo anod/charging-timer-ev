@@ -1,0 +1,5 @@
+<resources>
+    <string name="settings_charging_powers_summary">Add or remove available charging speeds</string>
+    <string name="settings_charging_powers_help">Manage speeds for the selected setup. Adding a speed selects it. Removing the selected speed selects the first remaining option. Keep at least one speed.</string>
+    <string name="settings_power_selected">Selected</string>
+</resources>

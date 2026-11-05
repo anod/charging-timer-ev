@@ -100,6 +100,16 @@ class DesktopNavigationTest {
         }
         onNodeWithContentDescription("Back").performClick()
         onNodeWithText("Keep at least one preset.").assertDoesNotExist()
+        onNodeWithText("Charging Power").performScrollTo().performClick()
+        onNodeWithContentDescription("Remove 11.0 kW").assertExists()
+        onNodeWithTag("charging-waves").assertDoesNotExist()
+        runOnIdle {
+            assertEquals(listOf(Destination.Config, Destination.Settings, Destination.ChargingPowers),
+                navigation.backStack.value)
+            assertTrue(service.status.value.isRunning)
+        }
+        escape()
+        onNodeWithText("Notify at 80%").assertExists()
         onNodeWithText("Charging history").performClick()
         onNodeWithText("No past sessions yet").assertExists()
         onNodeWithTag("charging-waves").assertDoesNotExist()

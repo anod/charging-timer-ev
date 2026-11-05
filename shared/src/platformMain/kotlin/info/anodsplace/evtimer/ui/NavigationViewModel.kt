@@ -11,7 +11,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 
 enum class Destination {
-    Config, Running, EndSummary, History, Settings, Presets, Licenses, PresetEditor
+    Config, Running, EndSummary, History, Settings, ChargingPowers, Presets, Licenses, PresetEditor
 }
 
 class NavigationViewModel(
