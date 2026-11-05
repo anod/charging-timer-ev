@@ -53,7 +53,7 @@ class TimePredictionBarTest {
             CompositionLocalProvider(LocalLayoutDirection provides direction) {
                 MaterialTheme(colorScheme = colors) {
                     TimePredictionBar(
-                        progress = TimeProgress(0.1f, listOf(TimePrediction(1, 0.4f, 45f), TimePrediction(2, 0.6f, 65f))),
+                        progress = TimeProgress(0.1f, listOf(TimePrediction(1, 0.3f, 45f), TimePrediction(2, 0.7f, 65f))),
                         startTimeText = "12:40",
                         estimatedEndTimeText = "15:40",
                         modifier = Modifier.width(300.dp)
@@ -64,7 +64,7 @@ class TimePredictionBarTest {
         val bar = onNode(SemanticsMatcher.keyIsDefined(SemanticsProperties.ProgressBarRangeInfo))
         val bounds = bar.fetchSemanticsNode().boundsInRoot
         val image = bar.captureToImage().toPixelMap()
-        listOf("+1h · 45%" to 0.4f, "+2h · 65%" to 0.6f).forEach { (label, position) ->
+        listOf("+1h · 45%" to 0.3f, "+2h · 65%" to 0.7f).forEach { (label, position) ->
             val mirrored = if (direction == LayoutDirection.Rtl) 1f - position else position
             val expectedX = bounds.left + bounds.width * mirrored
             assertEquals(expectedX, onNodeWithText(label).fetchSemanticsNode().boundsInRoot.center.x, 1f)
