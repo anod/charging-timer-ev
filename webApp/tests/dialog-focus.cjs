@@ -5,12 +5,18 @@ const { button, text, clickCanvas, paintedDialogBaseline, assertPaintedDialogDis
 
 async function verifyDialogFocus(browser, origin, screenshots) {
     const results = [];
-    for (const variant of ["emoji", "typed-blurred", "typed-focused"]) {
-      for (const dismissal of ["save", "cancel", "outside", "escape"]) {
+    const scenarios = ["emoji", "typed-blurred", "typed-focused"].flatMap(variant =>
+        ["save", "cancel", "outside", "escape"].map(dismissal => ({
+            variant, dismissal, scenario: `${variant}-${dismissal}`
+        })));
+    for (let repeat = 1; repeat <= 5; repeat++) {
+        scenarios.push({ variant: "typed-blurred", dismissal: "escape",
+            scenario: `typed-blurred-escape-repeat-${repeat}` });
+    }
+    for (const { variant, dismissal, scenario } of scenarios) {
         const context = await browser.newContext({ locale: "en-US", viewport: { width: 1100, height: 900 } });
         const page = await context.newPage();
         const errors = [];
-        const scenario = `${variant}-${dismissal}`;
         page.on("pageerror", error => {
             errors.push(error.message);
             console.error("Dialog focus page error:", error.stack);
@@ -24,19 +30,35 @@ async function verifyDialogFocus(browser, origin, screenshots) {
                     tag: node.tagName || node.nodeName, classes: node.className,
                     role: node.getAttribute?.("role")
                 } : null;
-                const focused = () => {
+                const active = () => {
                     let node = document.activeElement;
                     while (node?.shadowRoot?.activeElement) node = node.shadowRoot.activeElement;
-                    return describe(node);
+                    return node;
+                };
+                const focused = () => describe(active());
+                globalThis.dialogEditorFocused = () => {
+                    const node = active();
+                    return !!node?.classList?.contains("compose-backing-field") &&
+                        (node instanceof HTMLInputElement || node instanceof HTMLTextAreaElement || node.isContentEditable);
                 };
                 globalThis.dialogKeyboardEvidence = [];
                 window.addEventListener("keydown", event => {
-                    const record = { key: event.key, target: describe(event.target),
+                    const record = { type: event.type, key: event.key, target: describe(event.target),
                         path: event.composedPath().map(describe), focused: focused(),
                         prevented: event.defaultPrevented };
                     dialogKeyboardEvidence.push(record);
-                    queueMicrotask(() => { record.preventedAfter = event.defaultPrevented; record.focusedAfter = focused(); });
+                    setTimeout(() => {
+                        record.preventedAfter = event.defaultPrevented;
+                        record.focusedAfter = focused();
+                        record.targetConnectedAfter = event.target?.isConnected;
+                    }, 0);
                 }, true);
+                for (const type of ["focusin", "focusout"]) {
+                    window.addEventListener(type, event => {
+                        dialogKeyboardEvidence.push({ type, target: describe(event.target),
+                            relatedTarget: describe(event.relatedTarget), focused: focused() });
+                    }, true);
+                }
             });
             const baseline = await paintedDialogBaseline(page);
             await text(page, "Default");
@@ -49,7 +71,17 @@ async function verifyDialogFocus(browser, origin, screenshots) {
                 await clickCanvas(page, page.getByRole("textbox").first());
                 await page.keyboard.press("Control+a");
                 await page.keyboard.type("Focus test", { delay: 50 });
-                if (variant === "typed-blurred") await page.keyboard.press("Tab");
+                if (variant === "typed-blurred") {
+                    assert.ok(await page.evaluate(() => dialogEditorFocused()),
+                        "Typing must begin with a focused backing editor");
+                    for (let tab = 0; tab < 8; tab++) {
+                        await page.keyboard.press("Tab");
+                        await page.waitForTimeout(100);
+                        if (!(await page.evaluate(() => dialogEditorFocused()))) break;
+                    }
+                    assert.equal(await page.evaluate(() => dialogEditorFocused()), false,
+                        "Real Tab navigation must exit backing editor focus before blurred dismissal");
+                }
             }
             if (dismissal === "save") await button(page, "Save");
             else if (dismissal === "cancel") await button(page, "Cancel");
@@ -63,7 +95,6 @@ async function verifyDialogFocus(browser, origin, screenshots) {
                                 if (node.shadowRoot) {
                                     const found = findEditor(node.shadowRoot);
                                     if (found) return found;
-                                }
                             }
                         };
                         const editor = findEditor(document);
