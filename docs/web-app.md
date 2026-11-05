@@ -107,6 +107,11 @@ shared/native dialogs and their dismissal/busy guards remain unchanged.
 IME/composing, handled, repeated and canvas events are excluded. Its explicit
 navigationevent-compose `1.1.0` declaration matches the existing transitive
 dependency in Compose `1.12.2`; no dependency version is upgraded.
+When Tab removes a backing editor and drops focus onto the page body, the
+web adapter returns focus to the Compose canvas after Compose's own focus moves
+have settled. Pointer input, a real next focus target, hidden pages and unfocused
+windows cancel or prevent this recovery. Escape still uses the existing canvas
+path; the adapter does not handle body or canvas Escape.
 
 Browser tests record CMP-9368 explicitly after proving painted dismissal and
 correct persistence for typed/emoji Save, Cancel, outside-click and Escape cases.

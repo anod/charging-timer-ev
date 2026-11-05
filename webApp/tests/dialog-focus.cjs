@@ -41,6 +41,7 @@ async function verifyDialogFocus(browser, origin, screenshots) {
                     return !!node?.classList?.contains("compose-backing-field") &&
                         (node instanceof HTMLInputElement || node instanceof HTMLTextAreaElement || node.isContentEditable);
                 };
+                globalThis.dialogCanvasFocused = () => active() instanceof HTMLCanvasElement;
                 globalThis.dialogKeyboardEvidence = [];
                 window.addEventListener("keydown", event => {
                     const record = { type: event.type, key: event.key, target: describe(event.target),
@@ -81,6 +82,8 @@ async function verifyDialogFocus(browser, origin, screenshots) {
                     }
                     assert.equal(await page.evaluate(() => dialogEditorFocused()), false,
                         "Real Tab navigation must exit backing editor focus before blurred dismissal");
+                    assert.ok(await page.evaluate(() => dialogCanvasFocused()),
+                        "Tab must return focus to the Compose canvas, not the page body");
                 }
             }
             if (dismissal === "save") await button(page, "Save");
@@ -118,6 +121,11 @@ async function verifyDialogFocus(browser, origin, screenshots) {
                         "IME, handled and repeated Escape must leave the dialog painted");
                 }
                 await page.keyboard.press("Escape");
+                if (variant === "typed-blurred") {
+                    assert.equal(await page.evaluate(() =>
+                        dialogKeyboardEvidence.filter(event => event.key === "Escape").at(-1)?.target?.tag),
+                    "CANVAS", "Blurred Escape must use Compose's existing canvas path");
+                }
             }
             else await page.mouse.click(8, 300);
             await assertPaintedDialogDismissed(page, baseline);
