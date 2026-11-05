@@ -192,12 +192,13 @@ class BrowserTimerRuntimeTest {
     }
 
     @Test
-    fun settingsEditsCannotMutateActiveSnapshotAndSelectedPowerCannotBeRemoved() = runTest {
+    fun settingsEditsCannotMutateActiveSnapshotAndRemovedSelectionFallsBack() = runTest {
         val runtime = configured()
         val active = runtime.start().activeSession
         runtime.addPower(8.5f)
         assertEquals(8.5f, runtime.reconcile().configuration().settings.chargingPower)
-        assertFailsWith<IllegalArgumentException> { runtime.removePower(8.5f) }
+        runtime.removePower(8.5f)
+        assertEquals(3.6f, runtime.reconcile().configuration().settings.chargingPower)
         runtime.removePower(7f)
         assertFalse(7f in runtime().reconcile().configuration().settings.availablePowers)
         runtime.configure(ConfigurationViewEvent.UpdateBatteryCapacity(75f))

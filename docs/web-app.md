@@ -71,8 +71,8 @@ another tab reconciles the current navigation with durable storage.
 Preset rename/delete/reorder, recorded car percentages, consent to learned
 estimates and per-preset/per-speed learning reset are saved in IndexedDB and
 included in portable native-compatible backups. Editing settings does not change
-the snapshot of an already running session. New speeds remain selected; selected
-and last speeds cannot be removed.
+the snapshot of an already running session. Adding a speed selects it; removing
+the selected speed selects the first remaining option. The last speed cannot be removed.
 
 **Share** on a summary uses the browser's system share sheet where supported,
 otherwise copies the shared, localized summary text to the clipboard. Sharing and

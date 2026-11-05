@@ -146,8 +146,9 @@ class BrowserTimerRuntime(
     suspend fun removePower(powerKw: Float): BrowserState = storage.update { state ->
         val configuration = state.configuration()
         val settings = configuration.settings
-        require(powerKw in settings.availablePowers && settings.availablePowers.size > 1 &&
-            powerKw != settings.chargingPower) { "Cannot remove selected or last charging power" }
+        require(powerKw in settings.availablePowers && settings.availablePowers.size > 1) {
+            "Cannot remove missing or last charging power"
+        }
         state.withConfiguration(configuration.reduce(PresetEvent.Edit(settings.withRemovedPower(powerKw))))
     }
 
