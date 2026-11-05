@@ -459,6 +459,42 @@ async function capture(page, name, labels) {
         await waitForAccessibleText(parityPage, "About");
         await parityPage.mouse.wheel(0, -2000);
         await waitForAccessibleText(parityPage, "Charging Power");
+        await clickCanvasText(parityPage, "Presets");
+        await waitForAccessibleText(parityPage, "Tap a name to rename");
+        await parityPage.evaluate(() => {
+            const originalRead = evTimerStorage.read;
+            let release;
+            const gate = new Promise(resolve => { release = resolve; });
+            globalThis.reconcileGate = { entered: false, release };
+            evTimerStorage.read = async function (...args) {
+                evTimerStorage.read = originalRead;
+                reconcileGate.entered = true;
+                await gate;
+                return originalRead.apply(this, args);
+            };
+            globalThis.routeWrites = [];
+            const replace = history.replaceState.bind(history);
+            history.replaceState = (...args) => {
+                routeWrites.push(args[2]);
+                return replace(...args);
+            };
+        });
+        // Wait for the real periodic reconciliation, then cross two browser
+        // history events while its IndexedDB read remains suspended.
+        await parityPage.waitForFunction(() => reconcileGate.entered);
+        await parityPage.goBack();
+        await parityPage.waitForFunction(() => location.hash === "#/settings");
+        await parityPage.goBack();
+        await parityPage.waitForFunction(() => location.hash === "#/timer");
+        await parityPage.evaluate(() => { routeWrites.length = 0; reconcileGate.release(); });
+        await parityPage.waitForTimeout(500);
+        assert.equal(new URL(parityPage.url()).hash, "#/timer");
+        const writesAfterDoubleBack = await parityPage.evaluate(() => routeWrites);
+        assert.ok(!writesAfterDoubleBack.includes("#/settings") && !writesAfterDoubleBack.includes("#/presets"),
+            "Queued Back operations must not replay superseded destinations");
+        await parityPage.reload();
+        await waitForAccessibleText(parityPage, "Start Timer");
+        await clickCanvasButton(parityPage, "Settings");
         await clickCanvasText(parityPage, "Charging Power");
         const powerBaseline = await paintedDialogBaseline(parityPage, true);
         await parityPage.screenshot({ path: path.join(screenshots, "power-before-open.png") });

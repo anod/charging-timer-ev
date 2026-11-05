@@ -71,9 +71,9 @@ internal fun BrowserTimerApp() {
         }
     }
 
-    suspend fun refresh(requestedRoute: AppRoute? = null) {
+    suspend fun refresh() {
         val loaded = runtime.reconcile()
-        val requested = pendingRoute ?: requestedRoute
+        val requested = pendingRoute
         pendingRoute = null
         state = loaded
         now = Clock.System.now().toEpochMilliseconds()
@@ -149,9 +149,6 @@ internal fun BrowserTimerApp() {
                     if (navigation.current?.completion == true) {
                         runtime.acknowledgeCompletion(navigation.current?.summaryId)
                     }
-                    // Reconcile directly into the requested route. Writing the old
-                    // route first can race a reload after the browser updates its URL.
-                    refresh(requested)
                 }
             }
         }
