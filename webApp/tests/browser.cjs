@@ -385,17 +385,24 @@ async function capture(page, name, labels) {
         await clickCanvas(parityPage, nameInput);
         await parityPage.keyboard.press("Control+a");
         await parityPage.keyboard.type("Work", { delay: 50 });
-        console.log("Parity: rename input", await nameInput.getAttribute("value"),
-            await parityPage.evaluate(() => document.activeElement?.outerHTML));
         await clickCanvasButton(parityPage, "Save");
         const renamed = await waitForRecord(parityPage, record => record?.payload.includes('"name":"Work"'));
-        console.log("Parity: rename result", parityErrors, await parityPage.locator("body").ariaSnapshot(),
-            await parityPage.evaluate(async () => await evTimerStorage.read()));
         assert.notEqual(renamed, null);
-        console.log("Parity: rename committed", await parityPage.locator("body").ariaSnapshot());
         await parityPage.screenshot({ path: path.join(screenshots, "rename-after-save.png") });
-        // Dialog disposal returns painting to the parent canvas before its DOM semantics regain focus.
-        await parityPage.mouse.click(8, 300);
+        await parityPage.getByRole("button", { name: "Back", exact: true }).waitFor({ timeout: 10_000 });
+        assert.equal(await parityPage.getByRole("button", { name: "Save", exact: true }).count(), 0);
+        await clickCanvasButton(parityPage, "Back");
+        await clickCanvasText(parityPage, "Charging Power");
+        await clickCanvasButton(parityPage, "Add Custom Power");
+        await clickCanvas(parityPage, parityPage.getByRole("textbox").first());
+        await parityPage.keyboard.type("8.5", { delay: 50 });
+        await clickCanvasButton(parityPage, "Add");
+        await parityPage.getByRole("button", { name: "Back", exact: true }).waitFor({ timeout: 10_000 });
+        assert.notEqual(await waitForRecord(parityPage, record =>
+            JSON.parse(record?.payload || "{}").backup?.preferences.draft?.chargingPower === 8.5), null);
+        await clickCanvasButton(parityPage, "Remove 8.5 kW");
+        assert.notEqual(await waitForRecord(parityPage, record =>
+            Math.abs(JSON.parse(record?.payload || "{}").backup?.preferences.draft?.chargingPower - 3.6) < 0.00001), null);
         await clickCanvasButton(parityPage, "Back");
         await clickCanvasText(parityPage, "Charging history");
         console.log("Parity: opening saved summary and recording reading");
