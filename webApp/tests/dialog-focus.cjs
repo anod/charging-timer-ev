@@ -123,7 +123,7 @@ async function verifyDialogFocus(browser, origin, screenshots) {
                 await page.keyboard.press("Escape");
                 if (variant === "typed-blurred") {
                     assert.equal(await page.evaluate(() =>
-                        dialogKeyboardEvidence.filter(event => event.key === "Escape").at(-1)?.target?.tag),
+                        dialogKeyboardEvidence.filter(event => event.key === "Escape").at(-1)?.path?.[0]?.tag),
                     "CANVAS", "Blurred Escape must use Compose's existing canvas path");
                 }
             }
