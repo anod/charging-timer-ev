@@ -88,6 +88,21 @@ providers. Use manual backup files to transfer data between native and web.
 Browser permission/offline status and backup controls live in Settings rather
 than a separate navigation strip, leaving the shared timer screens unobstructed.
 
+## Compose Web accessibility
+
+The shared Compose Multiplatform version is `1.13.0-beta02`, selected to include
+the upstream [CMP-9368 dialog accessibility fix](https://github.com/JetBrains/compose-multiplatform-core/commit/d97ec456148a188550f4a45243e3544a6ad47321).
+Version `1.12.2` replaced the main semantics owner when a dialog opened and did not
+restore it when the dialog closed. The screen painted correctly, but screen
+readers retained a phantom dialog or lost the accessibility tree. The fixed
+version tracks all active semantics owners.
+
+Browser regressions require automatic restoration after saving or dismissing
+text-entry dialogs, including focused text fields and emoji-only input. No mouse
+click outside an already dismissed dialog is used to repair accessibility.
+The version catalog applies this owner-approved prerelease consistently to
+Android, desktop, iOS and PWA shared Compose dependencies.
+
 ## GitHub Pages deployment
 
 One-time **owner actions** (this change does not alter settings or secrets):
