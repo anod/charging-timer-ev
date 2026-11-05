@@ -106,6 +106,14 @@ Android, desktop, iOS and PWA shared Compose dependencies.
 Android compilation uses API 37.1 as required by this release; target and minimum
 SDK levels are unchanged.
 
+The PWA host also bridges unhandled Escape from Compose's backing text editor
+to the existing navigation-event dispatcher. In beta02, canvas keyboard events
+reach this dispatcher, but backing-editor keyboard events do not. This web-only
+adapter preserves the shared dialogs' dismissal and busy guards without clearing
+focus or changing native behavior. Composing, already-handled, repeated and
+canvas Escape events are excluded. Browser regressions check that dismissal
+restores accessibility and does not also pop the underlying screen.
+
 ## GitHub Pages deployment
 
 One-time **owner actions** (this change does not alter settings or secrets):

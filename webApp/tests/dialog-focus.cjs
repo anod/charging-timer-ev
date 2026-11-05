@@ -31,12 +31,46 @@ async function verifyDialogFocus(browser, origin, screenshots) {
             }
             if (dismissal === "save") await button(page, "Save");
             else if (dismissal === "cancel") await button(page, "Cancel");
-            else if (dismissal === "escape") await page.keyboard.press("Escape");
+            else if (dismissal === "escape") {
+                if (variant !== "emoji") {
+                    await page.evaluate(() => {
+                        const findEditor = root => {
+                            for (const node of root.querySelectorAll("*")) {
+                                if (node.isContentEditable && node.classList.contains("compose-backing-field")) return node;
+                                if (node.shadowRoot) {
+                                    const found = findEditor(node.shadowRoot);
+                                    if (found) return found;
+                                }
+                            }
+                        };
+                        const editor = findEditor(document);
+                        if (!editor) throw new Error("Focused Escape guard test requires a backing editor");
+                        const key = options => new KeyboardEvent("keydown", {
+                            key: "Escape", bubbles: true, composed: true, cancelable: true, ...options
+                        });
+                        editor.dispatchEvent(new CompositionEvent("compositionstart", { bubbles: true, composed: true }));
+                        editor.dispatchEvent(key({ isComposing: true }));
+                        editor.dispatchEvent(key({}));
+                        editor.dispatchEvent(new CompositionEvent("compositionend", { bubbles: true, composed: true }));
+                        const handled = key({});
+                        handled.preventDefault();
+                        editor.dispatchEvent(handled);
+                        editor.dispatchEvent(key({ repeat: true }));
+                        editor.dispatchEvent(key({ keyCode: 229 }));
+                    });
+                    await page.waitForTimeout(100);
+                    assert.equal(await page.getByRole("dialog").count(), 1,
+                        "IME, already-handled and repeated Escape must not dismiss the dialog");
+                }
+                await page.keyboard.press("Escape");
+            }
             else await page.mouse.click(8, 300);
             await page.getByRole("dialog").waitFor({ state: "hidden", timeout: 10_000 });
             await page.getByRole("button", { name: "Back", exact: true }).waitFor({ timeout: 10_000 });
             assert.equal(await page.getByRole("button", { name: "Save", exact: true }).count(), 0,
                 `${scenario} must restore parent semantics without an unrelated click`);
+            assert.equal(new URL(page.url()).hash, "#/presets",
+                "Dialog dismissal must not also navigate away from Presets");
             const record = await page.evaluate(async () => await evTimerStorage.read());
             const name = JSON.parse(JSON.parse(record).payload).backup.presets[0].name;
             assert.equal(name, dismissal === "save"
