@@ -379,9 +379,14 @@ async function capture(page, name, labels) {
         const nameInput = parityPage.getByRole("textbox").first();
         await clickCanvas(parityPage, nameInput);
         await parityPage.keyboard.press("Control+a");
-        await parityPage.keyboard.insertText("Work");
+        await parityPage.keyboard.type("Work", { delay: 50 });
+        console.log("Parity: rename input", await nameInput.getAttribute("value"),
+            await parityPage.evaluate(() => document.activeElement?.outerHTML));
         await clickCanvasButton(parityPage, "Save");
-        assert.notEqual(await waitForRecord(parityPage, record => record?.payload.includes('"name":"Work"')), null);
+        const renamed = await waitForRecord(parityPage, record => record?.payload.includes('"name":"Work"'));
+        console.log("Parity: rename result", await parityPage.locator("body").ariaSnapshot(),
+            await parityPage.evaluate(async () => await evTimerStorage.read()));
+        assert.notEqual(renamed, null);
         console.log("Parity: rename committed", await parityPage.locator("body").ariaSnapshot());
         await clickCanvasButton(parityPage, "Back");
         await clickCanvasText(parityPage, "Charging history");
@@ -391,7 +396,7 @@ async function capture(page, name, labels) {
         await clickCanvas(parityPage, parityCard);
         await clickCanvasButton(parityPage, "Add car reading");
         await clickCanvas(parityPage, parityPage.getByRole("textbox").first());
-        await parityPage.keyboard.insertText("32");
+        await parityPage.keyboard.type("32", { delay: 50 });
         await clickCanvasText(parityPage, "Read when timer stopped");
         await clickCanvasButton(parityPage, "Save");
         assert.notEqual(await waitForRecord(parityPage, record => {
