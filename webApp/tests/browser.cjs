@@ -414,11 +414,20 @@ async function capture(page, name, labels) {
         // Reload starts the next independent workflow with a fresh semantics owner;
         // it is not counted as accessibility restoration after dismissal.
         await parityPage.reload();
-        await waitForAccessibleText(parityPage, "Charging Power");
-        assert.equal(new URL(parityPage.url()).hash, "#/settings");
-        await parityPage.screenshot({ path: path.join(screenshots, "settings-after-rename-reload.png") });
-        fs.writeFileSync(path.join(screenshots, "settings-after-rename-reload.txt"),
-            await parityPage.locator("body").ariaSnapshot());
+        try {
+            await waitForAccessibleText(parityPage, "Charging Power");
+            assert.equal(new URL(parityPage.url()).hash, "#/settings");
+        } finally {
+            try {
+                await parityPage.screenshot({ path: path.join(screenshots, "settings-after-rename-reload.png") });
+                fs.writeFileSync(path.join(screenshots, "settings-after-rename-reload.json"),
+                    JSON.stringify({ url: parityPage.url(), errors: parityErrors,
+                        semantics: await parityPage.locator("body").ariaSnapshot() }, null, 2));
+            } catch (error) {
+                console.error("Settings reload evidence capture failed:", error.stack);
+                throw error;
+            }
+        }
         // The About section follows browser backup controls and is below the
         // initial viewport on stable Compose. Verify it by actually scrolling.
         await parityPage.mouse.move(550, 400);

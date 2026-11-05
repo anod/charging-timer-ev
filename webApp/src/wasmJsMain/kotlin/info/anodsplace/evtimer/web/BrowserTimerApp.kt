@@ -70,7 +70,7 @@ internal fun BrowserTimerApp() {
         }
     }
 
-    suspend fun refresh() {
+    suspend fun refresh(requestedRoute: AppRoute? = null) {
         val loaded = runtime.reconcile()
         state = loaded
         now = Clock.System.now().toEpochMilliseconds()
@@ -78,6 +78,7 @@ internal fun BrowserTimerApp() {
         val ids = entries.map { it.id }.toSet()
         val pending = entries.firstOrNull()?.takeIf { !it.reviewed }?.id
         var next = navigation.reconcile(loaded.activeSession != null, pending, ids)
+        if (requestedRoute != null) next = next.restore(requestedRoute, ids)
         if (!historyInitialized) {
             parseAppRoute(window.location.hash)?.let { next = next.restore(it, ids) }
             if (historyDepth() == 0 &&
@@ -144,9 +145,9 @@ internal fun BrowserTimerApp() {
                     if (navigation.current?.completion == true) {
                         runtime.acknowledgeCompletion(navigation.current?.summaryId)
                     }
-                    refresh()
-                    val ids = state!!.historyEntries().map { it.id }.toSet()
-                    applyNavigation(requested?.let { navigation.restore(it, ids) } ?: navigation)
+                    // Reconcile directly into the requested route. Writing the old
+                    // route first can race a reload after the browser updates its URL.
+                    refresh(requested)
                 }
             }
         }
