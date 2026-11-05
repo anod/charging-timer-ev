@@ -14,6 +14,7 @@ import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -147,17 +148,17 @@ class RunningCompactLayoutTest {
         }
         val name = "$width-${fontScale}x-${if (dark) "dark" else "light"}-$direction"
         val directory = File("build/reports/running-layout").apply { mkdirs() }
-        ImageIO.write(captureToImage(onNodeWithTag("screen")).toAwtImage(), "png", File(directory, "$name-top.png"))
+        ImageIO.write(onNodeWithTag("screen").captureToImage().toAwtImage(), "png", File(directory, "$name-top.png"))
 
         // The end time must be readable before scrolling, not just exist in semantics.
         onNodeWithText(endTime).assertFullyRendered()
         val remaining = onNodeWithText("25h 45m \u00b7 $endTime")
         remaining.performScrollTo()
-        ImageIO.write(captureToImage(onNodeWithTag("screen")).toAwtImage(), "png", File(directory, "$name-stats.png"))
+        ImageIO.write(onNodeWithTag("screen").captureToImage().toAwtImage(), "png", File(directory, "$name-stats.png"))
         remaining.assertFullyRendered()
 
         onNodeWithText("Stop Timer").performScrollTo().assertIsDisplayed().performClick()
-        assertEquals(listOf(RunningViewEvent.StopCharging), events)
+        assertEquals(listOf<RunningViewEvent>(RunningViewEvent.StopCharging), events)
     }
 
     private fun SemanticsNodeInteraction.assertFullyRendered() {
