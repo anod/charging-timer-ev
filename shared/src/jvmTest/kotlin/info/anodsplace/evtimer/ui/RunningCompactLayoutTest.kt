@@ -70,8 +70,8 @@ class RunningCompactLayoutTest {
                 }
             }
         }
-        val label = onNodeWithText("Charging Speed").fetchSemanticsNode().boundsInRoot
-        val value = onNodeWithText("3.6 kW")
+        val label = onNodeWithText("Charging Speed", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        val value = onNodeWithText("3.6 kW", useUnmergedTree = true)
         value.assertFullyRendered(maxLines = 1)
         assertTrue(value.fetchSemanticsNode().boundsInRoot.top >= label.bottom)
     }
@@ -167,7 +167,7 @@ class RunningCompactLayoutTest {
 
         // The end time must be readable before scrolling, not just exist in semantics.
         onNodeWithText(endTime).assertFullyRendered()
-        onNodeWithText("3.6 kW").performScrollTo().assertFullyRendered(maxLines = 1)
+        onNodeWithText("3.6 kW", useUnmergedTree = true).performScrollTo().assertFullyRendered(maxLines = 1)
         val remaining = onNodeWithText("25h 45m \u00b7 $endTime")
         remaining.performScrollTo()
         ImageIO.write(onNodeWithTag("screen").captureToImage().toAwtImage(), "png", File(directory, "$name-stats.png"))
