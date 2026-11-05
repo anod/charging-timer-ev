@@ -19,7 +19,6 @@ class BrowserTimerRuntime(
     }
 
     suspend fun configure(event: ConfigurationViewEvent): BrowserState = storage.update { state ->
-        check(state.activeSession == null) { "Stop the current session first" }
         val before = state.configuration()
         val settings = before.settings
         val after = when (event) {
@@ -54,7 +53,8 @@ class BrowserTimerRuntime(
         val now = clock.now().toEpochMilliseconds()
         // History IDs must remain unique even after a backwards system clock adjustment.
         val id = maxOf(now, (state.backup.sessions.maxOfOrNull { it.id } ?: 0L) + 1L)
-        val calibration = state.calibration(configuration)
+        val calibration = state.calibration(configuration,
+            mapOf(configuration.selectedId to settings.batteryCapacity))
         val factor = calibration.factor(configuration.selectedId, settings.chargingPower)
         val snapshot = ChargingSessionSnapshot.from(settings, now).copy(
             presetId = configuration.selectedId,
@@ -83,7 +83,8 @@ class BrowserTimerRuntime(
         return storage.update { state ->
             val active = state.activeSession ?: return@update state
             val snapshot = active.snapshot()
-            val calibration = state.calibration(state.configuration())
+            val calibration = state.calibration(capacityOverrides =
+                snapshot.presetId?.let { mapOf(it to snapshot.batteryCapacity) } ?: emptyMap())
             val changed = snapshot.withPower(
                 clock.now().toEpochMilliseconds(), powerKw,
                 calibration.factor(snapshot.presetId, powerKw)
@@ -107,6 +108,71 @@ class BrowserTimerRuntime(
 
     suspend fun deleteHistory(id: Long): BrowserState = storage.update { state ->
         state.copy(backup = state.backup.copy(sessions = state.backup.sessions.filterNot { it.id == id }))
+    }
+
+    suspend fun renamePreset(id: String, name: String): BrowserState = storage.update { state ->
+        val configuration = state.configuration()
+        val preset = requireNotNull(configuration.presets.firstOrNull { it.id == id }) { "Unknown preset: $id" }
+        if (preset.name == name) return@update state
+        val validated = normalizeAndValidatePresetName(name, configuration.presets.filterNot { it.id == id }.map { it.name })
+        require(validated.isValid) { "Invalid preset name: ${validated.error}" }
+        state.withConfiguration(configuration.copy(presets = configuration.presets.map {
+            if (it.id == id) it.copy(name = validated.name) else it
+        }))
+    }
+
+    suspend fun deletePreset(id: String): BrowserState = storage.update { state ->
+        state.withConfiguration(state.configuration().reduce(PresetEvent.Delete(id)))
+    }
+
+    suspend fun reorderPresets(ids: List<String>): BrowserState = storage.update { state ->
+        val configuration = state.configuration()
+        require(ids.size == configuration.presets.size && ids.toSet() == configuration.presets.map { it.id }.toSet()) {
+            "Reorder must contain every preset exactly once"
+        }
+        state.withConfiguration(configuration.copy(presets = ids.map { id -> configuration.presets.first { it.id == id } }))
+    }
+
+    suspend fun movePreset(id: String, direction: Int): BrowserState = storage.update { state ->
+        val configuration = state.configuration()
+        val presets = configuration.presets.toMutableList()
+        val index = presets.indexOfFirst { it.id == id }
+        val target = index + direction
+        require(index >= 0 && target in presets.indices) { "Invalid preset move" }
+        presets.add(target, presets.removeAt(index))
+        state.withConfiguration(configuration.copy(presets = presets))
+    }
+
+    suspend fun removePower(powerKw: Float): BrowserState = storage.update { state ->
+        val configuration = state.configuration()
+        val settings = configuration.settings
+        require(powerKw in settings.availablePowers && settings.availablePowers.size > 1 &&
+            powerKw != settings.chargingPower) { "Cannot remove selected or last charging power" }
+        state.withConfiguration(configuration.reduce(PresetEvent.Edit(settings.withRemovedPower(powerKw))))
+    }
+
+    suspend fun setNotifyAt80(enabled: Boolean): BrowserState = storage.update { state ->
+        state.copy(backup = state.backup.copy(preferences = state.backup.preferences.copy(notifyAt80 = enabled)))
+    }
+
+    suspend fun saveReading(id: Long, actualPercent: Float?, calibrationEnabled: Boolean): BrowserState =
+        storage.update { state ->
+            require(actualPercent == null || (actualPercent.isFinite() && actualPercent in 0f..100f))
+            require(state.backup.sessions.any { it.id == id }) { "Unknown completed session: $id" }
+            state.copy(backup = state.backup.copy(sessions = state.backup.sessions.map {
+                if (it.id == id) it.copy(actualPercent = actualPercent?.toDouble(),
+                    calibrationEnabled = actualPercent != null && calibrationEnabled) else it
+            }))
+        }
+
+    suspend fun resetLearnedEstimates(presetId: String, powerKw: Float): BrowserState = storage.update { state ->
+        require(presetId.isNotBlank() && powerKw.isFinite() && powerKw > 0f)
+        val ids = state.historyEntries().filter {
+            it.snapshot.presetId == presetId && ChargingCalibration.singleSpeedPower(it) == powerKw
+        }.map { it.id }.toSet()
+        state.copy(backup = state.backup.copy(sessions = state.backup.sessions.map {
+            if (it.id in ids) it.copy(calibrationEnabled = false) else it
+        }))
     }
 
     private fun newPresetId(state: BrowserState): String {
@@ -171,10 +237,13 @@ private fun BrowserState.finish(active: BackupSession, endedAt: Long): BrowserSt
     ))
 )
 
-private fun BrowserState.calibration(configuration: PresetConfiguration) = ChargingCalibration.derive(
+fun BrowserState.calibration(
+    configuration: PresetConfiguration = configuration(),
+    capacityOverrides: Map<String, Float> = emptyMap()
+) = ChargingCalibration.derive(
     historyEntries(),
     configuration.presets,
-    mapOf(configuration.selectedId to configuration.settings.batteryCapacity)
+    capacityOverrides
 )
 
 fun BrowserState.historyEntries(): List<ChargingHistoryEntry> = backup.sessions.map {
