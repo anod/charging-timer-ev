@@ -382,6 +382,7 @@ async function capture(page, name, labels) {
         await parityPage.keyboard.insertText("Work");
         await clickCanvasButton(parityPage, "Save");
         assert.notEqual(await waitForRecord(parityPage, record => record?.payload.includes('"name":"Work"')), null);
+        console.log("Parity: rename committed", await parityPage.locator("body").ariaSnapshot());
         await clickCanvasButton(parityPage, "Back");
         await clickCanvasText(parityPage, "Charging history");
         console.log("Parity: opening saved summary and recording reading");

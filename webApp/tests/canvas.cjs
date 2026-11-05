@@ -15,6 +15,11 @@ async function clickCanvas(page, locator) {
             await page.waitForTimeout(100);
             continue;
         }
+        if (!await locator.isVisible()) {
+            await page.waitForTimeout(100);
+            continue;
+        }
+        await page.waitForTimeout(500);
         await locator.evaluate(() => new Promise(resolve =>
             requestAnimationFrame(() => requestAnimationFrame(resolve))));
         const after = await locator.boundingBox();
