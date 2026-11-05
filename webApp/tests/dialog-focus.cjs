@@ -18,7 +18,9 @@ async function verifyDialogFocus(browser, origin, screenshots) {
             await button(page, "Settings");
             await text(page, "Presets");
             await text(page, "Default");
-            if (variant === "emoji") await button(page, "🏠");
+            if (variant === "emoji") {
+                await clickCanvas(page, page.getByRole("checkbox", { name: "🏠", exact: true }));
+            }
             else {
                 await clickCanvas(page, page.getByRole("textbox").first());
                 await page.keyboard.press("Control+a");
@@ -29,6 +31,7 @@ async function verifyDialogFocus(browser, origin, screenshots) {
             await page.screenshot({ path: path.join(screenshots, `rename-${variant}-after-save.png`) });
             let restored = true;
             try {
+                await page.getByRole("dialog").waitFor({ state: "hidden", timeout: 10_000 });
                 await page.getByRole("button", { name: "Back", exact: true }).waitFor({ timeout: 10_000 });
                 assert.equal(await page.getByRole("button", { name: "Save", exact: true }).count(), 0);
             } catch { restored = false; }
@@ -40,6 +43,7 @@ async function verifyDialogFocus(browser, origin, screenshots) {
             results.push({ variant, restored, errors });
             if (restored) {
                 const name = JSON.parse(JSON.parse(record).payload).backup.presets[0].name;
+                assert.equal(name, variant === "emoji" ? "Default🏠" : "Focus test");
                 for (const dismissal of ["cancel", "outside", "escape"]) {
                     await text(page, name);
                     await clickCanvas(page, page.getByRole("textbox").first());
@@ -47,6 +51,7 @@ async function verifyDialogFocus(browser, origin, screenshots) {
                     if (dismissal === "cancel") await button(page, "Cancel");
                     else if (dismissal === "escape") await page.keyboard.press("Escape");
                     else await page.mouse.click(8, 300);
+                    await page.getByRole("dialog").waitFor({ state: "hidden", timeout: 10_000 });
                     await page.getByRole("button", { name: "Back", exact: true }).waitFor({ timeout: 10_000 });
                     assert.equal(await page.getByRole("button", { name: "Save", exact: true }).count(), 0,
                         `${dismissal} must restore parent semantics without an unrelated click`);
