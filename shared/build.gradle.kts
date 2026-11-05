@@ -146,6 +146,9 @@ kotlin {
             implementation(libs.compose.uiToolingPreview)
             implementation(libs.compose.animation)
             implementation(libs.androidx.graphics.shapes)
+            implementation(libs.haze)
+            implementation(libs.haze.blur)
+            implementation(libs.haze.blur.materials)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)

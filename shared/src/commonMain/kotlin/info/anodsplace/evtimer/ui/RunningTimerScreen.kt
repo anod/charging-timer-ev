@@ -11,8 +11,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -55,6 +56,21 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.only
+import androidx.compose.runtime.mutableIntStateOf
+import dev.chrisbanes.haze.HazeInput
+import dev.chrisbanes.haze.hazeSource
+import dev.chrisbanes.haze.rememberHazeState
+import dev.chrisbanes.haze.blur.hazeBlur
+import dev.chrisbanes.haze.blur.materials.HazeMaterials
+import info.anodsplace.evtimer.data.TimePrediction
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -144,15 +160,25 @@ fun RunningTimerScreen(
         )
     }
 
+    val hazeState = rememberHazeState()
+    var stopBarHeightPx by remember { mutableIntStateOf(0) }
+    val stopBarHeight = with(LocalDensity.current) { stopBarHeightPx.toDp() }
+
     Box(modifier = modifier.fillMaxSize()) {
+        // Content scrolls under the pinned Stop bar, which blurs whatever passes beneath it.
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .hazeSource(hazeState)
+        ) {
         ChargingWavesBackground(modifier = Modifier.fillMaxSize())
 
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .windowInsetsPadding(WindowInsets.systemBars)
+                .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
                 .verticalScroll(rememberScrollState())
-                .padding(16.dp),
+                .padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 16.dp + stopBarHeight),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(32.dp)
         ) {
@@ -271,12 +297,28 @@ fun RunningTimerScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.weight(1f))
+        }
+        }
 
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .onSizeChanged { stopBarHeightPx = it.height }
+                .hazeBlur(
+                    input = HazeInput.Sources(hazeState),
+                    style = HazeMaterials.ultraThin().then {
+                        // Fade the top edge so the blur blends into the content instead of cutting a hard line.
+                        mask(Brush.verticalGradient(0f to Color.Transparent, 0.35f to Color.Black))
+                    }
+                )
+                .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal))
+        ) {
             OutlinedButton(
                 onClick = { onEvent(RunningViewEvent.StopCharging) },
                 modifier = Modifier
                     .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp)
                     .height(56.dp),
                 colors = ButtonDefaults.outlinedButtonColors(
                     contentColor = MaterialTheme.colorScheme.error
@@ -288,6 +330,7 @@ fun RunningTimerScreen(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun TimePredictionBar(
     progress: TimeProgress,
@@ -299,8 +342,16 @@ internal fun TimePredictionBar(
     val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(stringResource(Res.string.time_progress), style = MaterialTheme.typography.titleSmall)
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(startTimeText, style = MaterialTheme.typography.labelMedium)
+        FlowRow(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(
+                startTimeText,
+                modifier = Modifier.padding(end = 8.dp),
+                style = MaterialTheme.typography.labelMedium
+            )
             Text(estimatedEndTimeText, style = MaterialTheme.typography.labelMedium)
         }
         Box(Modifier.fillMaxWidth().height(12.dp)) {
@@ -323,26 +374,57 @@ internal fun TimePredictionBar(
                 style = MaterialTheme.typography.bodySmall
             )
         } else {
-            // Separate label lanes keep nearby ticks readable, including at the ETA.
-            progress.predictions.forEach { prediction ->
-                BoxWithConstraints(Modifier.fillMaxWidth()) {
-                    val labelWidth = maxWidth / 2
-                    Text(
-                        stringResource(
-                            Res.string.time_prediction,
-                            formatLocaleNumber(prediction.hoursAhead.toFloat(), 0, 0),
-                            formatLocaleNumber(prediction.percent.roundToInt().toFloat(), 0, 0)
-                        ),
-                        modifier = Modifier
-                            .offset(
-                                x = (maxWidth * prediction.position - labelWidth / 2).coerceIn(0.dp, maxWidth - labelWidth)
-                            )
-                            .width(labelWidth),
-                        style = MaterialTheme.typography.bodySmall,
-                        textAlign = TextAlign.Center
-                    )
-                }
+            PredictionLabels(progress.predictions)
+        }
+    }
+}
+
+/**
+ * Centres each label under its tick on a single row, moving a label to another row only when it would overlap.
+ */
+@Composable
+private fun PredictionLabels(predictions: List<TimePrediction>, modifier: Modifier = Modifier) {
+    Layout(
+        content = {
+            predictions.forEach { prediction ->
+                Text(
+                    stringResource(
+                        Res.string.time_prediction,
+                        formatLocaleNumber(prediction.hoursAhead.toFloat(), 0, 0),
+                        formatLocaleNumber(prediction.percent.roundToInt().toFloat(), 0, 0)
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    textAlign = TextAlign.Center
+                )
             }
+        },
+        modifier = modifier.fillMaxWidth()
+    ) { measurables, constraints ->
+        val width = constraints.maxWidth
+        val gap = 8.dp.roundToPx()
+        val laneSpacing = 4.dp.roundToPx()
+        val placeables = measurables.map { it.measure(Constraints(maxWidth = width)) }
+        val laneEnds = mutableListOf<Int>()
+        val slots = placeables.mapIndexed { index, placeable ->
+            val x = (width * predictions[index].position - placeable.width / 2f).roundToInt()
+                .coerceIn(0, (width - placeable.width).coerceAtLeast(0))
+            var lane = laneEnds.indexOfFirst { x >= it + gap }
+            if (lane < 0) {
+                laneEnds += x + placeable.width
+                lane = laneEnds.lastIndex
+            } else {
+                laneEnds[lane] = x + placeable.width
+            }
+            x to lane
+        }
+        val laneHeights = IntArray(laneEnds.size)
+        slots.forEachIndexed { index, (_, lane) ->
+            laneHeights[lane] = maxOf(laneHeights[lane], placeables[index].height)
+        }
+        val laneTops = laneHeights.runningFold(0) { top, height -> top + height + laneSpacing }
+        val height = if (laneHeights.isEmpty()) 0 else laneTops[laneHeights.size] - laneSpacing
+        layout(width, height) {
+            slots.forEachIndexed { index, (x, lane) -> placeables[index].placeRelative(x, laneTops[lane]) }
         }
     }
 }
@@ -492,18 +574,21 @@ fun BatteryChargingIndicator(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun StatRow(
     label: String,
     value: String,
     modifier: Modifier = Modifier
 ) {
-    Row(
+    FlowRow(
         modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         Text(
             text = label,
+            modifier = Modifier.padding(end = 16.dp),
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -516,6 +601,7 @@ fun StatRow(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun EditableStatRow(
     label: String,
@@ -524,16 +610,18 @@ fun EditableStatRow(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Row(
+    FlowRow(
         modifier = modifier
             .fillMaxWidth()
             .heightIn(min = 48.dp)
             .clickable(onClickLabel = actionLabel, role = Role.Button, onClick = onClick),
         horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+        itemVerticalAlignment = Alignment.CenterVertically
     ) {
         Text(
             text = label,
+            modifier = Modifier.padding(end = 16.dp),
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
