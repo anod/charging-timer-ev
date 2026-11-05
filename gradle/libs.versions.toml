@@ -2,7 +2,6 @@
 aboutlibraries = "15.3.0"
 agp = "9.5.0"
 android-compileSdk = "37"
-android-compileSdkMinor = "1"
 android-minSdk = "33"
 android-targetSdk = "37"
 androidx-activity = "1.13.0"
@@ -11,16 +10,15 @@ androidx-core = "1.19.1"
 androidx-datastore = "1.3.0"
 androidx-lifecycle = "2.11.0"
 composeHotReload = "1.2.0"
-composeMultiplatform = "1.13.0-beta02"
+composeMultiplatform = "1.12.2"
 graphicsShapes = "1.1.0"
 haze = "2.1.0"
 koin = "4.2.2"
 kotlin = "2.4.21"
 kotlinx-coroutines = "1.11.0"
 kotlinx-serialization = "1.9.0"
-material3 = "1.13.0-beta02"
+material3 = "1.12.0-alpha03"
 navigation3 = "1.2.0"
-navigationevent = "1.1.0"
 splashscreen = "1.2.0"
 sqldelight = "2.4.1"
 
@@ -47,7 +45,6 @@ androidx-lifecycle-runtimeCompose = { module = "org.jetbrains.androidx.lifecycle
 androidx-lifecycle-navigation3 = { module = "org.jetbrains.androidx.lifecycle:lifecycle-viewmodel-navigation3", version.ref = "androidx-lifecycle" }
 androidx-navigation3-runtime = { module = "androidx.navigation3:navigation3-runtime", version.ref = "navigation3" }
 androidx-navigation3-ui = { module = "org.jetbrains.androidx.navigation3:navigation3-ui", version.ref = "navigation3" }
-androidx-navigationevent-compose = { module = "org.jetbrains.androidx.navigationevent:navigationevent-compose", version.ref = "navigationevent" }
 compose-animation = { module = "org.jetbrains.compose.animation:animation", version.ref = "composeMultiplatform" }
 compose-components-resources = { module = "org.jetbrains.compose.components:components-resources", version.ref = "composeMultiplatform" }
 compose-foundation = { module = "org.jetbrains.compose.foundation:foundation", version.ref = "composeMultiplatform" }

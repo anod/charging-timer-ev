@@ -43,4 +43,20 @@ const text = (page, name) => {
         .or(page.getByText(name, { exact: true })).first());
 };
 
-module.exports = { clickCanvas, button, text };
+async function paintedDialogBaseline(page) {
+    const viewport = page.viewportSize();
+    const clip = { x: viewport.width / 2 - 64, y: viewport.height / 2 - 64, width: 128, height: 128 };
+    await page.waitForTimeout(300);
+    return { clip, image: await page.screenshot({ clip }) };
+}
+
+async function assertPaintedDialogDismissed(page, baseline) {
+    const deadline = Date.now() + 10_000;
+    while (Date.now() < deadline) {
+        if ((await page.screenshot({ clip: baseline.clip })).equals(baseline.image)) return;
+        await page.waitForTimeout(100);
+    }
+    assert.fail("Painted dialog must disappear without additional pointer or keyboard input");
+}
+
+module.exports = { clickCanvas, button, text, paintedDialogBaseline, assertPaintedDialogDismissed };

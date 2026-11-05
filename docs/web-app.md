@@ -90,29 +90,25 @@ than a separate navigation strip, leaving the shared timer screens unobstructed.
 
 ## Compose Web accessibility
 
-The shared Compose Multiplatform and Material3 artifacts both use the
-`1.13.0-beta02` release, selected to include
-the upstream [CMP-9368 dialog accessibility fix](https://github.com/JetBrains/compose-multiplatform-core/commit/d97ec456148a188550f4a45243e3544a6ad47321).
-Version `1.12.2` replaced the main semantics owner when a dialog opened and did not
-restore it when the dialog closed. The screen painted correctly, but screen
-readers retained a phantom dialog or lost the accessibility tree. The fixed
-version tracks all active semantics owners.
+The app uses stable Compose Multiplatform `1.12.2` with its release-table
+Material3 component `1.12.0-alpha03`, and Android compile SDK 37. The owner
+accepted the known [CMP-9368 dialog accessibility limitation](https://github.com/JetBrains/compose-multiplatform-core/commit/d97ec456148a188550f4a45243e3544a6ad47321):
+opening a dialog replaces the main semantics owner, and closing it may leave
+screen readers with a phantom dialog or an empty accessibility tree even though
+the screen paints correctly. This is a real accessibility limitation, not a
+successful restoration. Upgrade once a stable release contains the upstream fix.
 
-Browser regressions require automatic restoration after saving or dismissing
-text-entry dialogs, including focused text fields and emoji-only input. No mouse
-click outside an already dismissed dialog is used to repair accessibility.
-The version catalog applies this owner-approved prerelease consistently to
-Android, desktop, iOS and PWA shared Compose dependencies.
-Android compilation uses API 37.1 as required by this release; target and minimum
-SDK levels are unchanged.
+The trial of `1.13.0-beta02` restored the semantics tree but exposed a browser
+text-selection synchronization crash and missing Escape dispatch from focused
+text editors. The trial and its web-only Escape adapter were removed rather than
+patching the prerelease dependency.
 
-The PWA host also bridges unhandled Escape from Compose's backing text editor
-to the existing navigation-event dispatcher. In beta02, canvas keyboard events
-reach this dispatcher, but backing-editor keyboard events do not. This web-only
-adapter preserves the shared dialogs' dismissal and busy guards without clearing
-focus or changing native behavior. Composing, already-handled, repeated and
-canvas Escape events are excluded. Browser regressions check that dismissal
-restores accessibility and does not also pop the underlying screen.
+Browser tests record CMP-9368 explicitly after proving painted dismissal and
+correct persistence for typed/emoji Save, Cancel, outside-click and Escape cases.
+Typing errors, failed dismissal, changed data on cancellation and navigation
+errors remain failures. No unrelated mouse click is used to repair accessibility.
+Subsequent independent workflows may reload the page to establish a fresh
+semantics owner; this is not reported as automatic accessibility restoration.
 
 ## GitHub Pages deployment
 

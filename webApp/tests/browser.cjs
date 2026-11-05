@@ -3,7 +3,8 @@ const assert = require("node:assert/strict");
 const http = require("node:http");
 const fs = require("node:fs");
 const path = require("node:path");
-const { button: clickCanvasButton, text: clickCanvasText, clickCanvas } = require("./canvas.cjs");
+const { button: clickCanvasButton, text: clickCanvasText, clickCanvas,
+    paintedDialogBaseline, assertPaintedDialogDismissed } = require("./canvas.cjs");
 const { verifyDialogFocus } = require("./dialog-focus.cjs");
 
 const root = path.resolve("build/dist/wasmJs/productionExecutable");
@@ -91,8 +92,8 @@ async function capture(page, name, labels) {
             await route.continue();
         });
         await loadingPage.goto(origin);
-        // Loading exposes only the unlabeled progress indicator, never controls
-        // that depend on the withheld string resources.
+        // Stable Compose paints progress without exposing a progressbar role.
+        // No resource-dependent controls may be exposed before strings load.
         await loadingPage.locator("body[aria-busy=true]").waitFor();
         await loadingPage.waitForSelector("canvas");
         const requestDeadline = Date.now() + 10_000;
@@ -103,8 +104,8 @@ async function capture(page, name, labels) {
         for (let frame = 0; frame < 5; frame++) {
             assert.equal(await loadingPage.locator("body").getAttribute("aria-busy"), "true");
             const snapshot = await loadingPage.locator("body").ariaSnapshot();
-            assert.equal(snapshot.trim(), "- progressbar",
-                "Before resources load, only an unlabeled progress indicator may be exposed");
+            assert.equal(snapshot.trim(), "",
+                "Before resources load, no text or controls may be exposed");
             await loadingPage.evaluate(() => new Promise(requestAnimationFrame));
         }
         await capture(loadingPage, "startup-loading", []);
@@ -386,6 +387,9 @@ async function capture(page, name, labels) {
         await waitForAccessibleText(parityPage, "About");
         await parityPage.goForward();
         await waitForAccessibleText(parityPage, "Tap a name to rename");
+        const renameBaseline = await paintedDialogBaseline(parityPage);
+        const backBounds = await parityPage.getByRole("button", { name: "Back", exact: true }).boundingBox();
+        assert.ok(backBounds);
         await clickCanvasText(parityPage, "Home");
         const nameInput = parityPage.getByRole("textbox").first();
         await clickCanvas(parityPage, nameInput);
@@ -402,17 +406,26 @@ async function capture(page, name, labels) {
             await parityPage.evaluate(async () => await evTimerStorage.read()));
         const renamed = await waitForRecord(parityPage, record => record?.payload.includes('"name":"Work"'));
         assert.notEqual(renamed, null, `Rename must persist Work; page errors: ${JSON.stringify(parityErrors)}`);
-        await parityPage.getByRole("button", { name: "Back", exact: true }).waitFor({ timeout: 10_000 });
-        assert.equal(await parityPage.getByRole("button", { name: "Save", exact: true }).count(), 0);
-        await clickCanvasButton(parityPage, "Back");
+        await assertPaintedDialogDismissed(parityPage, renameBaseline);
+        console.log("Rename accessibility after dismissal (accepted CMP-9368):",
+            await parityPage.locator("body").ariaSnapshot());
+        await parityPage.mouse.click(backBounds.x + backBounds.width / 2, backBounds.y + backBounds.height / 2);
+        await parityPage.waitForFunction(() => location.hash === "#/settings");
+        // Reload starts the next independent workflow with a fresh semantics owner;
+        // it is not counted as accessibility restoration after dismissal.
+        await parityPage.reload();
+        await waitForAccessibleText(parityPage, "About");
         await clickCanvasText(parityPage, "Charging Power");
+        const powerBaseline = await paintedDialogBaseline(parityPage);
         await clickCanvasButton(parityPage, "Add Custom Power");
         await clickCanvas(parityPage, parityPage.getByRole("textbox").first());
         await parityPage.keyboard.type("8.5", { delay: 50 });
         await clickCanvasButton(parityPage, "Add");
-        await parityPage.getByRole("button", { name: "Back", exact: true }).waitFor({ timeout: 10_000 });
         assert.notEqual(await waitForRecord(parityPage, record =>
             JSON.parse(record?.payload || "{}").backup?.preferences.draft?.chargingPower === 8.5), null);
+        await assertPaintedDialogDismissed(parityPage, powerBaseline);
+        await parityPage.reload();
+        await waitForAccessibleText(parityPage, "8.5 kW");
         await clickCanvasButton(parityPage, "Remove 8.5 kW");
         assert.notEqual(await waitForRecord(parityPage, record =>
             Math.abs(JSON.parse(record?.payload || "{}").backup?.preferences.draft?.chargingPower - 3.6) < 0.00001), null);
@@ -431,6 +444,11 @@ async function capture(page, name, labels) {
             const saved = JSON.parse(record?.payload || "{}").backup?.sessions[0];
             return saved?.actualPercent === 32 && saved?.calibrationEnabled === true;
         }), null);
+        await parityPage.screenshot({ path: path.join(screenshots, "reading-after-save.png") });
+        fs.writeFileSync(path.join(screenshots, "reading-after-save.txt"),
+            await parityPage.locator("body").ariaSnapshot());
+        await parityPage.reload();
+        await waitForAccessibleText(parityPage, "20% → 32%");
         await clickCanvasButton(parityPage, "Share");
         console.log("Parity: sharing");
         await parityPage.waitForFunction(() => sharedTexts.length === 1);
@@ -457,7 +475,9 @@ async function capture(page, name, labels) {
             const saved = JSON.parse(record?.payload || "{}").backup?.sessions[0];
             return saved?.actualPercent === 32 && saved?.calibrationEnabled === false;
         }), null);
-        await clickCanvasButton(parityPage, "Close");
+        await parityPage.screenshot({ path: path.join(screenshots, "calibration-after-reset.png") });
+        await parityPage.reload();
+        await waitForAccessibleText(parityPage, "Tap a name to rename");
         await clickCanvasButton(parityPage, "Back");
         await clickCanvasText(parityPage, "Open-source licenses");
         await waitForAccessibleText(parityPage, "Open-source licenses");

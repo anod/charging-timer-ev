@@ -30,9 +30,7 @@ import kotlin.js.toJsString
 
 @OptIn(ExperimentalComposeUiApi::class)
 fun main() {
-    val viewport = document.body ?: error("Browser document body is unavailable")
-    ComposeViewport(viewport) {
-        BrowserEscapeNavigation(viewport)
+    ComposeViewport(document.body ?: error("Browser document body is unavailable")) {
         BrowserResources { BrowserTimerApp() }
     }
 }
