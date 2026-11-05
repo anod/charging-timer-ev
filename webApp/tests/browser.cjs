@@ -3,6 +3,7 @@ const assert = require("node:assert/strict");
 const http = require("node:http");
 const fs = require("node:fs");
 const path = require("node:path");
+const { button: clickCanvasButton, text: clickCanvasText, clickCanvas } = require("./canvas.cjs");
 
 const root = path.resolve("build/dist/wasmJs/productionExecutable");
 const screenshots = path.resolve("build/browser-evidence");
@@ -18,28 +19,6 @@ async function waitForRecord(page, accept = record => record !== null) {
         await new Promise(resolve => setTimeout(resolve, 250));
     }
     return null;
-}
-
-async function clickCanvasButton(page, name) {
-    const button = page.getByRole("button", { name, exact: true });
-    const deadline = Date.now() + 10_000;
-    while (Date.now() < deadline) {
-        await button.waitFor();
-        const before = await button.boundingBox();
-        await button.evaluate(() => new Promise(resolve =>
-            requestAnimationFrame(() => requestAnimationFrame(resolve))));
-        const after = await button.boundingBox();
-        if (before && after && after.width > 0 && after.height > 0 &&
-            ["x", "y", "width", "height"].every(key => Math.abs(before[key] - after[key]) < 0.5) &&
-            await button.isEnabled()) {
-            // Transparent semantics proxies cannot receive pointer events. Click
-            // stable canvas coordinates, not a proxy that may detach during reflow.
-            await page.mouse.click(after.x + after.width / 2, after.y + after.height / 2);
-            return;
-        }
-        await page.waitForTimeout(50);
-    }
-    assert.fail(`${name} must have stable, enabled canvas bounds`);
 }
 
 async function waitForAccessibleText(page, text) {
@@ -162,7 +141,8 @@ async function capture(page, name, labels) {
             const reloaded = await waitForRecord(page);
             assert.deepEqual(JSON.parse(reloaded.payload).activeSession, active,
                 "Reload must resume the persisted snapshot rather than restarting the timer");
-            await clickCanvasButton(page, "Charging data");
+            await page.goBack();
+            await clickCanvasButton(page, "Settings");
             const importButton = page.getByRole("button", { name: "Import backup", exact: true });
             await importButton.waitFor();
             await page.waitForTimeout(300);
@@ -194,12 +174,11 @@ async function capture(page, name, labels) {
             assert.equal(history.endPercent, active.targetPercent);
             assert.ok(history.endedAt < active.segments[0].startedAt,
                 "History must use the calculated target time, not the page resume time");
-            await clickCanvasButton(page, "Back to timer");
             await waitForAccessibleText(page, "Charge summary");
             await waitForAccessibleText(page, "60% → 100%");
             await clickCanvasButton(page, "Done");
-            await clickCanvasButton(page, "Charging data");
-            await page.getByRole("button", { name: "Back to timer", exact: true }).waitFor();
+            await clickCanvasButton(page, "Settings");
+            await page.getByRole("button", { name: "Back", exact: true }).waitFor();
             await page.waitForTimeout(300);
             await capture(page, `storage-${colorScheme}`, storageLabels);
 
@@ -277,9 +256,9 @@ async function capture(page, name, labels) {
             await page.waitForTimeout(3000);
             await capture(page, `startup-${evidence}`, configurationLabels);
             await capture(page, `configuration-${evidence}`, configurationLabels);
-            await clickCanvasButton(page, "Charging data");
+            await clickCanvasButton(page, "Settings");
             await capture(page, `storage-${evidence}`, storageLabels);
-            await clickCanvasButton(page, "Back to timer");
+            await clickCanvasButton(page, "Back");
             await clickCanvasButton(page, "Start Timer");
             assert.notEqual(await waitForRecord(page, record =>
                 JSON.parse(record?.payload || "{}").activeSession != null), null);
@@ -324,19 +303,17 @@ async function capture(page, name, labels) {
             await page.reload();
             await verifySummary();
             await clickCanvasButton(page, "Done");
-            await clickCanvasButton(page, "Charging history");
+            await clickCanvasButton(page, "Settings");
+            await clickCanvasText(page, "Charging history");
             await waitForAccessibleText(page, `60% → ${endText}%`);
             await waitForAccessibleText(page, `${energy} kWh`);
             await capture(page, `history-${evidence}`, ["Charging history", "Default", `60% → ${endText}%`,
                 `${energy} kWh`, "1h 0m", "avg 11 kW"]);
             await page.reload();
-            await clickCanvasButton(page, "Charging history");
             await waitForAccessibleText(page, `60% → ${endText}%`);
             await waitForAccessibleText(page, `${energy} kWh`);
             const card = page.getByRole("button").filter({ hasText: `60% → ${endText}%` }).first();
-            const bounds = await card.boundingBox();
-            assert.ok(bounds);
-            await page.mouse.click(bounds.x + bounds.width / 3, bounds.y + bounds.height / 2);
+            await clickCanvas(page, card);
             await verifySummary();
             await clickCanvasButton(page, "Done");
             await waitForAccessibleText(page, `${energy} kWh`);
@@ -346,6 +323,103 @@ async function capture(page, name, labels) {
             await context.close();
           }
         }
+        // Exercise the same Settings hierarchy and screen callbacks as native.
+        const parityContext = await browser.newContext({ locale: "en-US", viewport: { width: 1100, height: 900 } });
+        await parityContext.addInitScript(() => {
+            globalThis.sharedTexts = [];
+            globalThis.shareFailure = false;
+            Object.defineProperty(navigator, "share", { configurable: true, value: undefined });
+            Object.defineProperty(navigator, "clipboard", { configurable: true,
+                value: { writeText: async text => {
+                    if (shareFailure) throw new Error("Clipboard permission denied");
+                    sharedTexts.push(text);
+                } } });
+        });
+        const parityPage = await parityContext.newPage();
+        const parityErrors = [];
+        parityPage.on("pageerror", error => parityErrors.push(error.message));
+        await parityPage.goto(origin);
+        assert.notEqual(await waitForRecord(parityPage), null);
+        await parityPage.evaluate(async () => {
+            const record = JSON.parse(await evTimerStorage.read());
+            const state = JSON.parse(record.payload);
+            state.backup.presets.push({ ...state.backup.presets[0], id: "home", name: "Home", position: 1 });
+            const end = Date.now() - 3_600_000;
+            state.backup.sessions = [{
+                id: 42, batteryCapacity: 83, startPercent: 20, targetPercent: 100, efficiency: 1,
+                presetId: "custom", presetName: "Default", presetEdited: false,
+                segments: [{ startedAt: end - 3_600_000, powerKw: 11, efficiency: 1 }],
+                endedAt: end, endPercent: 33.25, actualPercent: null, reviewed: true,
+                interrupted: false, calibrationEnabled: false
+            }];
+            await evTimerStorage.write(record.revision, JSON.stringify(state));
+            window.dispatchEvent(new Event("pageshow"));
+        });
+        await clickCanvasButton(parityPage, "Settings");
+        await clickCanvasText(parityPage, "Presets");
+        await waitForAccessibleText(parityPage, "Tap a name to rename");
+        assert.equal(new URL(parityPage.url()).hash, "#/presets");
+        await parityPage.goBack();
+        await waitForAccessibleText(parityPage, "About");
+        await parityPage.goForward();
+        await waitForAccessibleText(parityPage, "Tap a name to rename");
+        await clickCanvasText(parityPage, "Home");
+        const nameInput = parityPage.getByRole("textbox").first();
+        await clickCanvas(parityPage, nameInput);
+        await parityPage.keyboard.press("Control+a");
+        await parityPage.keyboard.insertText("Work");
+        await clickCanvasButton(parityPage, "Save");
+        assert.notEqual(await waitForRecord(parityPage, record => record?.payload.includes('"name":"Work"')), null);
+        await clickCanvasButton(parityPage, "Back");
+        await clickCanvasText(parityPage, "Charging history");
+        await waitForAccessibleText(parityPage, "20% → 33.3%");
+        const parityCard = parityPage.getByRole("button").filter({ hasText: "20% → 33.3%" }).first();
+        await clickCanvas(parityPage, parityCard);
+        await clickCanvasButton(parityPage, "Add car reading");
+        await clickCanvas(parityPage, parityPage.getByRole("textbox").first());
+        await parityPage.keyboard.insertText("32");
+        await clickCanvasText(parityPage, "Read when timer stopped");
+        await clickCanvasButton(parityPage, "Save");
+        assert.notEqual(await waitForRecord(parityPage, record => {
+            const saved = JSON.parse(record?.payload || "{}").backup?.sessions[0];
+            return saved?.actualPercent === 32 && saved?.calibrationEnabled === true;
+        }), null);
+        await clickCanvasButton(parityPage, "Share");
+        await parityPage.waitForFunction(() => sharedTexts.length === 1);
+        assert.match((await parityPage.evaluate(() => sharedTexts[0])), /32/);
+        await parityPage.evaluate(() => { shareFailure = true; });
+        await clickCanvasButton(parityPage, "Share");
+        await waitForAccessibleText(parityPage, "Could not share summary");
+        await parityPage.reload();
+        await waitForAccessibleText(parityPage, "20% → 32%");
+        await clickCanvasButton(parityPage, "Done");
+        await waitForAccessibleText(parityPage, "Charging history");
+        await clickCanvasButton(parityPage, "Back");
+        await clickCanvasText(parityPage, "Notify at 80%");
+        assert.notEqual(await waitForRecord(parityPage, record =>
+            JSON.parse(record?.payload || "{}").backup?.preferences.notifyAt80 === false), null);
+        await clickCanvasText(parityPage, "Presets");
+        await clickCanvasButton(parityPage, "Estimate information for Default");
+        await waitForAccessibleText(parityPage, "1 reading");
+        await clickCanvas(parityPage, parityPage.getByRole("button", { name: "Reset", exact: true }).nth(2));
+        await waitForAccessibleText(parityPage, "Reset Default at 11 kW?");
+        await clickCanvasButton(parityPage, "Reset");
+        assert.notEqual(await waitForRecord(parityPage, record => {
+            const saved = JSON.parse(record?.payload || "{}").backup?.sessions[0];
+            return saved?.actualPercent === 32 && saved?.calibrationEnabled === false;
+        }), null);
+        await clickCanvasButton(parityPage, "Close");
+        await clickCanvasButton(parityPage, "Back");
+        await clickCanvasText(parityPage, "Open-source licenses");
+        await waitForAccessibleText(parityPage, "Open-source licenses");
+        await parityPage.waitForTimeout(1000);
+        await capture(parityPage, "licenses", ["Open-source licenses"]);
+        await clickCanvasButton(parityPage, "Back");
+        await clickCanvasButton(parityPage, "Back");
+        await waitForAccessibleText(parityPage, "Start Timer");
+        assert.deepEqual(parityErrors, []);
+        await parityContext.close();
+
         const notificationContext = await browser.newContext({
             locale: "en-US", viewport: { width: 1100, height: 800 }
         });
@@ -374,11 +448,12 @@ async function capture(page, name, labels) {
         await notificationPage.waitForTimeout(3000);
         assert.equal(await notificationPage.evaluate(() => notificationTest.requests), 0,
             "Startup must not request notification permission");
+        await clickCanvasButton(notificationPage, "Settings");
         await clickCanvasButton(notificationPage, "Enable foreground notifications");
         await notificationPage.waitForFunction(() => notificationTest.requests === 1);
         await notificationPage.waitForTimeout(300);
         await capture(notificationPage, "notification-permission",
-            [...configurationLabels, "A notification could not be delivered or permission was denied"]);
+            ["Settings", "A notification could not be delivered or permission was denied"]);
         fs.writeFileSync(path.join(screenshots, "notification-semantics.txt"), await notificationPage.locator("body").ariaSnapshot());
         await waitForAccessibleText(notificationPage, "A notification could not be delivered or permission was denied");
         assert.equal(JSON.parse((await waitForRecord(notificationPage)).payload).notificationsEnabled, false);
@@ -393,6 +468,7 @@ async function capture(page, name, labels) {
         assert.notEqual(await waitForRecord(notificationPage, record =>
             JSON.parse(record?.payload || "{}").notificationsEnabled === true), null);
         await notificationPage.getByRole("button", { name: "Disable foreground notifications", exact: true }).waitFor();
+        await clickCanvasButton(notificationPage, "Back");
         await clickCanvasButton(notificationPage, "Start Timer");
         assert.notEqual(await waitForRecord(notificationPage, record =>
             JSON.parse(record?.payload || "{}").activeSession != null), null);

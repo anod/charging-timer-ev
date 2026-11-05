@@ -61,7 +61,7 @@ jobs:
         run: python3 scripts/check_hardcoded_ui_strings.py
 
       - name: Test portable backup and browser state
-        run: ./gradlew :storage:jvmTest :shared:jvmTest --tests '*ManualBackupTest' --tests '*BrowserStorageTest' --tests '*BackupCompatibilityTest' --tests '*BrowserTimerRuntimeTest' --tests '*BrowserNotificationsTest' --tests '*ChargingCalculatorTest' --tests '*ChargingServiceTest' --tests '*ChargingViewModelTest' --tests '*TimeProgressTest'
+        run: ./gradlew :storage:jvmTest :shared:jvmTest --tests '*ManualBackupTest' --tests '*BrowserStorageTest' --tests '*BackupCompatibilityTest' --tests '*BrowserTimerRuntimeTest' --tests '*BrowserNotificationsTest' --tests '*AppNavigationStateTest' --tests '*ChargingCalculatorTest' --tests '*ChargingServiceTest' --tests '*ChargingViewModelTest' --tests '*TimeProgressTest'
 
       - name: Build Wasm web shell
         run: ./gradlew :webApp:wasmJsBrowserDistribution

@@ -41,8 +41,10 @@ are browser-controlled.
 
 ## Limitations and keeping data safe
 
-Notifications are **foreground-only** and require a user permission-button
-action. No background alarms, push notifications or alerts are promised when
+Notifications are **foreground-only** and require the permission button in
+**Settings > Browser notifications and offline use**. The shared **Notify at 80%**
+preference controls the milestone independently of browser permission. No
+background alarms, push notifications or alerts are promised when
 the tab/app is hidden, suspended or closed. Stored epoch timestamps let estimates
 catch up when reopened; reopening is not a background alarm.
 
@@ -55,12 +57,36 @@ app windows close; reopen afterward. Reloading one tab does not force an update.
 Charging data is in the browser's IndexedDB storage for this site, not the native
 app's database. Browser storage eviction, clearing site data, or private browsing
 can lose it. Installation is not a backup and does not migrate native data.
-Export regular backups using **Charging data** and keep the JSON in a trusted
+Export regular backups using **Settings > Charging data > Export backup** and keep the JSON in a trusted
 location outside browser storage; imports ask before replacing data. Backup
 files are unencrypted and can contain presets, history and preferences.
 See [backup format and browser storage](backup-format.md#browser-storage-stack-layer-2).
-Browser car-reading/learning management and sharing are not implemented; imported
-calibration still informs estimates.
+Browser and native apps use the same Compose Settings, presets, history, charge
+summary, car-reading editor, charging-power management and open-source licenses
+screens. Settings also links to the same source and privacy information. Browser
+Back/Forward follows the Settings hierarchy, restores history summaries by their
+saved IDs, and cannot resurrect an ended timer. A timer starting or finishing in
+another tab reconciles the current navigation with durable storage.
+
+Preset rename/delete/reorder, recorded car percentages, consent to learned
+estimates and per-preset/per-speed learning reset are saved in IndexedDB and
+included in portable native-compatible backups. Editing settings does not change
+the snapshot of an already running session. New speeds remain selected; selected
+and last speeds cannot be removed.
+
+**Share** on a summary uses the browser's system share sheet where supported,
+otherwise copies the shared, localized summary text to the clipboard. Sharing and
+clipboard access depend on HTTPS, browser capabilities and user permissions;
+failures are reported rather than silently treated as success. Cancelling a
+share sheet is not an error. File imports use the browser picker and exports use
+browser downloads; the app can confirm requesting a download, not that the user
+saved it.
+
+The browser intentionally does not implement Android foreground services,
+background alarms, OS-level Google Auto Backup/device transfer or native document
+providers. Use manual backup files to transfer data between native and web.
+Browser permission/offline status and backup controls live in Settings rather
+than a separate navigation strip, leaving the shared timer screens unobstructed.
 
 ## GitHub Pages deployment
 
