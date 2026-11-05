@@ -91,8 +91,8 @@ async function capture(page, name, labels) {
             await route.continue();
         });
         await loadingPage.goto(origin);
-        // Compose draws progress on its canvas but does not publish an HTML
-        // progressbar role. aria-busy tracks the actual resource gate instead.
+        // Loading exposes only the unlabeled progress indicator, never controls
+        // that depend on the withheld string resources.
         await loadingPage.locator("body[aria-busy=true]").waitFor();
         await loadingPage.waitForSelector("canvas");
         const requestDeadline = Date.now() + 10_000;
@@ -103,8 +103,8 @@ async function capture(page, name, labels) {
         for (let frame = 0; frame < 5; frame++) {
             assert.equal(await loadingPage.locator("body").getAttribute("aria-busy"), "true");
             const snapshot = await loadingPage.locator("body").ariaSnapshot();
-            assert.equal(snapshot.trim(), "",
-                "Before resources load, no text or controls may be exposed");
+            assert.equal(snapshot.trim(), "- progressbar",
+                "Before resources load, only an unlabeled progress indicator may be exposed");
             await loadingPage.evaluate(() => new Promise(requestAnimationFrame));
         }
         await capture(loadingPage, "startup-loading", []);
