@@ -46,3 +46,13 @@ jobs:
           name: android-apk
           path: androidApp/build/outputs/apk/debug/*.apk
           if-no-files-found: error
+
+      - name: Upload running screen layout evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: running-layout
+          path: |
+            shared/build/reports/running-layout/
+            shared/build/test-results/jvmTest/
+          if-no-files-found: warn
