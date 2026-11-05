@@ -11,7 +11,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -57,6 +56,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.unit.Constraints
+import info.anodsplace.evtimer.data.TimePrediction
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -149,10 +151,16 @@ fun RunningTimerScreen(
     Box(modifier = modifier.fillMaxSize()) {
         ChargingWavesBackground(modifier = Modifier.fillMaxSize())
 
+        // Like the configuration screen's Start button, Stop stays pinned below the scrolling content.
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .windowInsetsPadding(WindowInsets.systemBars)
+        ) {
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -273,12 +281,13 @@ fun RunningTimerScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.weight(1f))
+        }
 
             OutlinedButton(
                 onClick = { onEvent(RunningViewEvent.StopCharging) },
                 modifier = Modifier
                     .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp)
                     .height(56.dp),
                 colors = ButtonDefaults.outlinedButtonColors(
                     contentColor = MaterialTheme.colorScheme.error
@@ -334,26 +343,57 @@ internal fun TimePredictionBar(
                 style = MaterialTheme.typography.bodySmall
             )
         } else {
-            // Separate label lanes keep nearby ticks readable, including at the ETA.
-            progress.predictions.forEach { prediction ->
-                BoxWithConstraints(Modifier.fillMaxWidth()) {
-                    val labelWidth = maxWidth / 2
-                    Text(
-                        stringResource(
-                            Res.string.time_prediction,
-                            formatLocaleNumber(prediction.hoursAhead.toFloat(), 0, 0),
-                            formatLocaleNumber(prediction.percent.roundToInt().toFloat(), 0, 0)
-                        ),
-                        modifier = Modifier
-                            .offset(
-                                x = (maxWidth * prediction.position - labelWidth / 2).coerceIn(0.dp, maxWidth - labelWidth)
-                            )
-                            .width(labelWidth),
-                        style = MaterialTheme.typography.bodySmall,
-                        textAlign = TextAlign.Center
-                    )
-                }
+            PredictionLabels(progress.predictions)
+        }
+    }
+}
+
+/**
+ * Centres each label under its tick on a single row, moving a label to another row only when it would overlap.
+ */
+@Composable
+private fun PredictionLabels(predictions: List<TimePrediction>, modifier: Modifier = Modifier) {
+    Layout(
+        content = {
+            predictions.forEach { prediction ->
+                Text(
+                    stringResource(
+                        Res.string.time_prediction,
+                        formatLocaleNumber(prediction.hoursAhead.toFloat(), 0, 0),
+                        formatLocaleNumber(prediction.percent.roundToInt().toFloat(), 0, 0)
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    textAlign = TextAlign.Center
+                )
             }
+        },
+        modifier = modifier.fillMaxWidth()
+    ) { measurables, constraints ->
+        val width = constraints.maxWidth
+        val gap = 8.dp.roundToPx()
+        val laneSpacing = 4.dp.roundToPx()
+        val placeables = measurables.map { it.measure(Constraints(maxWidth = width)) }
+        val laneEnds = mutableListOf<Int>()
+        val slots = placeables.mapIndexed { index, placeable ->
+            val x = (width * predictions[index].position - placeable.width / 2f).roundToInt()
+                .coerceIn(0, (width - placeable.width).coerceAtLeast(0))
+            var lane = laneEnds.indexOfFirst { x >= it + gap }
+            if (lane < 0) {
+                laneEnds += x + placeable.width
+                lane = laneEnds.lastIndex
+            } else {
+                laneEnds[lane] = x + placeable.width
+            }
+            x to lane
+        }
+        val laneHeights = IntArray(laneEnds.size)
+        slots.forEachIndexed { index, (_, lane) ->
+            laneHeights[lane] = maxOf(laneHeights[lane], placeables[index].height)
+        }
+        val laneTops = laneHeights.runningFold(0) { top, height -> top + height + laneSpacing }
+        val height = if (laneHeights.isEmpty()) 0 else laneTops[laneHeights.size] - laneSpacing
+        layout(width, height) {
+            slots.forEachIndexed { index, (x, lane) -> placeables[index].placeRelative(x, laneTops[lane]) }
         }
     }
 }

@@ -30,6 +30,23 @@ class TimePredictionBarTest {
     @Test
     fun rightToLeftTicksMirrorWithTheirLabelsAndTimeEndpoints() = verifyAlignment(LayoutDirection.Rtl)
 
+    @Test
+    fun overlappingLabelsMoveToTheNextRow() = runDesktopComposeUiTest {
+        setContent {
+            MaterialTheme(colorScheme = lightColorScheme()) {
+                TimePredictionBar(
+                    progress = TimeProgress(0.1f, listOf(TimePrediction(1, 0.5f, 45f), TimePrediction(2, 0.55f, 50f))),
+                    startTimeText = "12:40",
+                    estimatedEndTimeText = "15:40",
+                    modifier = Modifier.width(300.dp)
+                )
+            }
+        }
+        val first = onNodeWithText("+1h · 45%").fetchSemanticsNode().boundsInRoot
+        val second = onNodeWithText("+2h · 50%").fetchSemanticsNode().boundsInRoot
+        assertTrue(second.top >= first.bottom)
+    }
+
     private fun verifyAlignment(direction: LayoutDirection) = runDesktopComposeUiTest {
         val colors = lightColorScheme()
         setContent {
@@ -54,6 +71,8 @@ class TimePredictionBarTest {
             assertEquals(colors.onSurface.toArgb(), image[(image.width * mirrored).toInt(), image.height / 2].toArgb())
         }
         val start = onNodeWithText("12:40").fetchSemanticsNode().boundsInRoot
+        val first = onNodeWithText("+1h · 45%").fetchSemanticsNode().boundsInRoot
+        assertEquals(first.top, onNodeWithText("+2h · 65%").fetchSemanticsNode().boundsInRoot.top, 0.5f)
         val eta = onNodeWithText("15:40").fetchSemanticsNode().boundsInRoot
         assertEquals(direction == LayoutDirection.Ltr, start.left < eta.left)
         val filledPosition = if (direction == LayoutDirection.Rtl) 0.95f else 0.05f

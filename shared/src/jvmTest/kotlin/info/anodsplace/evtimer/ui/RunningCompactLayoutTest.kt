@@ -167,13 +167,14 @@ class RunningCompactLayoutTest {
 
         // The end time must be readable before scrolling, not just exist in semantics.
         onNodeWithText(endTime).assertFullyRendered()
+        onNodeWithText("Stop Timer").assertIsDisplayed()
         onNodeWithText("3.6 kW", useUnmergedTree = true).performScrollTo().assertFullyRendered(maxLines = 1)
         val remaining = onNodeWithText("25h 45m \u00b7 $endTime")
         remaining.performScrollTo()
         ImageIO.write(onNodeWithTag("screen").captureToImage().toAwtImage(), "png", File(directory, "$name-stats.png"))
         remaining.assertFullyRendered()
 
-        onNodeWithText("Stop Timer").performScrollTo().assertIsDisplayed().performClick()
+        onNodeWithText("Stop Timer").assertIsDisplayed().performClick()
         assertEquals(listOf<RunningViewEvent>(RunningViewEvent.StopCharging), events)
     }
 
