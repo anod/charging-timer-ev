@@ -72,6 +72,7 @@ jobs:
 
       - name: Verify real browser persistence and capture light/dark UI
         working-directory: webApp
+        timeout-minutes: 10
         run: npx playwright install --with-deps chromium && npm run test:browser
 
       - name: Verify exact Pages site in Chromium at project path

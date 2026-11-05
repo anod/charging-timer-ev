@@ -248,6 +248,7 @@ async function capture(page, name, labels) {
             await page.waitForFunction(() => !!globalThis.evTimerStorage);
             assert.equal(await page.evaluate(async () => JSON.parse(await evTimerStorage.read()).revision), next.revision);
             assert.deepEqual(errors, []);
+            console.log(`Backup/recovery ${colorScheme} passed`);
             await context.close();
         }
         for (const [device, viewport] of [
@@ -329,6 +330,7 @@ async function capture(page, name, labels) {
             assert.deepEqual(JSON.parse((await waitForRecord(page)).payload).backup.sessions[0],
                 { ...saved, reviewed: true }, "History display and reload must preserve saved values");
             assert.deepEqual(errors, []);
+            console.log(`Timer/history ${evidence} passed`);
             await context.close();
           }
         }
@@ -365,6 +367,7 @@ async function capture(page, name, labels) {
             window.dispatchEvent(new Event("pageshow"));
         });
         await clickCanvasButton(parityPage, "Settings");
+        console.log("Parity: opening settings/presets");
         await clickCanvasText(parityPage, "Presets");
         await waitForAccessibleText(parityPage, "Tap a name to rename");
         assert.equal(new URL(parityPage.url()).hash, "#/presets");
@@ -381,6 +384,7 @@ async function capture(page, name, labels) {
         assert.notEqual(await waitForRecord(parityPage, record => record?.payload.includes('"name":"Work"')), null);
         await clickCanvasButton(parityPage, "Back");
         await clickCanvasText(parityPage, "Charging history");
+        console.log("Parity: opening saved summary and recording reading");
         await waitForAccessibleText(parityPage, "20% → 33.3%");
         const parityCard = parityPage.getByRole("button").filter({ hasText: "20% → 33.3%" }).first();
         await clickCanvas(parityPage, parityCard);
@@ -394,6 +398,7 @@ async function capture(page, name, labels) {
             return saved?.actualPercent === 32 && saved?.calibrationEnabled === true;
         }), null);
         await clickCanvasButton(parityPage, "Share");
+        console.log("Parity: sharing");
         await parityPage.waitForFunction(() => sharedTexts.length === 1);
         assert.match((await parityPage.evaluate(() => sharedTexts[0])), /32/);
         await parityPage.evaluate(() => { shareFailure = true; });
@@ -408,6 +413,7 @@ async function capture(page, name, labels) {
         assert.notEqual(await waitForRecord(parityPage, record =>
             JSON.parse(record?.payload || "{}").backup?.preferences.notifyAt80 === false), null);
         await clickCanvasText(parityPage, "Presets");
+        console.log("Parity: checking calibration reset");
         await clickCanvasButton(parityPage, "Estimate information for Default");
         await waitForAccessibleText(parityPage, "1 reading");
         await clickCanvas(parityPage, parityPage.getByRole("button", { name: "Reset", exact: true }).nth(2));
@@ -427,6 +433,7 @@ async function capture(page, name, labels) {
         await clickCanvasButton(parityPage, "Back");
         await waitForAccessibleText(parityPage, "Start Timer");
         assert.deepEqual(parityErrors, []);
+        console.log("Parity: hierarchy/readings/sharing/licenses passed");
         await parityContext.close();
 
         const notificationContext = await browser.newContext({
@@ -507,6 +514,7 @@ async function capture(page, name, labels) {
         console.log("Real Chromium: shared timer UI, durable start/reload, epoch catch-up/completion, backup roundtrip, IndexedDB conflicts and light/dark screenshots passed");
     } finally {
         await browser.close();
+        server.closeAllConnections();
         await new Promise(resolve => server.close(resolve));
     }
 })().catch(error => { console.error(error); process.exitCode = 1; });
