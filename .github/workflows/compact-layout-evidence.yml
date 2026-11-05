@@ -51,7 +51,7 @@ jobs:
           import xml.etree.ElementTree as ET
           root = ET.parse("shared/build/test-results/jvmTest/TEST-info.anodsplace.evtimer.ui.RunningCompactLayoutTest.xml").getroot()
           assert int(root.attrib["failures"]) > 0 and int(root.attrib["errors"]) == 0
-          assert any(case.attrib["name"].removesuffix("()") == "statValueMovesBelowItsLabelInsteadOfBeingSqueezed" and case.find("failure") is not None for case in root.findall("testcase"))
+          assert any(case.attrib["name"].startswith("statValueMovesBelowItsLabelInsteadOfBeingSqueezed") and case.find("failure") is not None for case in root.findall("testcase"))
           PY
           cp -r shared/build/reports/running-layout evidence/before/
           cp shared/build/test-results/jvmTest/TEST-*RunningCompactLayoutTest.xml evidence/before/
