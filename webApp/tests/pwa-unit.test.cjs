@@ -104,6 +104,9 @@ test("offline reload, verified repair, explicit failure and privacy/navigation i
         await sw.lifecycle("install");
         sw.setFail(true);
         assert.equal(await (await sw.request("./", "navigate")).text(), "<title>Timer</title>");
+        for (const route of ["./#/running", "./#/settings", "./#/summary/42", "index.html#/presets"]) {
+            assert.equal(await (await sw.request(route, "navigate")).text(), "<title>Timer</title>");
+        }
         for (const relative of ["privacy", "privacy.html", "privacy/", "docs/privacy.html",
             "unknown", "../another-app/", "https://other.test/index.html"]) {
             assert.equal(await sw.request(relative, "navigate"), undefined);
