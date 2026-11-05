@@ -69,7 +69,13 @@ async function capture(page, name, labels) {
     const browser = await chromium.launch({ headless: true });
     try {
         const origin = `http://127.0.0.1:${server.address().port}`;
-        await verifyDialogFocus(browser, origin, screenshots);
+        let dialogFailure;
+        try {
+            await verifyDialogFocus(browser, origin, screenshots);
+        } catch (error) {
+            dialogFailure = error;
+            console.error("Strict dialog regressions failed; continuing independent parity checks:", error.stack);
+        }
         // A cold page must not compose any labelled controls while .cvr string
         // resources are withheld. This tests the real network boundary, not a timer.
         const loadingContext = await browser.newContext({ locale: "en-US" });
@@ -533,6 +539,7 @@ async function capture(page, name, labels) {
         assert.deepEqual(notificationErrors, [], "Notification failures must be handled, not escape the Wasm boundary");
         await notificationContext.close();
         console.log("Real Chromium: shared timer UI, durable start/reload, epoch catch-up/completion, backup roundtrip, IndexedDB conflicts and light/dark screenshots passed");
+        if (dialogFailure) throw dialogFailure;
     } finally {
         await browser.close();
         server.closeAllConnections();
