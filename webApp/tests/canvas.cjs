@@ -31,6 +31,11 @@ async function clickCanvas(page, locator) {
 }
 
 const button = (page, name) => clickCanvas(page, page.getByRole("button", { name, exact: true }));
-const text = (page, name) => clickCanvas(page, page.getByText(name, { exact: true }).first());
+const text = (page, name) => {
+    const prefix = new RegExp("^" + name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "(?:\\s|$)");
+    return clickCanvas(page, page.getByRole("button", { name: prefix })
+        .or(page.getByRole("checkbox", { name: prefix }))
+        .or(page.getByText(name, { exact: true })).first());
+};
 
 module.exports = { clickCanvas, button, text };
