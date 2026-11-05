@@ -95,6 +95,7 @@ async function verifyDialogFocus(browser, origin, screenshots) {
                                 if (node.shadowRoot) {
                                     const found = findEditor(node.shadowRoot);
                                     if (found) return found;
+                                }
                             }
                         };
                         const editor = findEditor(document);
@@ -156,7 +157,6 @@ async function verifyDialogFocus(browser, origin, screenshots) {
                 }
             }
         }
-      }
     }
     fs.writeFileSync(path.join(screenshots, "dialog-results.json"), JSON.stringify(results, null, 2));
     assert.ok(results.every(result => result.passed && result.errors.length === 0),
