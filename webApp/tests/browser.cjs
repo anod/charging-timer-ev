@@ -111,7 +111,10 @@ async function capture(page, name, labels) {
             });
             const page = await context.newPage();
             const errors = [];
-            page.on("pageerror", error => errors.push(error.message));
+            page.on("pageerror", error => {
+                errors.push(error.message);
+                console.error("Browser page error:", error.stack);
+            });
             page.on("console", message => console.log(`[${colorScheme}] ${message.type()}: ${message.text()}`));
             await page.goto(origin);
             console.log("Browser language preferences:", await page.evaluate(() => navigator.languages));
@@ -134,7 +137,13 @@ async function capture(page, name, labels) {
             const started = await waitForRecord(page, record => JSON.parse(record?.payload || "{}").activeSession != null);
             assert.notEqual(started, null, "Start must commit an active snapshot");
             const active = JSON.parse(started.payload).activeSession;
-            await page.getByText("Charging in Progress", { exact: true }).waitFor();
+            try {
+                await page.getByText("Charging in Progress", { exact: true }).waitFor();
+            } catch (error) {
+                console.error("Running route:", page.url(), await page.locator("body").ariaSnapshot(), errors);
+                await page.screenshot({ path: path.join(screenshots, "running-failure.png") });
+                throw error;
+            }
             await capture(page, `running-${colorScheme}`, runningLabels);
             await page.reload();
             await page.getByText("Charging in Progress", { exact: true }).waitFor();
