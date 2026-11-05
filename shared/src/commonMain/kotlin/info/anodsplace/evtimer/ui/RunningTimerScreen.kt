@@ -57,7 +57,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Constraints
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.only
+import androidx.compose.runtime.mutableIntStateOf
+import dev.chrisbanes.haze.HazeInput
+import dev.chrisbanes.haze.hazeSource
+import dev.chrisbanes.haze.rememberHazeState
+import dev.chrisbanes.haze.blur.hazeBlur
+import dev.chrisbanes.haze.blur.materials.HazeMaterials
 import info.anodsplace.evtimer.data.TimePrediction
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
@@ -148,21 +158,25 @@ fun RunningTimerScreen(
         )
     }
 
+    val hazeState = rememberHazeState()
+    var stopBarHeightPx by remember { mutableIntStateOf(0) }
+    val stopBarHeight = with(LocalDensity.current) { stopBarHeightPx.toDp() }
+
     Box(modifier = modifier.fillMaxSize()) {
+        // Content scrolls under the pinned Stop bar, which blurs whatever passes beneath it.
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .hazeSource(hazeState)
+        ) {
         ChargingWavesBackground(modifier = Modifier.fillMaxSize())
 
-        // Like the configuration screen's Start button, Stop stays pinned below the scrolling content.
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .windowInsetsPadding(WindowInsets.systemBars)
-        ) {
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
+                .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
                 .verticalScroll(rememberScrollState())
-                .padding(16.dp),
+                .padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 16.dp + stopBarHeight),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(32.dp)
         ) {
@@ -282,7 +296,19 @@ fun RunningTimerScreen(
             }
 
         }
+        }
 
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .onSizeChanged { stopBarHeightPx = it.height }
+                .hazeBlur(
+                    input = HazeInput.Sources(hazeState),
+                    style = HazeMaterials.thin()
+                )
+                .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal))
+        ) {
             OutlinedButton(
                 onClick = { onEvent(RunningViewEvent.StopCharging) },
                 modifier = Modifier
