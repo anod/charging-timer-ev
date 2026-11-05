@@ -391,10 +391,17 @@ async function capture(page, name, labels) {
         await clickCanvas(parityPage, nameInput);
         await parityPage.keyboard.press("Control+a");
         await parityPage.keyboard.type("Work", { delay: 50 });
+        await parityPage.screenshot({ path: path.join(screenshots, "rename-before-save.png") });
+        fs.writeFileSync(path.join(screenshots, "rename-before-save.txt"),
+            await parityPage.locator("body").ariaSnapshot());
         await clickCanvasButton(parityPage, "Save");
-        const renamed = await waitForRecord(parityPage, record => record?.payload.includes('"name":"Work"'));
-        assert.notEqual(renamed, null);
         await parityPage.screenshot({ path: path.join(screenshots, "rename-after-save.png") });
+        fs.writeFileSync(path.join(screenshots, "rename-after-save.txt"),
+            await parityPage.locator("body").ariaSnapshot());
+        fs.writeFileSync(path.join(screenshots, "rename-after-save-record.json"),
+            await parityPage.evaluate(async () => await evTimerStorage.read()));
+        const renamed = await waitForRecord(parityPage, record => record?.payload.includes('"name":"Work"'));
+        assert.notEqual(renamed, null, `Rename must persist Work; page errors: ${JSON.stringify(parityErrors)}`);
         await parityPage.getByRole("button", { name: "Back", exact: true }).waitFor({ timeout: 10_000 });
         assert.equal(await parityPage.getByRole("button", { name: "Save", exact: true }).count(), 0);
         await clickCanvasButton(parityPage, "Back");
