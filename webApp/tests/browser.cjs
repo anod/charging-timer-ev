@@ -201,8 +201,8 @@ async function capture(page, name, labels) {
             const exported = JSON.parse(fs.readFileSync(await download.path(), "utf8"));
             assert.equal(exported.formatVersion, 2);
             assert.equal(exported.preferences.selectedPresetId, "custom");
-            await page.getByText("Download requested. Check your browser downloads to confirm the file was saved.",
-                { exact: true }).waitFor();
+            await waitForAccessibleText(page,
+                "Download requested. Check your browser downloads to confirm the file was saved.");
             const imported = JSON.stringify({
                 ...exported,
                 presets: [{ ...exported.presets[0], name: "Imported car" }],

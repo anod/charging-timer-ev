@@ -26,6 +26,7 @@ async function clickCanvas(page, locator) {
         }
         await page.waitForTimeout(50);
     }
+    console.error("Canvas control failure:", locator.toString(), page.url(), await page.locator("body").ariaSnapshot());
     assert.fail("Expected stable, enabled canvas control");
 }
 
