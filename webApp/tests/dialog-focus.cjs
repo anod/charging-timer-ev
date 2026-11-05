@@ -46,12 +46,23 @@ async function verifyDialogFocus(browser, origin, screenshots) {
             console.error(`Dialog focus ${scenario} failed:`, error.stack, errors);
             results.push({ scenario, restored: false, failure: error.message, errors });
         } finally {
-            const semantics = await page.locator("body").ariaSnapshot();
-            console.log(`Dialog focus ${scenario}:`, semantics, errors);
-            await page.screenshot({ path: path.join(screenshots, `rename-${scenario}-after-dismissal.png`) });
-            fs.writeFileSync(path.join(screenshots, `dialog-${scenario}.html`), await page.content());
-            fs.writeFileSync(path.join(screenshots, `dialog-${scenario}.txt`), semantics);
-            await context.close();
+            try {
+                const semantics = await page.locator("body").ariaSnapshot();
+                console.log(`Dialog focus ${scenario}:`, semantics, errors);
+                await page.screenshot({ path: path.join(screenshots, `rename-${scenario}-after-dismissal.png`) });
+                fs.writeFileSync(path.join(screenshots, `dialog-${scenario}.html`), await page.content());
+                fs.writeFileSync(path.join(screenshots, `dialog-${scenario}.txt`), semantics);
+            } catch (error) {
+                errors.push(`Evidence capture failed: ${error.message}`);
+                console.error(`Dialog focus ${scenario} evidence failed:`, error.stack);
+            } finally {
+                try {
+                    await context.close();
+                } catch (error) {
+                    errors.push(`Context cleanup failed: ${error.message}`);
+                    console.error(`Dialog focus ${scenario} cleanup failed:`, error.stack);
+                }
+            }
         }
       }
     }
