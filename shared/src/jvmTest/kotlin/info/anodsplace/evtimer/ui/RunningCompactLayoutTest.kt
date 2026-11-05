@@ -167,16 +167,13 @@ class RunningCompactLayoutTest {
         performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
         assertEquals(1, layouts.size)
         val layout = layouts.single()
-        assertFalse(
-            layout.hasVisualOverflow,
-            "Clipped text: ${layout.layoutInput.text} size=${layout.size} " +
-                "paragraph=${layout.multiParagraph.width}x${layout.multiParagraph.height} " +
-                "constraints=${layout.layoutInput.constraints} lines=${layout.lineCount} " +
-                "overflowW=${layout.didOverflowWidth} overflowH=${layout.didOverflowHeight} " +
-                "ellipsized=${(0 until layout.lineCount).any(layout::isLineEllipsized)}"
-        )
+        val lines = 0 until layout.lineCount
+        val widestLine = lines.maxOf { layout.getLineRight(it) - layout.getLineLeft(it) }
+        val details = "${layout.layoutInput.text} size=${layout.size} lines=${layout.lineCount} widest=$widestLine"
+        assertFalse(lines.any(layout::isLineEllipsized), "Ellipsized text: $details")
+        assertFalse(layout.didOverflowHeight, "Vertically clipped text: $details")
         val bounds = fetchSemanticsNode().boundsInRoot
-        assertTrue(bounds.width >= layout.size.width - 1f, "Text is horizontally clipped by its parent")
-        assertTrue(bounds.height >= layout.size.height - 1f, "Text is vertically clipped by its parent")
+        assertTrue(bounds.width >= widestLine - 1f, "Text is horizontally clipped: $details bounds=$bounds")
+        assertTrue(bounds.height >= layout.size.height - 1f, "Text is vertically clipped by its parent: $details")
     }
 }
