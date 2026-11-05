@@ -388,6 +388,7 @@ async function capture(page, name, labels) {
             await parityPage.evaluate(async () => await evTimerStorage.read()));
         assert.notEqual(renamed, null);
         console.log("Parity: rename committed", await parityPage.locator("body").ariaSnapshot());
+        await parityPage.screenshot({ path: path.join(screenshots, "rename-after-save.png") });
         await clickCanvasButton(parityPage, "Back");
         await clickCanvasText(parityPage, "Charging history");
         console.log("Parity: opening saved summary and recording reading");
