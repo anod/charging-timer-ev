@@ -99,9 +99,14 @@ the screen paints correctly. This is a real accessibility limitation, not a
 successful restoration. Upgrade once a stable release contains the upstream fix.
 
 The trial of `1.13.0-beta02` restored the semantics tree but exposed a browser
-text-selection synchronization crash and missing Escape dispatch from focused
-text editors. The trial and its web-only Escape adapter were removed rather than
-patching the prerelease dependency.
+text-selection synchronization crash. The trial was removed rather than
+patching the prerelease dependency. Stable Compose also omits navigation-event
+dispatch for Escape from its focused backing editor. The owner-approved
+PWA-only adapter forwards unhandled editor Escape to the existing dispatcher;
+shared/native dialogs and their dismissal/busy guards remain unchanged.
+IME/composing, handled, repeated and canvas events are excluded. Its explicit
+navigationevent-compose `1.1.0` declaration matches the existing transitive
+dependency in Compose `1.12.2`; no dependency version is upgraded.
 
 Browser tests record CMP-9368 explicitly after proving painted dismissal and
 correct persistence for typed/emoji Save, Cancel, outside-click and Escape cases.

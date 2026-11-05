@@ -414,7 +414,18 @@ async function capture(page, name, labels) {
         // Reload starts the next independent workflow with a fresh semantics owner;
         // it is not counted as accessibility restoration after dismissal.
         await parityPage.reload();
+        await waitForAccessibleText(parityPage, "Charging Power");
+        assert.equal(new URL(parityPage.url()).hash, "#/settings");
+        await parityPage.screenshot({ path: path.join(screenshots, "settings-after-rename-reload.png") });
+        fs.writeFileSync(path.join(screenshots, "settings-after-rename-reload.txt"),
+            await parityPage.locator("body").ariaSnapshot());
+        // The About section follows browser backup controls and is below the
+        // initial viewport on stable Compose. Verify it by actually scrolling.
+        await parityPage.mouse.move(550, 400);
+        await parityPage.mouse.wheel(0, 1200);
         await waitForAccessibleText(parityPage, "About");
+        await parityPage.mouse.wheel(0, -2000);
+        await waitForAccessibleText(parityPage, "Charging Power");
         await clickCanvasText(parityPage, "Charging Power");
         const powerBaseline = await paintedDialogBaseline(parityPage);
         await clickCanvasButton(parityPage, "Add Custom Power");

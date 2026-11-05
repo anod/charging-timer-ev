@@ -34,7 +34,40 @@ async function verifyDialogFocus(browser, origin, screenshots) {
             }
             if (dismissal === "save") await button(page, "Save");
             else if (dismissal === "cancel") await button(page, "Cancel");
-            else if (dismissal === "escape") await page.keyboard.press("Escape");
+            else if (dismissal === "escape") {
+                if (variant !== "emoji") {
+                    await page.evaluate(() => {
+                        const findEditor = root => {
+                            for (const node of root.querySelectorAll("*")) {
+                                if (node.classList.contains("compose-backing-field") &&
+                                    (node instanceof HTMLInputElement || node instanceof HTMLTextAreaElement || node.isContentEditable)) return node;
+                                if (node.shadowRoot) {
+                                    const found = findEditor(node.shadowRoot);
+                                    if (found) return found;
+                                }
+                            }
+                        };
+                        const editor = findEditor(document);
+                        if (!editor) throw new Error("Escape guard test requires a backing editor");
+                        const key = options => new KeyboardEvent("keydown", {
+                            key: "Escape", bubbles: true, composed: true, cancelable: true, ...options
+                        });
+                        editor.dispatchEvent(new CompositionEvent("compositionstart", { bubbles: true, composed: true }));
+                        editor.dispatchEvent(key({ isComposing: true }));
+                        editor.dispatchEvent(key({}));
+                        editor.dispatchEvent(new CompositionEvent("compositionend", { bubbles: true, composed: true }));
+                        const handled = key({});
+                        handled.preventDefault();
+                        editor.dispatchEvent(handled);
+                        editor.dispatchEvent(key({ repeat: true }));
+                        editor.dispatchEvent(key({ keyCode: 229 }));
+                    });
+                    await page.waitForTimeout(100);
+                    assert.ok(!(await page.screenshot({ clip: baseline.clip })).equals(baseline.image),
+                        "IME, handled and repeated Escape must leave the dialog painted");
+                }
+                await page.keyboard.press("Escape");
+            }
             else await page.mouse.click(8, 300);
             await assertPaintedDialogDismissed(page, baseline);
             assert.equal(new URL(page.url()).hash, "#/presets",
