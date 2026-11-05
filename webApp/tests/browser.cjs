@@ -575,7 +575,10 @@ async function capture(page, name, labels) {
         await parityPage.reload();
         await waitForAccessibleText(parityPage, "Tap a name to rename");
         await clickCanvasButton(parityPage, "Back");
-        await clickCanvasText(parityPage, "Open-source licenses");
+        await parityPage.mouse.move(550, 400);
+        await parityPage.mouse.wheel(0, 1200);
+        await waitForAccessibleText(parityPage, "Open-source licenses");
+        await clickCanvasButton(parityPage, "Open-source licenses");
         await waitForAccessibleText(parityPage, "Open-source licenses");
         await parityPage.waitForTimeout(1000);
         await capture(parityPage, "licenses", ["Open-source licenses"]);
