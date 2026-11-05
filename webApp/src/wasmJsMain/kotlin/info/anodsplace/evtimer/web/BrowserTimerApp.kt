@@ -191,7 +191,6 @@ internal fun BrowserTimerApp() {
                 if (loaded == null || navigation.backStack.isEmpty()) {
                     if (!failed) CircularProgressIndicator(Modifier.padding(24.dp))
                 } else {
-                    val configuration = loaded.configuration()
                     NavDisplay(
                         backStack = navigation.backStack,
                         onBack = { back() },
@@ -199,6 +198,9 @@ internal fun BrowserTimerApp() {
                         entryDecorators = listOf(rememberSaveableStateHolderNavEntryDecorator()),
                         entryProvider = { route ->
                             NavEntry(route) {
+                                // NavDisplay retains entries; read observable state inside their content.
+                                val loaded = requireNotNull(state)
+                                val configuration = loaded.configuration()
                                 when (route.destination) {
                                     AppDestination.Config -> ConfigurationScreen(
                                         ConfigurationViewState(false, configuration.settings, configuration.presets, configuration.selectedId),
