@@ -47,6 +47,7 @@ internal fun BrowserTimerApp() {
     var state by remember { mutableStateOf<BrowserState?>(null) }
     var navigation by remember { mutableStateOf(AppNavigationState()) }
     var historyInitialized by remember { mutableStateOf(false) }
+    var pendingRoute by remember { mutableStateOf<AppRoute?>(null) }
     var now by remember { mutableLongStateOf(Clock.System.now().toEpochMilliseconds()) }
     var busy by remember { mutableStateOf(false) }
     var failed by remember { mutableStateOf(false) }
@@ -72,13 +73,15 @@ internal fun BrowserTimerApp() {
 
     suspend fun refresh(requestedRoute: AppRoute? = null) {
         val loaded = runtime.reconcile()
+        val requested = pendingRoute ?: requestedRoute
+        pendingRoute = null
         state = loaded
         now = Clock.System.now().toEpochMilliseconds()
         val entries = loaded.historyEntries()
         val ids = entries.map { it.id }.toSet()
         val pending = entries.firstOrNull()?.takeIf { !it.reviewed }?.id
         var next = navigation.reconcile(loaded.activeSession != null, pending, ids)
-        if (requestedRoute != null) next = next.restore(requestedRoute, ids)
+        if (requested != null) next = next.restore(requested, ids)
         if (!historyInitialized) {
             parseAppRoute(window.location.hash)?.let { next = next.restore(it, ids) }
             if (historyDepth() == 0 &&
@@ -140,6 +143,7 @@ internal fun BrowserTimerApp() {
         }
         val pop: (Event) -> Unit = {
             val requested = parseAppRoute(window.location.hash)
+            pendingRoute = requested
             scope.launch {
                 operation {
                     if (navigation.current?.completion == true) {

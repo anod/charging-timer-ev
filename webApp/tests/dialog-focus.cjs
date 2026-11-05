@@ -35,7 +35,7 @@ async function verifyDialogFocus(browser, origin, screenshots) {
             if (dismissal === "save") await button(page, "Save");
             else if (dismissal === "cancel") await button(page, "Cancel");
             else if (dismissal === "escape") {
-                if (variant !== "emoji") {
+                if (variant === "typed-focused") {
                     await page.evaluate(() => {
                         const findEditor = root => {
                             for (const node of root.querySelectorAll("*")) {

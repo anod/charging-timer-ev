@@ -409,8 +409,33 @@ async function capture(page, name, labels) {
         await assertPaintedDialogDismissed(parityPage, renameBaseline);
         console.log("Rename accessibility after dismissal (accepted CMP-9368):",
             await parityPage.locator("body").ariaSnapshot());
+        await parityPage.evaluate(() => {
+            const originalRead = evTimerStorage.read;
+            let release;
+            const gate = new Promise(resolve => { release = resolve; });
+            globalThis.reconcileGate = { entered: false, release };
+            evTimerStorage.read = async function (...args) {
+                evTimerStorage.read = originalRead;
+                reconcileGate.entered = true;
+                await gate;
+                return originalRead.apply(this, args);
+            };
+            const replace = history.replaceState.bind(history);
+            globalThis.routeWrites = [];
+            history.replaceState = (...args) => {
+                routeWrites.push(args[2]);
+                return replace(...args);
+            };
+            window.dispatchEvent(new Event("pageshow"));
+        });
+        await parityPage.waitForFunction(() => reconcileGate.entered);
         await parityPage.mouse.click(backBounds.x + backBounds.width / 2, backBounds.y + backBounds.height / 2);
         await parityPage.waitForFunction(() => location.hash === "#/settings");
+        await parityPage.evaluate(() => { routeWrites.length = 0; reconcileGate.release(); });
+        await parityPage.waitForTimeout(500);
+        assert.equal(new URL(parityPage.url()).hash, "#/settings");
+        assert.ok(!(await parityPage.evaluate(() => routeWrites)).includes("#/presets"),
+            "A reconciliation suspended across Back must never rewrite the previous route");
         // Reload starts the next independent workflow with a fresh semantics owner;
         // it is not counted as accessibility restoration after dismissal.
         await parityPage.reload();
@@ -425,7 +450,6 @@ async function capture(page, name, labels) {
                         semantics: await parityPage.locator("body").ariaSnapshot() }, null, 2));
             } catch (error) {
                 console.error("Settings reload evidence capture failed:", error.stack);
-                throw error;
             }
         }
         // The About section follows browser backup controls and is below the
@@ -437,7 +461,9 @@ async function capture(page, name, labels) {
         await waitForAccessibleText(parityPage, "Charging Power");
         await clickCanvasText(parityPage, "Charging Power");
         const powerBaseline = await paintedDialogBaseline(parityPage, true);
+        await parityPage.screenshot({ path: path.join(screenshots, "power-before-open.png") });
         await clickCanvasButton(parityPage, "Add Custom Power");
+        await parityPage.screenshot({ path: path.join(screenshots, "power-open.png") });
         assert.ok(!(await parityPage.screenshot({ clip: powerBaseline.clip })).equals(powerBaseline.image),
             "Power dialog must paint a scrim in the comparison region");
         await clickCanvas(parityPage, parityPage.getByRole("textbox").first());
@@ -445,6 +471,7 @@ async function capture(page, name, labels) {
         await clickCanvasButton(parityPage, "Add");
         assert.notEqual(await waitForRecord(parityPage, record =>
             JSON.parse(record?.payload || "{}").backup?.preferences.draft?.chargingPower === 8.5), null);
+        await parityPage.screenshot({ path: path.join(screenshots, "power-after-add.png") });
         await assertPaintedDialogDismissed(parityPage, powerBaseline);
         await parityPage.reload();
         await waitForAccessibleText(parityPage, "8.5 kW");

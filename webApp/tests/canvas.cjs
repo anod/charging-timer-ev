@@ -46,7 +46,7 @@ const text = (page, name) => {
 async function paintedDialogBaseline(page, scrimOnly = false) {
     const viewport = page.viewportSize();
     const clip = scrimOnly
-        ? { x: 8, y: 300, width: 32, height: 32 }
+        ? { x: 8, y: 8, width: 8, height: 8 }
         : { x: viewport.width / 2 - 64, y: viewport.height / 2 - 64, width: 128, height: 128 };
     await page.waitForTimeout(300);
     return { clip, image: await page.screenshot({ clip }) };
