@@ -87,6 +87,26 @@ class RunningCompactLayoutTest {
         assertTrue(value.left > label.right)
     }
 
+    @Test
+    fun longTimelineEndpointsWrapInsteadOfCompetingForWidth() = runDesktopComposeUiTest {
+        setContent {
+            CompositionLocalProvider(LocalDensity provides Density(1f, 2f)) {
+                AppTheme(dynamicColor = false) {
+                    TimePredictionBar(
+                        progress = TimeProgress(0.1f, emptyList()),
+                        startTimeText = "8:00 PM",
+                        estimatedEndTimeText = "Tomorrow, 11:45 PM",
+                        modifier = Modifier.width(288.dp)
+                    )
+                }
+            }
+        }
+        val start = onNodeWithText("8:00 PM").fetchSemanticsNode().boundsInRoot
+        val end = onNodeWithText("Tomorrow, 11:45 PM")
+        end.assertFullyRendered()
+        assertTrue(end.fetchSemanticsNode().boundsInRoot.top >= start.bottom)
+    }
+
     private fun verifyScreen(
         width: Int,
         height: Int,

@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -288,6 +290,7 @@ fun RunningTimerScreen(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun TimePredictionBar(
     progress: TimeProgress,
@@ -299,8 +302,16 @@ internal fun TimePredictionBar(
     val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(stringResource(Res.string.time_progress), style = MaterialTheme.typography.titleSmall)
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(startTimeText, style = MaterialTheme.typography.labelMedium)
+        FlowRow(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(
+                startTimeText,
+                modifier = Modifier.padding(end = 8.dp),
+                style = MaterialTheme.typography.labelMedium
+            )
             Text(estimatedEndTimeText, style = MaterialTheme.typography.labelMedium)
         }
         Box(Modifier.fillMaxWidth().height(12.dp)) {
@@ -492,18 +503,21 @@ fun BatteryChargingIndicator(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun StatRow(
     label: String,
     value: String,
     modifier: Modifier = Modifier
 ) {
-    Row(
+    FlowRow(
         modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         Text(
             text = label,
+            modifier = Modifier.padding(end = 16.dp),
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
