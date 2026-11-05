@@ -19,6 +19,25 @@ async function verifyDialogFocus(browser, origin, screenshots) {
             await page.goto(origin);
             await button(page, "Settings");
             await text(page, "Presets");
+            await page.evaluate(() => {
+                const describe = node => node ? {
+                    tag: node.tagName || node.nodeName, classes: node.className,
+                    role: node.getAttribute?.("role")
+                } : null;
+                const focused = () => {
+                    let node = document.activeElement;
+                    while (node?.shadowRoot?.activeElement) node = node.shadowRoot.activeElement;
+                    return describe(node);
+                };
+                globalThis.dialogKeyboardEvidence = [];
+                window.addEventListener("keydown", event => {
+                    const record = { key: event.key, target: describe(event.target),
+                        path: event.composedPath().map(describe), focused: focused(),
+                        prevented: event.defaultPrevented };
+                    dialogKeyboardEvidence.push(record);
+                    queueMicrotask(() => { record.preventedAfter = event.defaultPrevented; record.focusedAfter = focused(); });
+                }, true);
+            });
             const baseline = await paintedDialogBaseline(page);
             await text(page, "Default");
             assert.ok(!(await page.screenshot({ clip: baseline.clip })).equals(baseline.image),
@@ -92,6 +111,8 @@ async function verifyDialogFocus(browser, origin, screenshots) {
                 await page.screenshot({ path: path.join(screenshots, `rename-${scenario}-after-dismissal.png`) });
                 fs.writeFileSync(path.join(screenshots, `dialog-${scenario}.html`), await page.content());
                 fs.writeFileSync(path.join(screenshots, `dialog-${scenario}.txt`), semantics);
+                fs.writeFileSync(path.join(screenshots, `dialog-${scenario}-keyboard.json`),
+                    JSON.stringify(await page.evaluate(() => globalThis.dialogKeyboardEvidence || []), null, 2));
             } catch (error) {
                 errors.push(`Evidence capture failed: ${error.message}`);
                 console.error(`Dialog focus ${scenario} evidence failed:`, error.stack);
