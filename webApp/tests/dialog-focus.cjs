@@ -24,7 +24,7 @@ async function verifyDialogFocus(browser, origin, screenshots) {
             assert.ok(!(await page.screenshot({ clip: baseline.clip })).equals(baseline.image),
                 "Painted comparison region must detect the open dialog");
             if (variant === "emoji") {
-                await clickCanvas(page, page.getByRole("checkbox", { name: "🏠", exact: true }));
+                await button(page, "🏠");
             }
             else {
                 await clickCanvas(page, page.getByRole("textbox").first());

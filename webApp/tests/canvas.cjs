@@ -43,9 +43,11 @@ const text = (page, name) => {
         .or(page.getByText(name, { exact: true })).first());
 };
 
-async function paintedDialogBaseline(page) {
+async function paintedDialogBaseline(page, scrimOnly = false) {
     const viewport = page.viewportSize();
-    const clip = { x: viewport.width / 2 - 64, y: viewport.height / 2 - 64, width: 128, height: 128 };
+    const clip = scrimOnly
+        ? { x: 8, y: 300, width: 32, height: 32 }
+        : { x: viewport.width / 2 - 64, y: viewport.height / 2 - 64, width: 128, height: 128 };
     await page.waitForTimeout(300);
     return { clip, image: await page.screenshot({ clip }) };
 }

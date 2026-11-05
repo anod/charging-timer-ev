@@ -435,7 +435,10 @@ async function capture(page, name, labels) {
         await waitForAccessibleText(parityPage, "20% → 33.3%");
         const parityCard = parityPage.getByRole("button").filter({ hasText: "20% → 33.3%" }).first();
         await clickCanvas(parityPage, parityCard);
+        const readingBaseline = await paintedDialogBaseline(parityPage, true);
         await clickCanvasButton(parityPage, "Add car reading");
+        assert.ok(!(await parityPage.screenshot({ clip: readingBaseline.clip })).equals(readingBaseline.image),
+            "Reading dialog must paint a scrim in the comparison region");
         await clickCanvas(parityPage, parityPage.getByRole("textbox").first());
         await parityPage.keyboard.type("32", { delay: 50 });
         await clickCanvasText(parityPage, "Read when timer stopped");
@@ -447,6 +450,7 @@ async function capture(page, name, labels) {
         await parityPage.screenshot({ path: path.join(screenshots, "reading-after-save.png") });
         fs.writeFileSync(path.join(screenshots, "reading-after-save.txt"),
             await parityPage.locator("body").ariaSnapshot());
+        await assertPaintedDialogDismissed(parityPage, readingBaseline);
         await parityPage.reload();
         await waitForAccessibleText(parityPage, "20% → 32%");
         await clickCanvasButton(parityPage, "Share");
@@ -466,8 +470,13 @@ async function capture(page, name, labels) {
             JSON.parse(record?.payload || "{}").backup?.preferences.notifyAt80 === false), null);
         await clickCanvasText(parityPage, "Presets");
         console.log("Parity: checking calibration reset");
+        const calibrationBaseline = await paintedDialogBaseline(parityPage, true);
         await clickCanvasButton(parityPage, "Estimate information for Default");
         await waitForAccessibleText(parityPage, "1 reading");
+        const closeBounds = await parityPage.getByRole("button", { name: "Close", exact: true }).boundingBox();
+        assert.ok(closeBounds);
+        assert.ok(!(await parityPage.screenshot({ clip: calibrationBaseline.clip })).equals(calibrationBaseline.image),
+            "Calibration dialog must paint a scrim in the comparison region");
         await clickCanvas(parityPage, parityPage.getByRole("button", { name: "Reset", exact: true }).nth(2));
         await waitForAccessibleText(parityPage, "Reset Default at 11 kW?");
         await clickCanvasButton(parityPage, "Reset");
@@ -476,6 +485,8 @@ async function capture(page, name, labels) {
             return saved?.actualPercent === 32 && saved?.calibrationEnabled === false;
         }), null);
         await parityPage.screenshot({ path: path.join(screenshots, "calibration-after-reset.png") });
+        await parityPage.mouse.click(closeBounds.x + closeBounds.width / 2, closeBounds.y + closeBounds.height / 2);
+        await assertPaintedDialogDismissed(parityPage, calibrationBaseline);
         await parityPage.reload();
         await waitForAccessibleText(parityPage, "Tap a name to rename");
         await clickCanvasButton(parityPage, "Back");
