@@ -427,8 +427,10 @@ async function capture(page, name, labels) {
         await parityPage.mouse.wheel(0, -2000);
         await waitForAccessibleText(parityPage, "Charging Power");
         await clickCanvasText(parityPage, "Charging Power");
-        const powerBaseline = await paintedDialogBaseline(parityPage);
+        const powerBaseline = await paintedDialogBaseline(parityPage, true);
         await clickCanvasButton(parityPage, "Add Custom Power");
+        assert.ok(!(await parityPage.screenshot({ clip: powerBaseline.clip })).equals(powerBaseline.image),
+            "Power dialog must paint a scrim in the comparison region");
         await clickCanvas(parityPage, parityPage.getByRole("textbox").first());
         await parityPage.keyboard.type("8.5", { delay: 50 });
         await clickCanvasButton(parityPage, "Add");
