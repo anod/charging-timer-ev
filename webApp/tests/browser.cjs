@@ -4,6 +4,7 @@ const http = require("node:http");
 const fs = require("node:fs");
 const path = require("node:path");
 const { button: clickCanvasButton, text: clickCanvasText, clickCanvas } = require("./canvas.cjs");
+const { verifyDialogFocus } = require("./dialog-focus.cjs");
 
 const root = path.resolve("build/dist/wasmJs/productionExecutable");
 const screenshots = path.resolve("build/browser-evidence");
@@ -68,6 +69,7 @@ async function capture(page, name, labels) {
     const browser = await chromium.launch({ headless: true });
     try {
         const origin = `http://127.0.0.1:${server.address().port}`;
+        await verifyDialogFocus(browser, origin, screenshots);
         // A cold page must not compose any labelled controls while .cvr string
         // resources are withheld. This tests the real network boundary, not a timer.
         const loadingContext = await browser.newContext({ locale: "en-US" });
