@@ -12,7 +12,6 @@ import android.os.Build
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
-import androidx.core.graphics.drawable.IconCompat
 import androidx.core.net.toUri
 
 class ChargingNotifier(private val context: Context) {
@@ -43,7 +42,6 @@ class ChargingNotifier(private val context: Context) {
                 context.getString(R.string.charging_stop), stopIntent(content.sessionId)
             )
         if (Build.VERSION.SDK_INT >= 36) {
-            val colors = intArrayOf(0xff388e3c.toInt(), 0xff1976d2.toInt())
             builder
                 .setRequestPromotedOngoing(true)
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
@@ -51,14 +49,12 @@ class ChargingNotifier(private val context: Context) {
                 .setStyle(
                     NotificationCompat.ProgressStyle()
                         .setProgress(content.percent)
-                        .setProgressSegments(content.segmentLengths.mapIndexed { index, length ->
+                        .setProgressSegments(content.segmentLengths.map { length ->
                             NotificationCompat.ProgressStyle.Segment(length)
-                                .setColor(colors[index % colors.size])
                         })
                         .setProgressPoints(content.speedChangePoints.map {
                             NotificationCompat.ProgressStyle.Point(it)
                         })
-                        .setProgressTrackerIcon(IconCompat.createWithResource(context, R.drawable.ic_charging))
                 )
         } else {
             builder.setProgress(100, content.percent, false)

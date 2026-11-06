@@ -240,10 +240,17 @@ The Android charging notification shows current-to-target progress (for example,
 When no time remains, it shows `Target reached · 80%` for the configured target.
 Charging speed, remaining duration while charging, and the ETA clock time are also displayed.
 On Android 16 (API 36) and newer, it requests a Live Update with a current-battery-percent
-status-bar chip, a battery tracker, and progress segments/points at charging speed changes.
+status-bar chip and progress segments/points at charging speed changes.
 Changes within the same whole battery percent share a point/segment boundary to avoid
 zero-length segments. Live Update content is public on the lock screen.
 Android 13–15 retain the expanded text notification and standard progress bar.
+Notification backgrounds, text, small-icon tint and progress colors are rendered by Android,
+not the app's selected theme. The Android 16+ progress style uses platform-default segment
+colors and no custom tracker image: the previous fixed green/blue segments and white battery
+image did not adapt to the notification shade's theme. Android re-renders the standard template
+when the system theme changes during charging; no app-specific recoloring or service restart
+is needed. OEMs (including Samsung) control the final shade colors, contrast and Live Update
+presentation, so these may differ from Pixel devices and need on-device review.
 If Live Updates are disabled, starting a session offers a link to the app's system
 Live Update settings alongside the notification-permission flow; the ordinary notification
 continues to work without promotion. Dismissing a notification suppresses further posts
