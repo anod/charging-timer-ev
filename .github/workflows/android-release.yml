@@ -12,7 +12,10 @@ permissions:
 
 jobs:
   release:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    environment:
+      name: release
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
@@ -71,7 +74,7 @@ jobs:
           retention-days: 30
 
       - name: Upload to Play internal testing
-        uses: r0adkll/upload-google-play@v1.1.5
+        uses: r0adkll/upload-google-play@e738b9dd8f2476ea806d921b64aacd24f34515a5 # v1.1.5
         with:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
           packageName: info.anodsplace.evtimer

@@ -5,6 +5,7 @@ import info.anodsplace.evtimer.data.ChargingHistoryRepository
 import info.anodsplace.evtimer.data.ChargingRepository
 import info.anodsplace.evtimer.data.ChargingRepositoryImpl
 import info.anodsplace.evtimer.data.DesktopClockTimeFormatter
+import info.anodsplace.evtimer.data.desktopAppDataDirectory
 import info.anodsplace.evtimer.data.ManualBackupRepository
 import info.anodsplace.evtimer.data.PresetRepository
 import info.anodsplace.evtimer.data.createDataStore
@@ -19,22 +20,15 @@ import java.io.File
 import java.util.Properties
 import info.anodsplace.evtimer.data.LocalStorageRestoreState
 import info.anodsplace.evtimer.data.StorageRestoreState
+import info.anodsplace.evtimer.data.ensurePrivateAppDataDirectory
 
 actual val platformModule: Module = module {
     single { info.anodsplace.evtimer.data.ShareService() }
     single<StorageRestoreState> { LocalStorageRestoreState }
     single<SqlDriver> {
-        val os = System.getProperty("os.name").lowercase()
-        val root = when {
-            os.contains("win") -> File(System.getenv("LOCALAPPDATA") ?: System.getProperty("user.home"))
-            os.contains("mac") -> File(File(System.getProperty("user.home"), "Library"), "Application Support")
-            else -> File(System.getenv("XDG_DATA_HOME") ?: File(File(System.getProperty("user.home"), ".local"), "share").path)
-        }
-
-        val directory = File(root, "charging-timer-ev")
-        check(directory.isDirectory || directory.mkdirs()) { "Cannot create app data directory: $directory" }
+        val directory = ensurePrivateAppDataDirectory(desktopAppDataDirectory().toPath())
         JdbcSqliteDriver(
-            "jdbc:sqlite:${File(directory, "charging.db").absolutePath}",
+            "jdbc:sqlite:${File(directory.toFile(), "charging.db").absolutePath}",
             Properties().apply { setProperty("foreign_keys", "true") },
             ChargingDatabase.Schema
         )
