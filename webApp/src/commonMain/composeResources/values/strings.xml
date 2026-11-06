@@ -1,4 +1,5 @@
 <resources>
+    <string name="web_browser_settings">Browser notifications and offline use</string>
     <string name="web_offline_shell_unavailable">Offline shell unavailable. Reconnect and reopen the app; do not clear site data.</string>
     <string name="web_offline_loading">Preparing offline use. Keep this page online until ready.</string>
     <string name="web_offline_ready">Ready for offline use.</string>

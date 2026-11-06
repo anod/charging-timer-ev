@@ -3,6 +3,9 @@ const assert = require("node:assert/strict");
 const http = require("node:http");
 const fs = require("node:fs");
 const path = require("node:path");
+const { button: clickCanvasButton, text: clickCanvasText, clickCanvas,
+    paintedDialogBaseline, assertPaintedDialogDismissed } = require("./canvas.cjs");
+const { verifyDialogFocus } = require("./dialog-focus.cjs");
 
 const root = path.resolve("build/dist/wasmJs/productionExecutable");
 const screenshots = path.resolve("build/browser-evidence");
@@ -18,28 +21,6 @@ async function waitForRecord(page, accept = record => record !== null) {
         await new Promise(resolve => setTimeout(resolve, 250));
     }
     return null;
-}
-
-async function clickCanvasButton(page, name) {
-    const button = page.getByRole("button", { name, exact: true });
-    const deadline = Date.now() + 10_000;
-    while (Date.now() < deadline) {
-        await button.waitFor();
-        const before = await button.boundingBox();
-        await button.evaluate(() => new Promise(resolve =>
-            requestAnimationFrame(() => requestAnimationFrame(resolve))));
-        const after = await button.boundingBox();
-        if (before && after && after.width > 0 && after.height > 0 &&
-            ["x", "y", "width", "height"].every(key => Math.abs(before[key] - after[key]) < 0.5) &&
-            await button.isEnabled()) {
-            // Transparent semantics proxies cannot receive pointer events. Click
-            // stable canvas coordinates, not a proxy that may detach during reflow.
-            await page.mouse.click(after.x + after.width / 2, after.y + after.height / 2);
-            return;
-        }
-        await page.waitForTimeout(50);
-    }
-    assert.fail(`${name} must have stable, enabled canvas bounds`);
 }
 
 async function waitForAccessibleText(page, text) {
@@ -89,6 +70,13 @@ async function capture(page, name, labels) {
     const browser = await chromium.launch({ headless: true });
     try {
         const origin = `http://127.0.0.1:${server.address().port}`;
+        let dialogFailure;
+        try {
+            await verifyDialogFocus(browser, origin, screenshots);
+        } catch (error) {
+            dialogFailure = error;
+            console.error("Strict dialog regressions failed; continuing independent parity checks:", error.stack);
+        }
         // A cold page must not compose any labelled controls while .cvr string
         // resources are withheld. This tests the real network boundary, not a timer.
         const loadingContext = await browser.newContext({ locale: "en-US" });
@@ -104,8 +92,8 @@ async function capture(page, name, labels) {
             await route.continue();
         });
         await loadingPage.goto(origin);
-        // Compose draws progress on its canvas but does not publish an HTML
-        // progressbar role. aria-busy tracks the actual resource gate instead.
+        // Stable Compose paints progress without exposing a progressbar role.
+        // No resource-dependent controls may be exposed before strings load.
         await loadingPage.locator("body[aria-busy=true]").waitFor();
         await loadingPage.waitForSelector("canvas");
         const requestDeadline = Date.now() + 10_000;
@@ -132,7 +120,10 @@ async function capture(page, name, labels) {
             });
             const page = await context.newPage();
             const errors = [];
-            page.on("pageerror", error => errors.push(error.message));
+            page.on("pageerror", error => {
+                errors.push(error.message);
+                console.error("Browser page error:", error.stack);
+            });
             page.on("console", message => console.log(`[${colorScheme}] ${message.type()}: ${message.text()}`));
             await page.goto(origin);
             console.log("Browser language preferences:", await page.evaluate(() => navigator.languages));
@@ -155,14 +146,21 @@ async function capture(page, name, labels) {
             const started = await waitForRecord(page, record => JSON.parse(record?.payload || "{}").activeSession != null);
             assert.notEqual(started, null, "Start must commit an active snapshot");
             const active = JSON.parse(started.payload).activeSession;
-            await page.getByText("Charging in Progress", { exact: true }).waitFor();
+            try {
+                await page.getByText("Charging in Progress", { exact: true }).waitFor();
+            } catch (error) {
+                console.error("Running route:", page.url(), await page.locator("body").ariaSnapshot(), errors);
+                await page.screenshot({ path: path.join(screenshots, "running-failure.png") });
+                throw error;
+            }
             await capture(page, `running-${colorScheme}`, runningLabels);
             await page.reload();
             await page.getByText("Charging in Progress", { exact: true }).waitFor();
             const reloaded = await waitForRecord(page);
             assert.deepEqual(JSON.parse(reloaded.payload).activeSession, active,
                 "Reload must resume the persisted snapshot rather than restarting the timer");
-            await clickCanvasButton(page, "Charging data");
+            await page.goBack();
+            await clickCanvasButton(page, "Settings");
             const importButton = page.getByRole("button", { name: "Import backup", exact: true });
             await importButton.waitFor();
             await page.waitForTimeout(300);
@@ -194,12 +192,11 @@ async function capture(page, name, labels) {
             assert.equal(history.endPercent, active.targetPercent);
             assert.ok(history.endedAt < active.segments[0].startedAt,
                 "History must use the calculated target time, not the page resume time");
-            await clickCanvasButton(page, "Back to timer");
             await waitForAccessibleText(page, "Charge summary");
             await waitForAccessibleText(page, "60% → 100%");
             await clickCanvasButton(page, "Done");
-            await clickCanvasButton(page, "Charging data");
-            await page.getByRole("button", { name: "Back to timer", exact: true }).waitFor();
+            await clickCanvasButton(page, "Settings");
+            await page.getByRole("button", { name: "Back", exact: true }).waitFor();
             await page.waitForTimeout(300);
             await capture(page, `storage-${colorScheme}`, storageLabels);
 
@@ -213,8 +210,8 @@ async function capture(page, name, labels) {
             const exported = JSON.parse(fs.readFileSync(await download.path(), "utf8"));
             assert.equal(exported.formatVersion, 2);
             assert.equal(exported.preferences.selectedPresetId, "custom");
-            await page.getByText("Download requested. Check your browser downloads to confirm the file was saved.",
-                { exact: true }).waitFor();
+            await waitForAccessibleText(page,
+                "Download requested. Check your browser downloads to confirm the file was saved.");
             const imported = JSON.stringify({
                 ...exported,
                 presets: [{ ...exported.presets[0], name: "Imported car" }],
@@ -260,6 +257,7 @@ async function capture(page, name, labels) {
             await page.waitForFunction(() => !!globalThis.evTimerStorage);
             assert.equal(await page.evaluate(async () => JSON.parse(await evTimerStorage.read()).revision), next.revision);
             assert.deepEqual(errors, []);
+            console.log(`Backup/recovery ${colorScheme} passed`);
             await context.close();
         }
         for (const [device, viewport] of [
@@ -277,9 +275,9 @@ async function capture(page, name, labels) {
             await page.waitForTimeout(3000);
             await capture(page, `startup-${evidence}`, configurationLabels);
             await capture(page, `configuration-${evidence}`, configurationLabels);
-            await clickCanvasButton(page, "Charging data");
+            await clickCanvasButton(page, "Settings");
             await capture(page, `storage-${evidence}`, storageLabels);
-            await clickCanvasButton(page, "Back to timer");
+            await clickCanvasButton(page, "Back");
             await clickCanvasButton(page, "Start Timer");
             assert.notEqual(await waitForRecord(page, record =>
                 JSON.parse(record?.payload || "{}").activeSession != null), null);
@@ -324,28 +322,273 @@ async function capture(page, name, labels) {
             await page.reload();
             await verifySummary();
             await clickCanvasButton(page, "Done");
-            await clickCanvasButton(page, "Charging history");
+            await clickCanvasButton(page, "Settings");
+            await clickCanvasText(page, "Charging history");
             await waitForAccessibleText(page, `60% → ${endText}%`);
             await waitForAccessibleText(page, `${energy} kWh`);
             await capture(page, `history-${evidence}`, ["Charging history", "Default", `60% → ${endText}%`,
                 `${energy} kWh`, "1h 0m", "avg 11 kW"]);
             await page.reload();
-            await clickCanvasButton(page, "Charging history");
             await waitForAccessibleText(page, `60% → ${endText}%`);
             await waitForAccessibleText(page, `${energy} kWh`);
             const card = page.getByRole("button").filter({ hasText: `60% → ${endText}%` }).first();
-            const bounds = await card.boundingBox();
-            assert.ok(bounds);
-            await page.mouse.click(bounds.x + bounds.width / 3, bounds.y + bounds.height / 2);
+            await clickCanvas(page, card);
             await verifySummary();
             await clickCanvasButton(page, "Done");
             await waitForAccessibleText(page, `${energy} kWh`);
             assert.deepEqual(JSON.parse((await waitForRecord(page)).payload).backup.sessions[0],
                 { ...saved, reviewed: true }, "History display and reload must preserve saved values");
             assert.deepEqual(errors, []);
+            console.log(`Timer/history ${evidence} passed`);
             await context.close();
           }
         }
+        // Exercise the same Settings hierarchy and screen callbacks as native.
+        const parityContext = await browser.newContext({ locale: "en-US", viewport: { width: 1100, height: 900 } });
+        await parityContext.addInitScript(() => {
+            globalThis.sharedTexts = [];
+            globalThis.shareFailure = false;
+            Object.defineProperty(navigator, "share", { configurable: true, value: undefined });
+            Object.defineProperty(navigator, "clipboard", { configurable: true,
+                value: { writeText: async text => {
+                    if (shareFailure) throw new Error("Clipboard permission denied");
+                    sharedTexts.push(text);
+                } } });
+        });
+        const parityPage = await parityContext.newPage();
+        const parityErrors = [];
+        parityPage.on("pageerror", error => {
+            parityErrors.push(error.message);
+            console.error("Parity page error:", error.stack);
+        });
+        await parityPage.goto(origin);
+        assert.notEqual(await waitForRecord(parityPage), null);
+        await parityPage.evaluate(async () => {
+            const record = JSON.parse(await evTimerStorage.read());
+            const state = JSON.parse(record.payload);
+            state.backup.presets.push({ ...state.backup.presets[0], id: "home", name: "Home", position: 1 });
+            const end = Date.now() - 3_600_000;
+            state.backup.sessions = [{
+                id: 42, batteryCapacity: 83, startPercent: 20, targetPercent: 100, efficiency: 1,
+                presetId: "custom", presetName: "Default", presetEdited: false,
+                segments: [{ startedAt: end - 3_600_000, powerKw: 11, efficiency: 1 }],
+                endedAt: end, endPercent: 33.25, actualPercent: null, reviewed: true,
+                interrupted: false, calibrationEnabled: false
+            }];
+            await evTimerStorage.write(record.revision, JSON.stringify(state));
+            window.dispatchEvent(new Event("pageshow"));
+        });
+        await clickCanvasButton(parityPage, "Settings");
+        console.log("Parity: opening settings/presets");
+        await clickCanvasText(parityPage, "Presets");
+        await waitForAccessibleText(parityPage, "Tap a name to rename");
+        assert.equal(new URL(parityPage.url()).hash, "#/presets");
+        await parityPage.goBack();
+        await waitForAccessibleText(parityPage, "About");
+        await parityPage.goForward();
+        await waitForAccessibleText(parityPage, "Tap a name to rename");
+        const renameBaseline = await paintedDialogBaseline(parityPage);
+        const backBounds = await parityPage.getByRole("button", { name: "Back", exact: true }).boundingBox();
+        assert.ok(backBounds);
+        await clickCanvasText(parityPage, "Home");
+        const nameInput = parityPage.getByRole("textbox").first();
+        await clickCanvas(parityPage, nameInput);
+        await parityPage.keyboard.press("Control+a");
+        await parityPage.keyboard.type("Work", { delay: 50 });
+        await parityPage.screenshot({ path: path.join(screenshots, "rename-before-save.png") });
+        fs.writeFileSync(path.join(screenshots, "rename-before-save.txt"),
+            await parityPage.locator("body").ariaSnapshot());
+        await clickCanvasButton(parityPage, "Save");
+        await parityPage.screenshot({ path: path.join(screenshots, "rename-after-save.png") });
+        fs.writeFileSync(path.join(screenshots, "rename-after-save.txt"),
+            await parityPage.locator("body").ariaSnapshot());
+        fs.writeFileSync(path.join(screenshots, "rename-after-save-record.json"),
+            await parityPage.evaluate(async () => await evTimerStorage.read()));
+        const renamed = await waitForRecord(parityPage, record => record?.payload.includes('"name":"Work"'));
+        assert.notEqual(renamed, null, `Rename must persist Work; page errors: ${JSON.stringify(parityErrors)}`);
+        await assertPaintedDialogDismissed(parityPage, renameBaseline);
+        console.log("Rename accessibility after dismissal (accepted CMP-9368):",
+            await parityPage.locator("body").ariaSnapshot());
+        await parityPage.evaluate(() => {
+            const originalRead = evTimerStorage.read;
+            let release;
+            const gate = new Promise(resolve => { release = resolve; });
+            globalThis.reconcileGate = { entered: false, release };
+            evTimerStorage.read = async function (...args) {
+                evTimerStorage.read = originalRead;
+                reconcileGate.entered = true;
+                await gate;
+                return originalRead.apply(this, args);
+            };
+            const replace = history.replaceState.bind(history);
+            globalThis.routeWrites = [];
+            history.replaceState = (...args) => {
+                routeWrites.push(args[2]);
+                return replace(...args);
+            };
+            window.dispatchEvent(new Event("pageshow"));
+        });
+        await parityPage.waitForFunction(() => reconcileGate.entered);
+        await parityPage.mouse.click(backBounds.x + backBounds.width / 2, backBounds.y + backBounds.height / 2);
+        await parityPage.waitForFunction(() => location.hash === "#/settings");
+        await parityPage.evaluate(() => { routeWrites.length = 0; reconcileGate.release(); });
+        await parityPage.waitForTimeout(500);
+        assert.equal(new URL(parityPage.url()).hash, "#/settings");
+        assert.ok(!(await parityPage.evaluate(() => routeWrites)).includes("#/presets"),
+            "A reconciliation suspended across Back must never rewrite the previous route");
+        // Reload starts the next independent workflow with a fresh semantics owner;
+        // it is not counted as accessibility restoration after dismissal.
+        await parityPage.reload();
+        try {
+            await waitForAccessibleText(parityPage, "Charging Power");
+            assert.equal(new URL(parityPage.url()).hash, "#/settings");
+        } finally {
+            try {
+                await parityPage.screenshot({ path: path.join(screenshots, "settings-after-rename-reload.png") });
+                fs.writeFileSync(path.join(screenshots, "settings-after-rename-reload.json"),
+                    JSON.stringify({ url: parityPage.url(), errors: parityErrors,
+                        semantics: await parityPage.locator("body").ariaSnapshot() }, null, 2));
+            } catch (error) {
+                console.error("Settings reload evidence capture failed:", error.stack);
+            }
+        }
+        // The About section follows browser backup controls and is below the
+        // initial viewport on stable Compose. Verify it by actually scrolling.
+        await parityPage.mouse.move(550, 400);
+        await parityPage.mouse.wheel(0, 1200);
+        await waitForAccessibleText(parityPage, "About");
+        await parityPage.mouse.wheel(0, -2000);
+        await waitForAccessibleText(parityPage, "Charging Power");
+        await clickCanvasText(parityPage, "Presets");
+        await waitForAccessibleText(parityPage, "Tap a name to rename");
+        await parityPage.evaluate(() => {
+            const originalRead = evTimerStorage.read;
+            let release;
+            const gate = new Promise(resolve => { release = resolve; });
+            globalThis.reconcileGate = { entered: false, release };
+            evTimerStorage.read = async function (...args) {
+                evTimerStorage.read = originalRead;
+                reconcileGate.entered = true;
+                await gate;
+                return originalRead.apply(this, args);
+            };
+            globalThis.routeWrites = [];
+            const replace = history.replaceState.bind(history);
+            history.replaceState = (...args) => {
+                routeWrites.push(args[2]);
+                return replace(...args);
+            };
+        });
+        // Wait for the real periodic reconciliation, then cross two browser
+        // history events while its IndexedDB read remains suspended.
+        await parityPage.waitForFunction(() => reconcileGate.entered);
+        await parityPage.goBack();
+        await parityPage.waitForFunction(() => location.hash === "#/settings");
+        await parityPage.goBack();
+        await parityPage.waitForFunction(() => location.hash === "#/timer");
+        await parityPage.evaluate(() => { routeWrites.length = 0; reconcileGate.release(); });
+        await parityPage.waitForTimeout(500);
+        assert.equal(new URL(parityPage.url()).hash, "#/timer");
+        const writesAfterDoubleBack = await parityPage.evaluate(() => routeWrites);
+        assert.ok(!writesAfterDoubleBack.includes("#/settings") && !writesAfterDoubleBack.includes("#/presets"),
+            "Queued Back operations must not replay superseded destinations");
+        await parityPage.reload();
+        await waitForAccessibleText(parityPage, "Start Timer");
+        await clickCanvasButton(parityPage, "Settings");
+        await clickCanvasText(parityPage, "Charging Power");
+        const powerBaseline = await paintedDialogBaseline(parityPage, true);
+        await parityPage.screenshot({ path: path.join(screenshots, "power-before-open.png") });
+        await clickCanvasButton(parityPage, "Add Custom Power");
+        await parityPage.screenshot({ path: path.join(screenshots, "power-open.png") });
+        assert.ok(!(await parityPage.screenshot({ clip: powerBaseline.clip })).equals(powerBaseline.image),
+            "Power dialog must paint a scrim in the comparison region");
+        await clickCanvas(parityPage, parityPage.getByRole("textbox").first());
+        await parityPage.keyboard.type("8.5", { delay: 50 });
+        await clickCanvasButton(parityPage, "Add");
+        assert.notEqual(await waitForRecord(parityPage, record =>
+            JSON.parse(record?.payload || "{}").backup?.preferences.draft?.chargingPower === 8.5), null);
+        await parityPage.screenshot({ path: path.join(screenshots, "power-after-add.png") });
+        await assertPaintedDialogDismissed(parityPage, powerBaseline);
+        await parityPage.reload();
+        await waitForAccessibleText(parityPage, "8.5 kW");
+        await clickCanvasButton(parityPage, "Remove 8.5 kW");
+        assert.notEqual(await waitForRecord(parityPage, record =>
+            Math.abs(JSON.parse(record?.payload || "{}").backup?.preferences.draft?.chargingPower - 3.6) < 0.00001), null);
+        await clickCanvasButton(parityPage, "Back");
+        await clickCanvasText(parityPage, "Charging history");
+        console.log("Parity: opening saved summary and recording reading");
+        await waitForAccessibleText(parityPage, "20% → 33.3%");
+        const parityCard = parityPage.getByRole("button").filter({ hasText: "20% → 33.3%" }).first();
+        await clickCanvas(parityPage, parityCard);
+        const readingBaseline = await paintedDialogBaseline(parityPage, true);
+        await clickCanvasButton(parityPage, "Add car reading");
+        assert.ok(!(await parityPage.screenshot({ clip: readingBaseline.clip })).equals(readingBaseline.image),
+            "Reading dialog must paint a scrim in the comparison region");
+        await clickCanvas(parityPage, parityPage.getByRole("textbox").first());
+        await parityPage.keyboard.type("32", { delay: 50 });
+        await clickCanvasText(parityPage, "Read when timer stopped");
+        await clickCanvasButton(parityPage, "Save");
+        assert.notEqual(await waitForRecord(parityPage, record => {
+            const saved = JSON.parse(record?.payload || "{}").backup?.sessions[0];
+            return saved?.actualPercent === 32 && saved?.calibrationEnabled === true;
+        }), null);
+        await parityPage.screenshot({ path: path.join(screenshots, "reading-after-save.png") });
+        fs.writeFileSync(path.join(screenshots, "reading-after-save.txt"),
+            await parityPage.locator("body").ariaSnapshot());
+        await assertPaintedDialogDismissed(parityPage, readingBaseline);
+        await parityPage.reload();
+        await waitForAccessibleText(parityPage, "20% → 32%");
+        await clickCanvasButton(parityPage, "Share");
+        console.log("Parity: sharing");
+        await parityPage.waitForFunction(() => sharedTexts.length === 1);
+        assert.match((await parityPage.evaluate(() => sharedTexts[0])), /32/);
+        await parityPage.evaluate(() => { shareFailure = true; });
+        await clickCanvasButton(parityPage, "Share");
+        await waitForAccessibleText(parityPage, "Could not share summary");
+        await parityPage.reload();
+        await waitForAccessibleText(parityPage, "20% → 32%");
+        await clickCanvasButton(parityPage, "Done");
+        await waitForAccessibleText(parityPage, "Charging history");
+        await clickCanvasButton(parityPage, "Back");
+        await clickCanvasText(parityPage, "Notify at 80%");
+        assert.notEqual(await waitForRecord(parityPage, record =>
+            JSON.parse(record?.payload || "{}").backup?.preferences.notifyAt80 === false), null);
+        await clickCanvasText(parityPage, "Presets");
+        console.log("Parity: checking calibration reset");
+        const calibrationBaseline = await paintedDialogBaseline(parityPage, true);
+        await clickCanvasButton(parityPage, "Estimate information for Default");
+        await waitForAccessibleText(parityPage, "1 reading");
+        const closeBounds = await parityPage.getByRole("button", { name: "Close", exact: true }).boundingBox();
+        assert.ok(closeBounds);
+        assert.ok(!(await parityPage.screenshot({ clip: calibrationBaseline.clip })).equals(calibrationBaseline.image),
+            "Calibration dialog must paint a scrim in the comparison region");
+        await clickCanvas(parityPage, parityPage.getByRole("button", { name: "Reset", exact: true }).nth(2));
+        await waitForAccessibleText(parityPage, "Reset Default at 11 kW?");
+        await clickCanvasButton(parityPage, "Reset");
+        assert.notEqual(await waitForRecord(parityPage, record => {
+            const saved = JSON.parse(record?.payload || "{}").backup?.sessions[0];
+            return saved?.actualPercent === 32 && saved?.calibrationEnabled === false;
+        }), null);
+        await parityPage.screenshot({ path: path.join(screenshots, "calibration-after-reset.png") });
+        await parityPage.mouse.click(closeBounds.x + closeBounds.width / 2, closeBounds.y + closeBounds.height / 2);
+        await assertPaintedDialogDismissed(parityPage, calibrationBaseline);
+        await parityPage.reload();
+        await waitForAccessibleText(parityPage, "Tap a name to rename");
+        await clickCanvasButton(parityPage, "Back");
+        await parityPage.mouse.move(550, 400);
+        await parityPage.mouse.wheel(0, 1200);
+        await waitForAccessibleText(parityPage, "Open-source licenses");
+        await clickCanvasButton(parityPage, "Open-source licenses");
+        await waitForAccessibleText(parityPage, "Open-source licenses");
+        await parityPage.waitForTimeout(1000);
+        await capture(parityPage, "licenses", ["Open-source licenses"]);
+        await clickCanvasButton(parityPage, "Back");
+        await clickCanvasButton(parityPage, "Back");
+        await waitForAccessibleText(parityPage, "Start Timer");
+        assert.deepEqual(parityErrors, []);
+        console.log("Parity: hierarchy/readings/sharing/licenses passed");
+        await parityContext.close();
+
         const notificationContext = await browser.newContext({
             locale: "en-US", viewport: { width: 1100, height: 800 }
         });
@@ -374,11 +617,12 @@ async function capture(page, name, labels) {
         await notificationPage.waitForTimeout(3000);
         assert.equal(await notificationPage.evaluate(() => notificationTest.requests), 0,
             "Startup must not request notification permission");
+        await clickCanvasButton(notificationPage, "Settings");
         await clickCanvasButton(notificationPage, "Enable foreground notifications");
         await notificationPage.waitForFunction(() => notificationTest.requests === 1);
         await notificationPage.waitForTimeout(300);
         await capture(notificationPage, "notification-permission",
-            [...configurationLabels, "A notification could not be delivered or permission was denied"]);
+            ["Settings", "A notification could not be delivered or permission was denied"]);
         fs.writeFileSync(path.join(screenshots, "notification-semantics.txt"), await notificationPage.locator("body").ariaSnapshot());
         await waitForAccessibleText(notificationPage, "A notification could not be delivered or permission was denied");
         assert.equal(JSON.parse((await waitForRecord(notificationPage)).payload).notificationsEnabled, false);
@@ -393,6 +637,7 @@ async function capture(page, name, labels) {
         assert.notEqual(await waitForRecord(notificationPage, record =>
             JSON.parse(record?.payload || "{}").notificationsEnabled === true), null);
         await notificationPage.getByRole("button", { name: "Disable foreground notifications", exact: true }).waitFor();
+        await clickCanvasButton(notificationPage, "Back");
         await clickCanvasButton(notificationPage, "Start Timer");
         assert.notEqual(await waitForRecord(notificationPage, record =>
             JSON.parse(record?.payload || "{}").activeSession != null), null);
@@ -420,8 +665,10 @@ async function capture(page, name, labels) {
         assert.deepEqual(notificationErrors, [], "Notification failures must be handled, not escape the Wasm boundary");
         await notificationContext.close();
         console.log("Real Chromium: shared timer UI, durable start/reload, epoch catch-up/completion, backup roundtrip, IndexedDB conflicts and light/dark screenshots passed");
+        if (dialogFailure) throw dialogFailure;
     } finally {
         await browser.close();
+        server.closeAllConnections();
         await new Promise(resolve => server.close(resolve));
     }
 })().catch(error => { console.error(error); process.exitCode = 1; });

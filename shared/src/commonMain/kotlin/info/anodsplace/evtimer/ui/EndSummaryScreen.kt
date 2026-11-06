@@ -44,6 +44,7 @@ import info.anodsplace.evtimer.data.formatLocaleNumber
 import info.anodsplace.evtimer.generated.resources.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineStart
 import org.jetbrains.compose.resources.stringResource
 
 @Composable
@@ -73,7 +74,7 @@ private fun summaryPresetName(summary: ChargingSummary): String =
 @Composable
 fun EndSummaryScreen(
     summary: ChargingSummary,
-    onShare: ((String) -> ShareResult)?,
+    onShare: (suspend (String) -> ShareResult)?,
     onDone: () -> Unit,
     modifier: Modifier = Modifier,
     entry: ChargingHistoryEntry? = null,
@@ -153,7 +154,7 @@ fun EndSummaryScreen(
                     Text(stringResource(Res.string.summary_done))
                 }
                 if (onShare != null) Button(onClick = {
-                    scope.launch {
+                    scope.launch(start = CoroutineStart.UNDISPATCHED) {
                         try {
                             if (onShare(shareText) == ShareResult.Copied) snackbar.showSnackbar(copied)
                         } catch (error: CancellationException) {

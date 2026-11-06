@@ -51,6 +51,8 @@ self.addEventListener("fetch", event => {
     if (event.request.method !== "GET") return;
     const url = new URL(event.request.url);
     if (url.origin !== BASE.origin) return;
+    // Fragment routes identify application screens, not different shell assets.
+    url.hash = "";
     if (event.request.mode === "navigate" &&
         (url.pathname === BASE.pathname || url.pathname === BASE.pathname + "index.html")) {
         url.pathname = BASE.pathname + "index.html";

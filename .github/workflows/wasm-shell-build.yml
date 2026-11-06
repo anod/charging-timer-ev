@@ -61,20 +61,27 @@ jobs:
         run: python3 scripts/check_hardcoded_ui_strings.py
 
       - name: Test portable backup and browser state
-        run: ./gradlew :storage:jvmTest :shared:jvmTest --tests '*ManualBackupTest' --tests '*BrowserStorageTest' --tests '*BackupCompatibilityTest' --tests '*BrowserTimerRuntimeTest' --tests '*BrowserNotificationsTest' --tests '*ChargingCalculatorTest' --tests '*ChargingServiceTest' --tests '*ChargingViewModelTest' --tests '*TimeProgressTest'
+        run: ./gradlew :storage:jvmTest :shared:jvmTest --tests '*ManualBackupTest' --tests '*BrowserStorageTest' --tests '*BackupCompatibilityTest' --tests '*BrowserTimerRuntimeTest' --tests '*BrowserNotificationsTest' --tests '*AppNavigationStateTest' --tests '*ChargingCalculatorTest' --tests '*ChargingServiceTest' --tests '*ChargingViewModelTest' --tests '*TimeProgressTest'
 
       - name: Build Wasm web shell
         run: ./gradlew :webApp:wasmJsBrowserDistribution
 
       - name: Package complete Pages site and privacy policy
+        id: pages
         working-directory: webApp
         run: npm run package:pages
 
+      - name: Install Chromium for browser verification
+        working-directory: webApp
+        run: npx playwright install --with-deps chromium
+
       - name: Verify real browser persistence and capture light/dark UI
         working-directory: webApp
-        run: npx playwright install --with-deps chromium && npm run test:browser
+        timeout-minutes: 10
+        run: npm run test:browser
 
       - name: Verify exact Pages site in Chromium at project path
+        if: ${{ !cancelled() && steps.pages.outcome == 'success' }}
         working-directory: webApp
         timeout-minutes: 5
         run: npm run test:pwa -- build/pages

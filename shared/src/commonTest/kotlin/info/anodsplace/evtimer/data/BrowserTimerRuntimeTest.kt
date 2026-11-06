@@ -170,4 +170,108 @@ class BrowserTimerRuntimeTest {
         assertNull(runtime.reconcile().activeSession)
         assertEquals("My car", runtime.reconcile().configuration().selected.name)
     }
+
+    @Test
+    fun presetManagementUsesDurableOrderNamesAndSelectedFallback() = runTest {
+        val runtime = configured()
+        val first = runtime.reconcile().configuration().selectedId
+        val second = runtime.configure(ConfigurationViewEvent.SaveAsPreset("Second")).configuration().selectedId
+        val third = runtime.configure(ConfigurationViewEvent.SaveAsPreset("Third")).configuration().selectedId
+        runtime.renamePreset(second, "  Home  ")
+        assertEquals("Home", runtime().reconcile().configuration().presets.first { it.id == second }.name)
+        runtime.reorderPresets(listOf(third, second, first))
+        assertEquals(listOf(third, second, first), runtime().reconcile().configuration().presets.map { it.id })
+        runtime.movePreset(first, -1)
+        assertEquals(listOf(third, first, second), runtime().reconcile().configuration().presets.map { it.id })
+        assertFailsWith<IllegalArgumentException> { runtime.reorderPresets(listOf(first, first, second)) }
+        assertFailsWith<IllegalArgumentException> { runtime.renamePreset(first, "HOME") }
+        val deleted = runtime.deletePreset(third).configuration()
+        assertEquals(first, deleted.selectedId)
+        runtime.deletePreset(second)
+        assertFailsWith<IllegalArgumentException> { runtime.deletePreset(first) }
+    }
+
+    @Test
+    fun settingsEditsCannotMutateActiveSnapshotAndRemovedSelectionFallsBack() = runTest {
+        val runtime = configured()
+        val active = runtime.start().activeSession
+        runtime.addPower(8.5f)
+        assertEquals(8.5f, runtime.reconcile().configuration().settings.chargingPower)
+        runtime.removePower(8.5f)
+        assertEquals(3.6f, runtime.reconcile().configuration().settings.chargingPower)
+        runtime.removePower(7f)
+        assertFalse(7f in runtime().reconcile().configuration().settings.availablePowers)
+        runtime.configure(ConfigurationViewEvent.UpdateBatteryCapacity(75f))
+        runtime.setNotifyAt80(false)
+        val reloaded = runtime().reconcile()
+        assertEquals(active, reloaded.activeSession)
+        assertFalse(reloaded.backup.preferences.notifyAt80)
+        assertEquals(75f, reloaded.configuration().settings.batteryCapacity)
+    }
+
+    @Test
+    fun readingsLearningResetAndBackupRemainPortableAndNeverRewriteFrozenSegments() = runTest {
+        val runtime = configured()
+        runtime.configure(ConfigurationViewEvent.UpdatePreset)
+        runtime.start()
+        clock.epoch += 3_600_000
+        val entry = runtime.stop().historyEntries().single()
+        runtime.saveReading(entry.id, 28f, true)
+        val learned = runtime().reconcile()
+        assertEquals(28f, learned.historyEntries().single().actualPercent)
+        assertEquals(1, learned.calibration().estimate(entry.snapshot.presetId, 10f).eligibleCount)
+        val active = runtime.start().activeSession
+        assertEquals(0.94f, active!!.efficiency.toFloat(), 0.00001f)
+        runtime.resetLearnedEstimates(entry.snapshot.presetId!!, 10f)
+        val reset = runtime().reconcile()
+        assertEquals(active, reset.activeSession)
+        assertEquals(0, reset.calibration().estimate(entry.snapshot.presetId, 10f).eligibleCount)
+        assertEquals(28f, reset.historyEntries().single().actualPercent)
+        runtime.saveReading(entry.id, null, true)
+        assertFalse(runtime.reconcile().historyEntries().single().calibrationEnabled)
+        assertFailsWith<IllegalArgumentException> { runtime.saveReading(entry.id, Float.NaN, true) }
+        assertFailsWith<IllegalArgumentException> { runtime.saveReading(-1, 50f, true) }
+        runtime.stop()
+        val backup = BackupFormat.decode(BackupFormat.encode(runtime.storage.exportBackup("test")))
+        runtime.storage.restoreBackup(backup)
+        assertEquals(backup.sessions.map { it.actualPercent }, runtime.reconcile().backup.sessions.map { it.actualPercent })
+    }
+
+    @Test
+    fun changingConfigurationDuringChargeCannotChangeItsCalibrationCapacity() = runTest {
+        val runtime = configured()
+        runtime.configure(ConfigurationViewEvent.UpdatePreset)
+        runtime.start()
+        clock.epoch += 3_600_000
+        val entry = runtime.stop().historyEntries().single()
+        runtime.saveReading(entry.id, 28f, true)
+        runtime.start()
+        runtime.configure(ConfigurationViewEvent.UpdateBatteryCapacity(75f))
+        clock.epoch += 60_000
+        runtime.changePower(20f)
+        clock.epoch += 60_000
+        val active = runtime.changePower(10f).activeSession!!
+        assertEquals(100.0, active.batteryCapacity)
+        assertEquals(0.94f, active.segments.last().efficiency!!.toFloat(), 0.00001f)
+    }
+
+    @Test
+    fun settingsWriteFailuresLeavePersistedDataUnchanged() = runTest {
+        val runtime = configured()
+        val original = runtime.reconcile()
+        store.failWrite = true
+        assertFailsWith<IllegalStateException> { runtime.renamePreset(original.configuration().selectedId, "Changed") }
+        assertFailsWith<IllegalStateException> { runtime.addPower(8.5f) }
+        assertFailsWith<IllegalStateException> { runtime.setNotifyAt80(false) }
+        assertEquals(original, runtime.storage.load())
+    }
+
+    @Test
+    fun lastPowerCannotBeRemovedEvenIfSelectionIsNotInTheOptions() = runTest {
+        val runtime = configured()
+        for (power in listOf(3.6f, 7f, 11f)) runtime.removePower(power)
+        assertEquals(listOf(22f), runtime.reconcile().configuration().settings.availablePowers)
+        assertFailsWith<IllegalArgumentException> { runtime.removePower(22f) }
+        assertFailsWith<IllegalArgumentException> { runtime.removePower(99f) }
+    }
 }

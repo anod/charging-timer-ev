@@ -5,6 +5,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const { prepare } = require("../pwa/prepare.cjs");
+const { button: clickCanvasButton } = require("./canvas.cjs");
 
 const distribution = path.resolve(process.argv[2] || "build/dist/wasmJs/productionExecutable");
 const pagesSite = process.argv[2] !== undefined;
@@ -331,15 +332,18 @@ async function controlled(page, url) {
                 const shotContext = await browser.newContext({ colorScheme, viewport, locale: "en-US" });
                 const shot = await shotContext.newPage();
                 await controlled(shot, url);
-                await labels(shot, "Ready for offline use.", "Start Timer", "Charging data",
-                    "Charging history", "Enable foreground notifications", "Charging Timer for EV",
+                await labels(shot, "Start Timer", "Charging Timer for EV",
                     "Default", "\u25be Start", "\u25be Charging Power");
                 await shot.screenshot({ path: path.join(evidence, `pwa-ready-${device}-${colorScheme}.png`) });
+                await clickCanvasButton(shot, "Settings");
+                await labels(shot, "Ready for offline use.", "Charging data",
+                    "Charging history", "Enable foreground notifications", "About", "Open-source licenses");
+                await shot.screenshot({ path: path.join(evidence, `pwa-settings-${device}-${colorScheme}.png`) });
+                await clickCanvasButton(shot, "Back");
                 await start(shot);
                 await setOffline(shotContext, true);
                 await shot.reload();
-                await labels(shot, "Ready for offline use.", "Charging in Progress", "Charging data",
-                    "Charging history", "Enable foreground notifications", "Estimated charging time",
+                await labels(shot, "Charging in Progress", "Estimated charging time",
                     "Charging Speed", "Current %", "Target %", "Time Remaining", "Time to 80%", "Elapsed Time");
                 await shot.screenshot({ path: path.join(evidence, `pwa-running-offline-${device}-${colorScheme}.png`) });
                 await setOffline(shotContext, false);
@@ -348,14 +352,14 @@ async function controlled(page, url) {
                 await shot.evaluate(() => navigator.serviceWorker.getRegistration().then(r => r.update()));
                 await status(shot, "error");
                 await labels(shot, "Offline setup or update failed. Reconnect and reopen to retry. Keep a backup; do not clear site data.",
-                    "Charging in Progress", "Charging data", "Charging history", "Estimated charging time",
+                    "Charging in Progress", "Estimated charging time",
                     "Charging Speed", "Current %", "Target %", "Time Remaining", "Time to 80%", "Elapsed Time");
                 await shot.screenshot({ path: path.join(evidence, `pwa-error-${device}-${colorScheme}.png`) });
                 fail = null;
                 await shot.evaluate(() => navigator.serviceWorker.getRegistration().then(r => r.update()));
                 await status(shot, "update");
                 await labels(shot, "Update ready. Close all timer tabs and installed windows, then reopen. Saved timers and data stay intact.",
-                    "Charging in Progress", "Charging data", "Charging history", "Estimated charging time",
+                    "Charging in Progress", "Estimated charging time",
                     "Charging Speed", "Current %", "Target %", "Time Remaining", "Time to 80%", "Elapsed Time");
                 await shot.screenshot({ path: path.join(evidence, `pwa-update-${device}-${colorScheme}.png`) });
                 await shotContext.close();
