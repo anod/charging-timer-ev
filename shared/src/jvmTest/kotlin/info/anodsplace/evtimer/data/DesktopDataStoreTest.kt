@@ -21,6 +21,30 @@ import kotlin.test.assertTrue
 
 class DesktopDataStoreTest {
     @Test
+    fun legacyFileSafetyDecisionIsPlatformIndependent() {
+        val ownerOnly = setOf(PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE)
+        val groupWritable = ownerOnly + PosixFilePermission.GROUP_WRITE
+        val othersWritable = ownerOnly + PosixFilePermission.OTHERS_WRITE
+        fun safe(
+            regular: Boolean = true,
+            symlink: Boolean = false,
+            owner: String = "alice",
+            currentUser: String = "alice",
+            windows: Boolean = false,
+            permissions: Set<PosixFilePermission>? = ownerOnly
+        ) = isSafeLegacyFile(regular, symlink, owner, currentUser, windows, permissions)
+
+        assertFalse(safe(symlink = true))
+        assertFalse(safe(regular = false))
+        assertFalse(safe(owner = "mallory"))
+        assertFalse(safe(permissions = groupWritable))
+        assertFalse(safe(permissions = othersWritable))
+        assertTrue(safe())
+        assertTrue(safe(owner = "DOMAIN\\Alice", currentUser = "alice", windows = true))
+        assertFalse(safe(owner = "DOMAIN\\ALICE", currentUser = "alice"))
+    }
+
+    @Test
     fun appDataDirectoryUsesPerUserPlatformLocation() {
         assertEquals(
             File("C:\\Users\\driver\\AppData\\Local", "charging-timer-ev"),

@@ -39,16 +39,10 @@ is regenerated and signing credentials are not persisted in that cache.
    store it only as the `PLAY_SERVICE_ACCOUNT_JSON` secret in the protected
    GitHub Actions environment named `release`.
 7. Configure the repository's `release` environment with a required reviewer
-   and restrict deployment branches to `main`. Re-provision all five release
-   credentials as environment secrets using the secure source of each value;
-   verify the workflow can access them before removing any repository-level
-   copies. Never expose secret values in chat, logs, issues, or committed files.
-   The `release` environment is configured with a required reviewer and the
-   `main` deployment-branch restriction. These are part of the release gate,
-   not optional setup. The migration is incomplete while repository-level
-   copies remain; after the environment secrets are re-provisioned and verified,
-   remove the repository-level copies to prevent other branch workflows from
-   accessing them.
+   and restrict deployment branches to `main`. Store all five release
+   credentials only as secrets in that environment, never as repository-level
+   secrets that other branch workflows could read. Never expose secret values
+   in chat, logs, issues, or committed files.
 8. Configure an internal tester email list or Google Group in Play Console
    (up to 100 testers), enable it for the track, and share the Console-generated
    opt-in link. Testers must opt in with an eligible Google account.

@@ -6,6 +6,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import java.io.File
+import java.io.IOException
 import java.nio.file.FileAlreadyExistsException
 import java.nio.file.Files
 import java.nio.file.LinkOption
@@ -28,7 +29,13 @@ internal fun createDesktopDataStore(
 ): DataStore<Preferences> {
     val directory = ensurePrivateAppDataDirectory(appDataDirectory)
     val preferencesFile = directory.resolve(dataStoreFileName)
-    migrateLegacyDataStore(legacyFile, preferencesFile)
+    try {
+        migrateLegacyDataStore(legacyFile, preferencesFile)
+    } catch (exception: IOException) {
+        logLegacyMigrationFailure(exception)
+    } catch (exception: SecurityException) {
+        logLegacyMigrationFailure(exception)
+    }
     if (Files.exists(preferencesFile, LinkOption.NOFOLLOW_LINKS)) {
         check(Files.isRegularFile(preferencesFile, LinkOption.NOFOLLOW_LINKS)) {
             "Preferences path is not a regular file: $preferencesFile"
@@ -88,30 +95,49 @@ private fun readSafeLegacyAttributes(file: Path): BasicFileAttributes? {
         BasicFileAttributes::class.java,
         LinkOption.NOFOLLOW_LINKS
     )
-    if (!attributes.isRegularFile || attributes.isSymbolicLink) return null
-
     val owner = Files.getOwner(file, LinkOption.NOFOLLOW_LINKS).name
-        .substringAfterLast('\\')
-        .substringAfterLast('/')
-    val currentUser = System.getProperty("user.name")
-    val ownerMatches = if (System.getProperty("os.name").contains("win", ignoreCase = true)) {
-        owner.equals(currentUser, ignoreCase = true)
-    } else {
-        owner == currentUser
-    }
-    if (!ownerMatches) return null
-
     val permissions = try {
         Files.getPosixFilePermissions(file, LinkOption.NOFOLLOW_LINKS)
     } catch (_: UnsupportedOperationException) {
         null
     }
-    if (permissions != null &&
-        (PosixFilePermission.GROUP_WRITE in permissions || PosixFilePermission.OTHERS_WRITE in permissions)
-    ) {
-        return null
-    }
+    if (!isSafeLegacyFile(
+            isRegularFile = attributes.isRegularFile,
+            isSymbolicLink = attributes.isSymbolicLink,
+            ownerName = owner,
+            currentUser = System.getProperty("user.name"),
+            isWindows = System.getProperty("os.name").contains("win", ignoreCase = true),
+            posixPermissions = permissions
+        )
+    ) return null
     return attributes
+}
+
+internal fun isSafeLegacyFile(
+    isRegularFile: Boolean,
+    isSymbolicLink: Boolean,
+    ownerName: String,
+    currentUser: String,
+    isWindows: Boolean,
+    posixPermissions: Set<PosixFilePermission>?
+): Boolean {
+    if (!isRegularFile || isSymbolicLink) return false
+
+    val owner = ownerName.substringAfterLast('\\').substringAfterLast('/')
+    val ownerMatches = if (isWindows) {
+        owner.equals(currentUser, ignoreCase = true)
+    } else {
+        owner == currentUser
+    }
+    if (!ownerMatches) return false
+
+    return posixPermissions == null ||
+        (PosixFilePermission.GROUP_WRITE !in posixPermissions &&
+            PosixFilePermission.OTHERS_WRITE !in posixPermissions)
+}
+
+private fun logLegacyMigrationFailure(exception: Exception) {
+    println("Charging storage: could not migrate legacy desktop preferences; continuing with fresh settings (${exception.javaClass.simpleName})")
 }
 
 internal fun desktopAppDataDirectory(
