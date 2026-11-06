@@ -29,12 +29,14 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.LayoutDirection
 import info.anodsplace.evtimer.data.ConfigurationViewState
 import info.anodsplace.evtimer.generated.resources.Res
 import info.anodsplace.evtimer.generated.resources.collapse_setting_description
@@ -48,7 +50,7 @@ import androidx.compose.animation.animateContentSize
  * CollapsibleSettingCard shows a compact summary chip when collapsed and an expanded SettingCard when open.
  *
  * UX / Interaction:
- * - Collapsed state: ElevatedAssistChip displays a right-pointing chevron + summary text; tapping expands.
+ * - Collapsed state: ElevatedAssistChip displays a directional chevron + summary text; tapping expands.
  * - Expanded state: A SettingCard fills the width; only the title row is clickable (with a subtle bounded ripple)
  *   to collapse back to the chip state. This keeps slider / text input interactions unaffected by collapse gestures.
  * - Haptic feedback (LongPress style) is triggered on expand and collapse for tactile confirmation.
@@ -173,41 +175,42 @@ fun CollapsibleSettingCard(
 @Composable
 private fun SettingChevron(expanded: Boolean) {
     val color = MaterialTheme.colorScheme.onSurfaceVariant
+    val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
     Canvas(
         modifier = Modifier.size(18.dp).clearAndSetSemantics {}
     ) {
         val strokeWidth = 2.dp.toPx()
         val cap = StrokeCap.Round
-        if (expanded) {
+        settingChevronSegments(expanded, isRtl).forEach { segment ->
             drawLine(
                 color = color,
-                start = Offset(size.width * 0.28f, size.height * 0.4f),
-                end = Offset(size.width * 0.5f, size.height * 0.62f),
-                strokeWidth = strokeWidth,
-                cap = cap
-            )
-            drawLine(
-                color = color,
-                start = Offset(size.width * 0.5f, size.height * 0.62f),
-                end = Offset(size.width * 0.72f, size.height * 0.4f),
-                strokeWidth = strokeWidth,
-                cap = cap
-            )
-        } else {
-            drawLine(
-                color = color,
-                start = Offset(size.width * 0.4f, size.height * 0.28f),
-                end = Offset(size.width * 0.62f, size.height * 0.5f),
-                strokeWidth = strokeWidth,
-                cap = cap
-            )
-            drawLine(
-                color = color,
-                start = Offset(size.width * 0.62f, size.height * 0.5f),
-                end = Offset(size.width * 0.4f, size.height * 0.72f),
+                start = Offset(size.width * segment.start.x, size.height * segment.start.y),
+                end = Offset(size.width * segment.end.x, size.height * segment.end.y),
                 strokeWidth = strokeWidth,
                 cap = cap
             )
         }
+    }
+}
+
+internal data class ChevronSegment(val start: Offset, val end: Offset)
+
+internal fun settingChevronSegments(expanded: Boolean, rtl: Boolean): List<ChevronSegment> {
+    val segments = if (expanded) {
+        listOf(
+            ChevronSegment(Offset(0.28f, 0.4f), Offset(0.5f, 0.62f)),
+            ChevronSegment(Offset(0.5f, 0.62f), Offset(0.72f, 0.4f))
+        )
+    } else {
+        listOf(
+            ChevronSegment(Offset(0.4f, 0.28f), Offset(0.62f, 0.5f)),
+            ChevronSegment(Offset(0.62f, 0.5f), Offset(0.4f, 0.72f))
+        )
+    }
+    return if (!rtl || expanded) segments else segments.map { segment ->
+        ChevronSegment(
+            start = Offset(1f - segment.start.x, segment.start.y),
+            end = Offset(1f - segment.end.x, segment.end.y)
+        )
     }
 }
