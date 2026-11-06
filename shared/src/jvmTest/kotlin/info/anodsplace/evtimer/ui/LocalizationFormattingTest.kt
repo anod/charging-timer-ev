@@ -4,15 +4,18 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import info.anodsplace.evtimer.data.ChargingCalculation
 import info.anodsplace.evtimer.data.ChargingSettings
 import info.anodsplace.evtimer.data.ConfigurationViewState
 import info.anodsplace.evtimer.data.MilestoneEstimate
 import info.anodsplace.evtimer.data.RunningViewState
+import kotlin.test.assertEquals
 import kotlin.test.Test
 
 @OptIn(ExperimentalTestApi::class)
@@ -33,11 +36,29 @@ class LocalizationFormattingTest {
         }
 
         onNodeWithText("Max: 100% (83 kWh)", substring = true).assertExists()
-        onNodeWithText("▾ Start").performScrollTo().performClick()
-        onNodeWithText("Start: 60% (50 kWh)", substring = true).assertExists()
-        onNodeWithText("▾ Charging Power").performScrollTo().performClick()
+        val expandedStart = onNodeWithContentDescription("Collapse Start. Start: 60% (50 kWh)")
+        expandedStart.performScrollTo().assertExists()
+        assertEquals(
+            "Expanded",
+            expandedStart.fetchSemanticsNode().config[SemanticsProperties.StateDescription]
+        )
+        expandedStart.performClick()
+        val collapsedStart = onNodeWithContentDescription("Expand Start. Start: 60% (50 kWh)")
+        assertEquals(
+            "Collapsed",
+            collapsedStart.fetchSemanticsNode().config[SemanticsProperties.StateDescription]
+        )
+        val expandedPower = onNodeWithContentDescription("Collapse Charging Power. Power: 7.36 kW")
+        expandedPower.performScrollTo().assertExists()
+        assertEquals(
+            "Expanded",
+            expandedPower.fetchSemanticsNode().config[SemanticsProperties.StateDescription]
+        )
+        expandedPower.performClick()
         onNodeWithText("Power: 7.36 kW", substring = true).assertExists()
-        onNodeWithText("▸ Power: 7.36 kW").performScrollTo().performClick()
+        onNodeWithContentDescription("Expand Charging Power. Power: 7.36 kW")
+            .performScrollTo()
+            .performClick()
         onNodeWithText("7.36 kW").assertExists()
         onNodeWithText("11.0 kW").assertExists()
         onNodeWithText("7.4 kW").assertExists()
