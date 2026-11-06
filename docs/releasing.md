@@ -36,14 +36,24 @@ is regenerated and signing credentials are not persisted in that cache.
    Cloud project. Create a dedicated service account and invite its email in
    Play Console **Users and permissions**, scoped to this app, with app viewing
    and **Release apps to testing tracks** permissions. Create a JSON key and
-   store it only as the `PLAY_SERVICE_ACCOUNT_JSON` GitHub Actions secret.
-7. Create the repository Actions secrets below under **Settings > Secrets and
-   variables > Actions**. Use the same upload key as the first manual release.
+   store it only as the `PLAY_SERVICE_ACCOUNT_JSON` secret in the protected
+   GitHub Actions environment named `release`.
+7. Configure the repository's `release` environment with a required reviewer
+   and restrict deployment branches to `main`. Re-provision all five release
+   credentials as environment secrets using the secure source of each value;
+   verify the workflow can access them before removing any repository-level
+   copies. Never expose secret values in chat, logs, issues, or committed files.
+   The `release` environment is configured with a required reviewer and the
+   `main` deployment-branch restriction. These are part of the release gate,
+   not optional setup. The migration is incomplete while repository-level
+   copies remain; after the environment secrets are re-provisioned and verified,
+   remove the repository-level copies to prevent other branch workflows from
+   accessing them.
 8. Configure an internal tester email list or Google Group in Play Console
    (up to 100 testers), enable it for the track, and share the Console-generated
    opt-in link. Testers must opt in with an eligible Google account.
 
-## Required GitHub Actions secrets
+## Required `release` environment secrets
 
 | Secret | Value |
 | --- | --- |
@@ -84,12 +94,13 @@ no blanket Koin, Compose, or DataStore keep rules are added.
 ## Publishing subsequent builds
 
 After merging the workflow into `main`, open **Actions > Release Android to
-internal testing > Run workflow** and select `main` (or a reviewed release ref).
-The workflow requires all five secrets, builds the signed AAB, retains it and
+internal testing > Run workflow** and select `main`. The job runs only for that
+trusted ref and waits for approval through the protected `release` environment.
+It requires all five environment secrets, builds the signed AAB, retains it and
 the R8 mapping as a 30-day artifact, and uploads a completed internal release.
 Archive the mapping securely for longer-term crash decoding.
-No release runs automatically on a push or pull request. Never dispatch an
-untrusted ref with release secrets.
+No release runs automatically on a push or pull request. Do not dispatch a
+release from any other ref.
 
 If Play reports that the app is still a draft, finish the first manual release
 and outstanding Console declarations before retrying. Failed uploads retain
