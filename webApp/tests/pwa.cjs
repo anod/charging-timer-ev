@@ -333,7 +333,7 @@ async function controlled(page, url) {
                 const shot = await shotContext.newPage();
                 await controlled(shot, url);
                 await labels(shot, "Start Timer", "Charging Timer for EV",
-                    "Default", "\u25be Start", "\u25be Charging Power");
+                    "Default", "Collapse Start.", "Collapse Charging Power.");
                 await shot.screenshot({ path: path.join(evidence, `pwa-ready-${device}-${colorScheme}.png`) });
                 await clickCanvasButton(shot, "Settings");
                 await labels(shot, "Ready for offline use.", "Charging data",
