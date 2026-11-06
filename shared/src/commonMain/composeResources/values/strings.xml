@@ -138,8 +138,8 @@
     <string name="equivalent_description">%1$s equivalent to %2$s</string>
     <string name="collapse_setting_description">Collapse %1$s. %2$s</string>
     <string name="expand_setting_description">Expand %1$s. %2$s</string>
-    <string name="expanded_setting_title">%1$s %2$s</string>
-    <string name="collapsed_setting_label">%1$s %2$s</string>
+    <string name="expanded_setting_state">Expanded</string>
+    <string name="collapsed_setting_state">Collapsed</string>
     <plurals name="hours_short">
         <item quantity="one">%1$dh</item>
         <item quantity="other">%1$dh</item>
