@@ -11,6 +11,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -47,6 +48,8 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.key
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -73,6 +76,7 @@ import dev.chrisbanes.haze.blur.materials.HazeMaterials
 import info.anodsplace.evtimer.data.TimePrediction
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -93,6 +97,7 @@ import info.anodsplace.evtimer.data.formatLocaleNumber
 import info.anodsplace.evtimer.data.formatPower
 import info.anodsplace.evtimer.generated.resources.charging_finished
 import kotlin.math.roundToInt
+import kotlin.math.ceil
 import info.anodsplace.evtimer.generated.resources.Res
 import info.anodsplace.evtimer.generated.resources.apply
 import info.anodsplace.evtimer.generated.resources.charging_in_progress
@@ -340,42 +345,150 @@ internal fun TimePredictionBar(
 ) {
     val tickColor = MaterialTheme.colorScheme.onSurface
     val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
-    Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(stringResource(Res.string.time_progress), style = MaterialTheme.typography.titleSmall)
-        FlowRow(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            Text(
-                startTimeText,
-                modifier = Modifier.padding(end = 8.dp),
-                style = MaterialTheme.typography.labelMedium
-            )
-            Text(estimatedEndTimeText, style = MaterialTheme.typography.labelMedium)
-        }
-        Box(Modifier.fillMaxWidth().height(12.dp)) {
-            LinearProgressIndicator(
-                progress = { progress.fraction },
-                modifier = Modifier.fillMaxWidth().align(Alignment.Center),
-                gapSize = 0.dp,
-                drawStopIndicator = {}
-            )
-            Canvas(Modifier.fillMaxSize()) {
-                progress.predictions.forEach { prediction ->
-                    val x = size.width * if (isRtl) 1f - prediction.position else prediction.position
-                    drawLine(tickColor, Offset(x, 0f), Offset(x, size.height), strokeWidth = 2.dp.toPx())
-                }
+    BoxWithConstraints(modifier.fillMaxWidth()) {
+        val textMeasurer = rememberTextMeasurer(cacheSize = 256)
+        val labelStyle = MaterialTheme.typography.bodySmall
+        val widthPx = with(LocalDensity.current) { maxWidth.roundToPx() }
+        val gapPx = with(LocalDensity.current) { 8.dp.roundToPx() }
+        var previousLabels by remember { mutableStateOf(emptyList<PredictionLabel>()) }
+        val selection = selectPredictionLabels(progress, widthPx, gapPx) { prediction ->
+            key(ceil(prediction.minutesAhead).toInt(), prediction.percent.roundToInt()) {
+                val text = predictionText(prediction)
+                if (text.isBlank()) null else PredictionLabel(
+                    prediction,
+                    text,
+                    ceil(textMeasurer.measure(text, style = labelStyle, softWrap = false)
+                        .multiParagraph.maxIntrinsicWidth.toDouble()).toInt()
+                )
             }
         }
-        if (progress.predictions.isEmpty()) {
-            Text(
-                stringResource(Res.string.target_reached_by, estimatedEndTimeText),
-                style = MaterialTheme.typography.bodySmall
-            )
-        } else {
-            PredictionLabels(progress.predictions)
+        // Web resources can briefly be blank when format arguments change.
+        val labels = selection ?: previousLabels
+        SideEffect { if (selection != null) previousLabels = selection }
+        Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(stringResource(Res.string.time_progress), style = MaterialTheme.typography.titleSmall)
+            FlowRow(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(
+                    startTimeText,
+                    modifier = Modifier.padding(end = 8.dp),
+                    style = MaterialTheme.typography.labelMedium
+                )
+                Text(estimatedEndTimeText, style = MaterialTheme.typography.labelMedium)
+            }
+            Box(Modifier.fillMaxWidth().height(12.dp)) {
+                LinearProgressIndicator(
+                    progress = { progress.fraction },
+                    modifier = Modifier.fillMaxWidth().align(Alignment.Center),
+                    gapSize = 0.dp,
+                    drawStopIndicator = {}
+                )
+                Canvas(Modifier.fillMaxSize()) {
+                    labels.forEach { label ->
+                        val x = size.width * if (isRtl) 1f - label.prediction.position else label.prediction.position
+                        drawLine(tickColor, Offset(x, 0f), Offset(x, size.height), strokeWidth = 2.dp.toPx())
+                    }
+                }
+            }
+            if (labels.isEmpty()) {
+                Text(
+                    stringResource(Res.string.target_reached_by, estimatedEndTimeText),
+                    style = MaterialTheme.typography.bodySmall
+                )
+            } else {
+                PredictionLabels(labels)
+            }
         }
+    }
+}
+
+@Composable
+private fun predictionText(prediction: TimePrediction): String {
+    val minutes = ceil(prediction.minutesAhead).toInt()
+    val duration = if (minutes % 60 == 0) {
+        pluralStringResource(Res.plurals.hours_short, minutes / 60, minutes / 60)
+    } else if (minutes < 60) {
+        pluralStringResource(Res.plurals.minutes_short, minutes, minutes)
+    } else {
+        val hoursText = pluralStringResource(Res.plurals.hours_short, minutes / 60, minutes / 60)
+        val minutesText = pluralStringResource(Res.plurals.minutes_short, minutes % 60, minutes % 60)
+        if (hoursText.isBlank() || minutesText.isBlank()) "" else {
+            stringResource(Res.string.duration_hours_minutes, hoursText, minutesText)
+        }
+    }
+    if (duration.isBlank()) return ""
+    return stringResource(
+        Res.string.time_prediction,
+        duration,
+        formatLocaleNumber(prediction.percent.roundToInt().toFloat(), 0, 0)
+    )
+}
+
+internal data class PredictionLabel(val prediction: TimePrediction, val text: String, val width: Int)
+
+internal inline fun selectPredictionLabels(
+    progress: TimeProgress,
+    width: Int,
+    gap: Int,
+    resolve: (TimePrediction) -> PredictionLabel?
+): List<PredictionLabel>? {
+    val resolved = mutableMapOf<TimePrediction, PredictionLabel>()
+    val groups = listOf(progress.predictions) + progress.coarserPredictions
+    for (group in groups) {
+        // Try omitting a crowded penultimate tick before coarsening earlier predictions.
+        for (omitPenultimate in 0..(if (group.size > 2) 1 else 0)) {
+            val placement = PredictionLabelPlacement(width, gap)
+            val labels = mutableListOf<PredictionLabel>()
+            var fits = true
+            for ((index, prediction) in group.withIndex()) {
+                if (omitPenultimate == 1 && index == group.lastIndex - 1) continue
+                val label = resolved[prediction] ?: resolve(prediction)?.also { resolved[prediction] = it }
+                    ?: return null
+                if (label.text.isBlank()) return null
+                if (label.width > width || placement.add(prediction.position, label.width).lane >= 2) {
+                    fits = false
+                    break
+                }
+                labels += label
+            }
+            if (fits) return labels
+        }
+    }
+    val endpoint = groups.last().lastOrNull() ?: return emptyList()
+    return listOf(resolved[endpoint] ?: resolve(endpoint) ?: return null)
+}
+
+internal data class PredictionLabelSlot(val x: Int, val lane: Int)
+
+internal class PredictionLabelPlacement(private val width: Int, private val gap: Int) {
+    private val laneEnds = mutableListOf<Int>()
+
+    fun add(position: Float, labelWidth: Int): PredictionLabelSlot {
+        val x = (width * position - labelWidth / 2f).roundToInt()
+            .coerceIn(0, (width - labelWidth).coerceAtLeast(0))
+        var lane = laneEnds.indexOfFirst { x >= it + gap }
+        if (lane < 0) {
+            laneEnds += x + labelWidth
+            lane = laneEnds.lastIndex
+        } else {
+            laneEnds[lane] = x + labelWidth
+        }
+        return PredictionLabelSlot(x, lane)
+    }
+}
+
+internal fun predictionLabelSlots(
+    positions: List<Float>,
+    widths: List<Int>,
+    width: Int,
+    gap: Int
+): List<PredictionLabelSlot> {
+    val placement = PredictionLabelPlacement(width, gap)
+    return widths.mapIndexed { index, labelWidth ->
+        placement.add(positions[index], labelWidth)
     }
 }
 
@@ -383,17 +496,14 @@ internal fun TimePredictionBar(
  * Centres each label under its tick on a single row, moving a label to another row only when it would overlap.
  */
 @Composable
-private fun PredictionLabels(predictions: List<TimePrediction>, modifier: Modifier = Modifier) {
+private fun PredictionLabels(labels: List<PredictionLabel>, modifier: Modifier = Modifier) {
+    val style = MaterialTheme.typography.bodySmall
     Layout(
         content = {
-            predictions.forEach { prediction ->
+            labels.forEach { label ->
                 Text(
-                    stringResource(
-                        Res.string.time_prediction,
-                        formatLocaleNumber(prediction.hoursAhead.toFloat(), 0, 0),
-                        formatLocaleNumber(prediction.percent.roundToInt().toFloat(), 0, 0)
-                    ),
-                    style = MaterialTheme.typography.bodySmall,
+                    label.text,
+                    style = style,
                     textAlign = TextAlign.Center
                 )
             }
@@ -403,21 +513,12 @@ private fun PredictionLabels(predictions: List<TimePrediction>, modifier: Modifi
         val width = constraints.maxWidth
         val gap = 8.dp.roundToPx()
         val laneSpacing = 4.dp.roundToPx()
-        val placeables = measurables.map { it.measure(Constraints(maxWidth = width)) }
-        val laneEnds = mutableListOf<Int>()
-        val slots = placeables.mapIndexed { index, placeable ->
-            val x = (width * predictions[index].position - placeable.width / 2f).roundToInt()
-                .coerceIn(0, (width - placeable.width).coerceAtLeast(0))
-            var lane = laneEnds.indexOfFirst { x >= it + gap }
-            if (lane < 0) {
-                laneEnds += x + placeable.width
-                lane = laneEnds.lastIndex
-            } else {
-                laneEnds[lane] = x + placeable.width
-            }
-            x to lane
+        val placeables = measurables.mapIndexed { index, measurable ->
+            val labelWidth = minOf(labels[index].width, width)
+            measurable.measure(Constraints(minWidth = labelWidth, maxWidth = labelWidth))
         }
-        val laneHeights = IntArray(laneEnds.size)
+        val slots = predictionLabelSlots(labels.map { it.prediction.position }, placeables.map { it.width }, width, gap)
+        val laneHeights = IntArray((slots.maxOfOrNull { it.lane } ?: -1) + 1)
         slots.forEachIndexed { index, (_, lane) ->
             laneHeights[lane] = maxOf(laneHeights[lane], placeables[index].height)
         }

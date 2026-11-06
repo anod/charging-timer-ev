@@ -14,6 +14,12 @@ maximum fractional digits to preserve custom-power precision; notification power
 at one decimal place. Add translations as resource qualifiers when they are ready; do not
 add a per-app Android `localeConfig` until a second language is shipped.
 
+Running-screen prediction labels use localized minute/hour durations and percentages.
+The existing start-to-finish time bar selects the finest nice interval whose measured
+labels fit in at most two non-overlapping rows, including the exact target ETA.
+Available width and font size determine density; predictions are not limited to +1h/+2h.
+With less than one minute remaining, the existing target finish-time text is shown instead.
+
 The built-in preset keeps its existing stored name (`Default`) and identity (`custom`).
 The UI resolves that identity to the localized `default_preset` resource only for display.
 The reserved-name validation continues to reserve the stored English name, so neither
