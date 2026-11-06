@@ -2,6 +2,7 @@ package info.anodsplace.evtimer.data
 
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.edit
+import androidx.lifecycle.viewModelScope
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import info.anodsplace.evtimer.db.ChargingDatabase
 import kotlinx.coroutines.CoroutineScope
@@ -9,8 +10,13 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.setMain
+import kotlinx.coroutines.test.resetMain
 import java.nio.file.Files
 import java.util.Properties
 import kotlin.test.Test
@@ -23,6 +29,45 @@ import kotlin.time.Clock
 import kotlin.time.Instant
 
 class StorageRepositoryTest {
+    @Test
+    @OptIn(ExperimentalCoroutinesApi::class)
+    fun settingsPowerManagementDraftSurvivesRestartAndBackupRestore() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        try {
+            fixture { source ->
+                source.repo.saveAsPreset("Home")
+                val original = source.repo.observeConfiguration().first().selected
+                val viewModel = SettingsViewModel(source.repo, source.repo, source.repo)
+                try {
+                    viewModel.settings.first { it != null }
+                    viewModel.addPower(50f)
+                    viewModel.settings.first { it?.chargingPower == 50f }
+                    viewModel.removePower(11f)
+                    viewModel.settings.first { it != null && 11f !in it.availablePowers }
+                    viewModel.removePower(50f)
+                    val expected = original.settings.copy(
+                        chargingPower = 3.6f, availablePowers = listOf(3.6f, 7f, 22f)
+                    )
+                    viewModel.settings.first { it == expected }
+                    val restarted = source.repository().observeConfiguration().first()
+                    assertEquals(original, restarted.selected)
+                    assertEquals(expected, restarted.settings)
+                    assertTrue(restarted.isEdited)
+                    val backup = BackupFormat.decode(BackupFormat.encode(source.repo.exportBackup("test")))
+                    fixture { target ->
+                        target.repo.restoreBackup(backup)
+                        val restored = target.repository().observeConfiguration().first()
+                        assertEquals(restarted, restored)
+                    }
+                } finally {
+                    viewModel.viewModelScope.cancel()
+                }
+            }
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
     @Test
     fun readingsAcknowledgeAndResetNeverOverwriteEachOtherOrActiveFactors() = runTest {
         fixture { f ->

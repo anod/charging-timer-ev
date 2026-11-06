@@ -10,8 +10,5 @@
     <string name="preset_name_required">Enter a preset name</string>
     <string name="reorder_preset">Drag to reorder %1$s</string>
     <string name="delete_named_preset">Delete %1$s</string>
-    <string name="edit_power_options">Edit power options</string>
-    <string name="finish_power_options">Finish editing power options</string>
     <string name="remove_power">Remove %1$s kW</string>
-    <string name="removable_power">%1$s kW ×</string>
 </resources>

@@ -7,6 +7,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.yield
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runCurrent
@@ -24,6 +25,63 @@ import kotlin.time.Instant
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ChargingViewModelTest {
+    @Test
+    fun settingsPowerEditsSelectAddedPowerAndGuardMissingAndLastOptions() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val initial = ChargingSettings.DEFAULT.copy(availablePowers = listOf(7f, 11f))
+        val repository = ViewModelTestRepository(initial)
+        val viewModel = SettingsViewModel(repository, repository, repository)
+        try {
+            runCurrent()
+            assertEquals(initial, viewModel.settings.value)
+            viewModel.removePower(7f)
+            runCurrent()
+            assertEquals(initial.copy(availablePowers = listOf(11f)), viewModel.settings.value)
+            viewModel.removePower(11f)
+            viewModel.removePower(50f)
+            listOf(0f, -7f, Float.NaN, Float.POSITIVE_INFINITY).forEach(viewModel::addPower)
+            runCurrent()
+            assertEquals(1, repository.savedSettings.size)
+            viewModel.addPower(50f)
+            runCurrent()
+            assertEquals(listOf(11f, 50f), viewModel.settings.value!!.availablePowers)
+            assertEquals(50f, viewModel.settings.value!!.chargingPower)
+            viewModel.addPower(11f)
+            runCurrent()
+            assertEquals(11f, viewModel.settings.value!!.chargingPower)
+            assertEquals(listOf(11f, 50f), viewModel.settings.value!!.availablePowers)
+            viewModel.removePower(11f)
+            runCurrent()
+            assertEquals(50f, viewModel.settings.value!!.chargingPower)
+            assertEquals(initial.copy(chargingPower = 50f, availablePowers = listOf(50f)),
+                viewModel.settings.value)
+        } finally {
+            viewModel.viewModelScope.cancel()
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
+    fun rapidSettingsPowerEditsReadLatestPersistedSettings() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val repository = ViewModelTestRepository().apply { beforeSave = { yield() } }
+        val viewModel = SettingsViewModel(repository, repository, repository)
+        try {
+            runCurrent()
+            viewModel.addPower(50f)
+            viewModel.addPower(100f)
+            viewModel.removePower(50f)
+            viewModel.removePower(11f)
+            runCurrent()
+            assertEquals(listOf(3.6f, 7f, 22f, 100f), viewModel.settings.value!!.availablePowers)
+            assertEquals(100f, viewModel.settings.value!!.chargingPower)
+            assertEquals(4, repository.savedSettings.size)
+        } finally {
+            viewModel.viewModelScope.cancel()
+            Dispatchers.resetMain()
+        }
+    }
+
     @Test
     fun completedPresentationSurvivesStoppedStatusAndSettingsDuringSummaryHandoff() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
@@ -411,7 +469,11 @@ class ChargingViewModelTest {
     }
 }
 
-private class ViewModelTestRepository(initialSettings: ChargingSettings = ChargingSettings()) : ChargingRepository, PresetRepository {
+private class ViewModelTestRepository(initialSettings: ChargingSettings = ChargingSettings()) :
+    ChargingRepository, PresetRepository, ManualBackupRepository {
+    override suspend fun exportBackup(appVersion: String): ManualBackup = error("Not used")
+    override suspend fun restoreBackup(backup: ManualBackup): Unit = error("Not used")
+    var beforeSave: suspend () -> Unit = {}
     private val notifyAt80 = MutableStateFlow(true)
     override fun observeNotifyAt80() = notifyAt80
     override suspend fun setNotifyAt80(enabled: Boolean) { notifyAt80.value = enabled }
@@ -434,6 +496,7 @@ private class ViewModelTestRepository(initialSettings: ChargingSettings = Chargi
     override suspend fun reorderPresets(ids: List<String>) { require(ids == listOf("custom")) }
     override fun observeSession() = session
     override suspend fun saveSettings(settings: ChargingSettings) {
+        beforeSave()
         savedSettings.add(settings)
         this.settings.value = settings
     }

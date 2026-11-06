@@ -50,6 +50,7 @@ fun SettingsScreen(
     onOpenPresets: () -> Unit,
     modifier: Modifier = Modifier,
     onOpenHistory: () -> Unit = {},
+    onOpenChargingPowers: () -> Unit = {},
     backupContent: @Composable () -> Unit = {}
 ) {
     val uriHandler = LocalUriHandler.current
@@ -60,6 +61,9 @@ fun SettingsScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             SettingsSection(stringResource(Res.string.settings_charging)) {
+                SettingsRow(stringResource(Res.string.charging_power), Res.drawable.ic_power,
+                    stringResource(Res.string.settings_charging_powers_summary), onOpenChargingPowers)
+                SettingsDivider()
                 SettingsRow(stringResource(Res.string.settings_presets), Res.drawable.ic_presets,
                     stringResource(Res.string.settings_presets_summary), onOpenPresets)
                 SettingsDivider()

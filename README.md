@@ -106,6 +106,13 @@ consent off and use the snapshot fallback. No new permissions, telemetry,
 dependencies or backup allow-list are needed.
 
 Config starts with the built-in Default preset, seeded from existing manual settings.
+Manage available charging speeds in **Settings → Charging → Charging Power**.
+Configuration and Running's **Change speed** retain quick **+** add; Configuration
+no longer has a removal mode. Adding selects the new speed (in Change speed,
+tap Apply to change the active session). Settings edits apply to the selected
+setup, not an already running session. Removing the selected speed chooses the
+first remaining option; the final speed cannot be removed. These edits use the
+existing preset/draft storage and backup coverage, with no migration.
 Default initially appears first; Presets can rename/delete it while keeping at least one preset.
 Learning identifies it by `custom`, never its display name. Selecting a named preset
 applies capacity, charging power, target and its power options, but never the session's

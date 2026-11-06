@@ -4,27 +4,21 @@ package info.anodsplace.evtimer.web
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.ComposeViewport
 import info.anodsplace.evtimer.data.*
-import info.anodsplace.evtimer.ui.AppTheme
 import info.anodsplace.evtimer.web.generated.resources.*
 import kotlinx.browser.document
 import kotlinx.coroutines.CancellationException
@@ -36,15 +30,16 @@ import kotlin.js.toJsString
 
 @OptIn(ExperimentalComposeUiApi::class)
 fun main() {
-    ComposeViewport(document.body ?: error("Browser document body is unavailable")) {
+    val viewport = document.body ?: error("Browser document body is unavailable")
+    ComposeViewport(viewport) {
+        BrowserEscapeNavigation(viewport)
         BrowserResources { BrowserTimerApp() }
     }
 }
 
 @Composable
-internal fun BrowserStorageScreen(storage: BrowserStorage, currentState: BrowserState?) {
+internal fun BrowserBackupSettings(storage: BrowserStorage, state: BrowserState, onRestored: suspend () -> Unit) {
     val scope = rememberCoroutineScope()
-    var state by remember { mutableStateOf<BrowserState?>(null) }
     var pending by remember { mutableStateOf<ManualBackup?>(null) }
     var busy by remember { mutableStateOf(false) }
     var failed by remember { mutableStateOf(false) }
@@ -66,91 +61,62 @@ internal fun BrowserStorageScreen(storage: BrowserStorage, currentState: Browser
         }
     }
 
-    LaunchedEffect(storage) { operation { state = storage.load() } }
-    LaunchedEffect(currentState) {
-        if (currentState != null) state = currentState
+    Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Text(stringResource(Res.string.web_storage_title), style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(Res.string.web_storage_description))
+            Text(stringResource(Res.string.web_storage_privacy))
+            Text(stringResource(Res.string.web_storage_counts, state.backup.presets.size, state.backup.sessions.size))
+            Button(enabled = !busy, onClick = {
+                scope.launch {
+                    operation {
+                        val bytes = BackupFormat.encode(storage.exportBackup(WEB_APP_VERSION))
+                        downloadBackup(bytes.decodeToString().toJsString())
+                        downloadRequested = true
+                    }
+                }
+            }) { Text(stringResource(Res.string.web_backup_export)) }
+            Button(enabled = !busy && state.activeSession == null, onClick = {
+                // File pickers need the browser's trusted click activation.
+                scope.launch(start = CoroutineStart.UNDISPATCHED) {
+                    operation {
+                        val selection = pickBackup()
+                        val text = selection.await()?.toString()
+                        if (text != null) pending = BackupFormat.decode(text.encodeToByteArray())
+                    }
+                }
+            }) { Text(stringResource(Res.string.web_backup_import)) }
+            if (busy) CircularProgressIndicator()
+            if (failed) Text(stringResource(Res.string.web_storage_error), color = MaterialTheme.colorScheme.error)
+            if (downloadRequested) Text(stringResource(Res.string.web_backup_download_requested))
+        }
     }
-
-    AppTheme {
-        Surface(Modifier.fillMaxSize()) {
-            Column(
-                Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-                Column(
-                    Modifier.widthIn(max = 560.dp).fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    Text(stringResource(Res.string.web_storage_title), style = MaterialTheme.typography.headlineMedium)
-                    Text(stringResource(when {
-                        state != null -> Res.string.web_storage_description
-                        failed -> Res.string.web_storage_unavailable
-                        else -> Res.string.web_storage_loading
-                    }))
-                    Text(stringResource(Res.string.web_storage_privacy))
-                    state?.let { loaded ->
-                        Text(stringResource(Res.string.web_storage_counts,
-                            loaded.backup.presets.size, loaded.backup.sessions.size))
-                        Button(enabled = !busy, onClick = {
-                            scope.launch {
-                                operation {
-                                    val bytes = BackupFormat.encode(storage.exportBackup(WEB_APP_VERSION))
-                                    downloadBackup(bytes.decodeToString().toJsString())
-                                    downloadRequested = true
-                                }
-                            }
-                        }) { Text(stringResource(Res.string.web_backup_export)) }
-                        Button(enabled = !busy && loaded.activeSession == null, onClick = {
-                            // File pickers need the browser's trusted click activation.
-                            val selection = pickBackup()
-                            scope.launch(start = CoroutineStart.UNDISPATCHED) {
-                                operation {
-                                    val text = selection.await()?.toString()
-                                    if (text != null) pending = BackupFormat.decode(text.encodeToByteArray())
-                                }
-                            }
-                        }) { Text(stringResource(Res.string.web_backup_import)) }
+    pending?.let { backup ->
+        AlertDialog(
+            onDismissRequest = { if (!busy) pending = null },
+            title = { Text(stringResource(Res.string.web_backup_confirm_title)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(stringResource(Res.string.web_backup_confirm, backup.presets.size, backup.sessions.size))
+                    if (failed) Text(stringResource(Res.string.web_storage_error), color = MaterialTheme.colorScheme.error)
+                }
+            },
+            confirmButton = {
+                TextButton(enabled = !busy, onClick = {
+                    scope.launch {
+                        operation {
+                            storage.restoreBackup(backup)
+                            onRestored()
+                            pending = null
+                        }
                     }
-                    if (busy) CircularProgressIndicator()
-                    if (failed) {
-                        Text(stringResource(Res.string.web_storage_error), color = MaterialTheme.colorScheme.error)
-                        TextButton(enabled = !busy, onClick = {
-                            scope.launch { operation { state = storage.load() } }
-                        }) { Text(stringResource(Res.string.web_storage_retry)) }
-                    }
-                    if (downloadRequested) Text(stringResource(Res.string.web_backup_download_requested))
+                }) { Text(stringResource(Res.string.web_backup_replace)) }
+            },
+            dismissButton = {
+                TextButton(enabled = !busy, onClick = { pending = null }) {
+                    Text(stringResource(Res.string.web_backup_cancel))
                 }
             }
-        }
-        pending?.let { backup ->
-            AlertDialog(
-                onDismissRequest = { if (!busy) pending = null },
-                title = { Text(stringResource(Res.string.web_backup_confirm_title)) },
-                text = {
-                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text(stringResource(Res.string.web_backup_confirm, backup.presets.size, backup.sessions.size))
-                        if (failed) Text(stringResource(Res.string.web_storage_error),
-                            color = MaterialTheme.colorScheme.error)
-                    }
-                },
-                confirmButton = {
-                    TextButton(enabled = !busy, onClick = {
-                        scope.launch {
-                            operation {
-                                storage.restoreBackup(backup)
-                                state = storage.load()
-                                pending = null
-                            }
-                        }
-                    }) { Text(stringResource(Res.string.web_backup_replace)) }
-                },
-                dismissButton = {
-                    TextButton(enabled = !busy, onClick = { pending = null }) {
-                        Text(stringResource(Res.string.web_backup_cancel))
-                    }
-                }
-            )
-        }
+        )
     }
 }

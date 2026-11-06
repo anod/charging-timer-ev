@@ -118,8 +118,6 @@ kotlin {
         platformMain.dependencies {
             api(project(":database"))
             implementation(libs.kotlinx.serialization.json)
-            implementation(libs.aboutlibraries.core)
-            implementation(libs.aboutlibraries.compose.m3)
             implementation(libs.sqldelight.runtime)
             implementation(libs.sqldelight.coroutines)
             implementation(project(":lib:viewmodel"))
@@ -136,6 +134,8 @@ kotlin {
             implementation(libs.androidx.datastore.preferences)
         }
         commonMain.dependencies {
+            implementation(libs.aboutlibraries.core)
+            implementation(libs.aboutlibraries.compose.m3)
             api(project(":storage"))
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.compose.runtime)

@@ -7,10 +7,13 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import info.anodsplace.evtimer.APP_VERSION
 import kotlin.time.Clock
 
@@ -28,6 +31,36 @@ class SettingsViewModel(
     private val presetRepository: PresetRepository,
     private val backups: ManualBackupRepository
 ) : ViewModel() {
+    private val powerEdits = Mutex()
+    val settings: StateFlow<ChargingSettings?> =
+        repository.observeSettings().stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    fun addPower(power: Float) {
+        viewModelScope.launch {
+            powerEdits.withLock {
+                if (!power.isFinite() || power <= 0f) {
+                    println("Charging settings: rejecting invalid custom power")
+                    return@withLock
+                }
+                val latest = repository.observeSettings().first()
+                repository.saveSettings(latest.withAddedPower(power))
+            }
+        }
+    }
+
+    fun removePower(power: Float) {
+        viewModelScope.launch {
+            powerEdits.withLock {
+                val latest = repository.observeSettings().first()
+                if (power !in latest.availablePowers || latest.availablePowers.none { it != power }) {
+                    println("Charging settings: rejecting missing or last power option removal")
+                    return@withLock
+                }
+                repository.saveSettings(latest.withRemovedPower(power))
+            }
+        }
+    }
+
     private val mutableBackup = MutableStateFlow(BackupState())
     val backup = mutableBackup.asStateFlow()
     val session: StateFlow<ChargingSession?> =
