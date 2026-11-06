@@ -324,8 +324,13 @@ class ChargingServiceTest {
         runCurrent()
         val after = service.status.value
         assertEquals(clock.milliseconds, after.evaluatedAt)
-        assertEquals(listOf(50f, 70f), timeProgress(before.snapshot!!, before.evaluatedAt, before.estimatedEndTime).predictions.map { it.percent })
-        assertTrue(timeProgress(after.snapshot!!, after.evaluatedAt, after.estimatedEndTime).predictions.isEmpty())
+        val beforeProgress = timeProgress(before.snapshot!!, before.evaluatedAt, before.estimatedEndTime)
+        val hourly = (listOf(beforeProgress.predictions) + beforeProgress.coarserPredictions)
+            .first { it.first().minutesAhead == 60.0 }
+        assertEquals(listOf(50f, 70f, 80f), hourly.map { it.percent })
+        val afterProgress = timeProgress(after.snapshot!!, after.evaluatedAt, after.estimatedEndTime)
+        assertEquals(80f, afterProgress.predictions.last().percent)
+        assertEquals(1f, afterProgress.predictions.last().position)
         assertEquals(before.currentPercent, after.currentPercent, 0.001f)
         assertEquals(50f, after.calculation.chargingSpeed)
         assertEquals(listOf(12f, 50f), after.snapshot!!.segments.map { it.powerKw })

@@ -143,7 +143,7 @@ class RunningCompactLayoutTest {
             startTimeText = "8:00 PM",
             estimatedEndTimeText = endTime,
             timeProgress = TimeProgress(
-                0.1f, listOf(TimePrediction(1, 0.2f, 50f), TimePrediction(2, 0.3f, 55f))
+                0.1f, listOf(TimePrediction(60.0, 0.2f, 50f), TimePrediction(120.0, 0.3f, 55f))
             )
         )
         val events = mutableListOf<RunningViewEvent>()

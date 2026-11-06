@@ -1,5 +1,7 @@
 package info.anodsplace.evtimer.data
 
+import kotlin.math.ceil
+
 const val CUSTOM_PRESET_ID = "custom"
 
 data class ConfigurationViewState(
@@ -29,23 +31,37 @@ sealed interface ConfigurationViewEvent {
     data object ResetPreset : ConfigurationViewEvent
 }
 
-data class TimePrediction(val hoursAhead: Int, val position: Float, val percent: Float)
-data class TimeProgress(val fraction: Float, val predictions: List<TimePrediction>)
+data class TimePrediction(val minutesAhead: Double, val position: Float, val percent: Float)
+data class TimeProgress(
+    val fraction: Float,
+    val predictions: List<TimePrediction>,
+    val coarserPredictions: List<List<TimePrediction>> = emptyList()
+)
 
 fun timeProgress(snapshot: ChargingSessionSnapshot, now: Long, estimatedEndTime: Long): TimeProgress {
     val total = estimatedEndTime - snapshot.startTime
     if (total <= 0L) return TimeProgress(1f, emptyList())
-    return TimeProgress(
-        fraction = ((now - snapshot.startTime).toDouble() / total).toFloat().coerceIn(0f, 1f),
-        predictions = listOf(1, 2).mapNotNull { hours ->
-            val predictedTime = now + hours * 3_600_000L
-            if (predictedTime > estimatedEndTime) null else TimePrediction(
-                hoursAhead = hours,
-                position = ((predictedTime - snapshot.startTime).toDouble() / total).toFloat().coerceIn(0f, 1f),
-                percent = ChargingCalculator.predict(snapshot, now, hours * 60.0)
+    val fraction = ((now - snapshot.startTime).toDouble() / total).toFloat().coerceIn(0f, 1f)
+    val origin = maxOf(now, snapshot.startTime)
+    val remaining = (estimatedEndTime - origin).coerceAtLeast(0L) / 60_000.0
+    if (remaining < 1.0) return TimeProgress(fraction, emptyList())
+
+    val intervals = mutableListOf(1.0, 2.0, 5.0, 10.0, 15.0, 20.0, 30.0, 60.0,
+        120.0, 180.0, 240.0, 360.0, 480.0, 720.0, 1440.0)
+    while (intervals.last() < remaining) intervals += intervals.last() * 2.0
+    val endpoint = TimePrediction(remaining, 1f, snapshot.targetPercent)
+    // Bound candidate measurement work, not the number of labels the UI can display.
+    val groups = intervals.filter { it >= remaining / 60.0 && it < remaining }.map { interval ->
+        (1 until ceil(remaining / interval).toInt()).map { index ->
+            val minutes = index * interval
+            TimePrediction(
+                minutesAhead = minutes,
+                position = ((origin - snapshot.startTime + minutes * 60_000.0) / total).toFloat().coerceIn(0f, 1f),
+                percent = ChargingCalculator.predict(snapshot, origin, minutes)
             )
-        }
-    )
+        } + endpoint
+    } + listOf(listOf(endpoint))
+    return TimeProgress(fraction, groups.first(), groups.drop(1))
 }
 
 data class RunningViewState(
