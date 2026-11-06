@@ -63,6 +63,9 @@ jobs:
           chmod +x gradlew
           ./gradlew :androidApp:bundleRelease --no-configuration-cache
 
+      - name: Verify release Baseline Profile
+        run: python3 scripts/check_baseline_profile_in_aab.py androidApp/build/outputs/bundle/release/androidApp-release.aab
+
       - name: Retain release bundle and R8 mapping
         uses: actions/upload-artifact@v7
         with:

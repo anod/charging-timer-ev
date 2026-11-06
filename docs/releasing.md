@@ -65,7 +65,15 @@ the repository, logs, or an issue. Keep service-account JSON out of the repo too
 ## Local builds
 
 With no signing values, `./gradlew :androidApp:bundleRelease` builds an unsigned,
-minified AAB for verification. Debug builds need no release secrets.
+minified AAB for verification. After building, verify its compiled Baseline
+Profile locally with:
+
+```shell
+python scripts/check_baseline_profile_in_aab.py androidApp/build/outputs/bundle/release/androidApp-release.aab
+```
+
+The release workflow runs this check before uploading. Debug builds need no
+release secrets.
 On Windows, use `.\gradlew.bat` instead of `./gradlew`.
 
 For signed builds set all four environment variables in the build process:
@@ -84,6 +92,31 @@ Run `./gradlew :androidApp:bundleRelease --no-configuration-cache`.
 The AAB is at `androidApp/build/outputs/bundle/release/androidApp-release.aab`.
 The optimized Android default rules and library consumer rules are used for R8;
 no blanket Koin, Compose, or DataStore keep rules are added.
+
+## Baseline Profile
+
+The `:baselineprofile` module contains a Macrobenchmark journey for cold startup
+and Settings navigation. The generated profile is committed at
+`androidApp/src/main/generated/baselineProfiles/baseline-prof.txt` and packaged
+into release bundles; the normal release workflow does not run instrumentation
+or regenerate the profile.
+
+Regenerate it after changing startup or navigation journeys, using a connected
+Android 13+ device or a supported rooted emulator:
+
+```shell
+./gradlew :androidApp:generateBaselineProfile
+```
+
+On Windows, run `.\gradlew.bat :androidApp:generateBaselineProfile`.
+Use only one ADB transport per physical device during generation; disconnect
+wireless ADB if the same device is also connected over USB. If Windows reports
+an ADB output path error, run generation from a shorter checkout path and use
+that same path for subsequent builds to avoid Kotlin incremental-cache root
+mismatches.
+Review and commit the regenerated profile with changes to the generator journeys.
+The release workflow checks that the compiled profile exists in the AAB before
+uploading the bundle.
 
 ## Publishing subsequent builds
 
