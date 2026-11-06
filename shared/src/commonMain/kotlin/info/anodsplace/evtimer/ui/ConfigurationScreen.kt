@@ -8,22 +8,18 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
@@ -37,7 +33,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import org.jetbrains.compose.resources.stringResource
 import org.jetbrains.compose.resources.painterResource
 import info.anodsplace.evtimer.data.ChargingCalculator
@@ -122,7 +117,7 @@ fun ConfigurationScreen(
                 }
             },
             confirmButton = {
-                TextButton(
+                AppTextButton(
                     enabled = presetNameValidation.isValid,
                     onClick = {
                         onEvent(ConfigurationViewEvent.SaveAsPreset(presetNameValidation.name))
@@ -132,7 +127,7 @@ fun ConfigurationScreen(
                 ) { Text(stringResource(Res.string.save)) }
             },
             dismissButton = {
-                TextButton(onClick = { showNameDialog = false }) { Text(stringResource(Res.string.cancel)) }
+                AppTextButton(onClick = { showNameDialog = false }) { Text(stringResource(Res.string.cancel)) }
             }
         )
     }
@@ -155,15 +150,14 @@ fun ConfigurationScreen(
                             .align(Alignment.CenterHorizontally)
                     )
                 }
-                Button(
+                AppPrimaryButton(
                     onClick = { onEvent(ConfigurationViewEvent.StartCharging) },
                     enabled = !invalidRange,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 12.dp)
-                        .height(56.dp)
                 ) {
-                    Text(stringResource(Res.string.start_timer), fontSize = 18.sp)
+                    Text(stringResource(Res.string.start_timer))
                 }
             }
         }
@@ -182,7 +176,7 @@ fun ConfigurationScreen(
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.weight(1f)
                 )
-                IconButton(onClick = onOpenSettings) {
+                AppIconButton(onClick = onOpenSettings) {
                     Icon(painterResource(Res.drawable.ic_settings), stringResource(Res.string.settings_title))
                 }
             }

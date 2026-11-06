@@ -11,6 +11,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -126,6 +127,7 @@ fun CollapsibleSettingCard(
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier.weight(1f)
+                            .heightIn(min = 48.dp)
                             .clickable(role = Role.Button) {
                                 haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                                 onExpandedChange(false)
@@ -162,7 +164,7 @@ fun CollapsibleSettingCard(
                         Text(summaryText)
                     }
                 },
-                modifier = modifier
+                modifier = modifier.heightIn(min = 48.dp)
                     .semantics {
                         contentDescription = expandDescription
                         stateDescription = collapsedState

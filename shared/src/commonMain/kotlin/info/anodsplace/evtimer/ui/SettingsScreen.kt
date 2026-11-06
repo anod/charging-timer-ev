@@ -20,7 +20,6 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -159,7 +158,7 @@ internal fun SettingsHeader(title: String, onBack: () -> Unit) {
         horizontalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Surface(shape = CircleShape, color = tonalCardContainerColor(), border = tonalCardBorder()) {
-            IconButton(onClick = onBack) {
+            AppIconButton(onClick = onBack) {
                 Icon(painterResource(Res.drawable.ic_back), stringResource(Res.string.settings_back))
             }
         }

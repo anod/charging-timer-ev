@@ -34,16 +34,12 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -319,17 +315,13 @@ fun RunningTimerScreen(
                 )
                 .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal))
         ) {
-            OutlinedButton(
+            AppDestructiveButton(
                 onClick = { onEvent(RunningViewEvent.StopCharging) },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 12.dp)
-                    .height(56.dp),
-                colors = ButtonDefaults.outlinedButtonColors(
-                    contentColor = MaterialTheme.colorScheme.error
-                )
             ) {
-                Text(stringResource(Res.string.stop_timer), fontSize = 18.sp)
+                Text(stringResource(Res.string.stop_timer))
             }
         }
     }
@@ -558,10 +550,10 @@ fun ChangeSpeedSheet(
                 onPowerSelected = { selected = it },
                 onAddCustomPower = { showCustomPowerDialog = true }
             )
-            Button(
+            AppPrimaryButton(
                 onClick = { onApply(selected) },
                 enabled = selected != currentPower,
-                modifier = Modifier.fillMaxWidth().height(56.dp)
+                modifier = Modifier.fillMaxWidth()
             ) { Text(stringResource(Res.string.apply)) }
         }
     }
@@ -735,16 +727,14 @@ fun EditableStatRow(
             )
             Spacer(modifier = Modifier.width(12.dp))
             Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .background(MaterialTheme.colorScheme.secondaryContainer, CircleShape),
+                modifier = Modifier.size(48.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = EditIcon,
                     contentDescription = actionLabel,
-                    modifier = Modifier.size(20.dp),
-                    tint = MaterialTheme.colorScheme.onSecondaryContainer
+                    modifier = Modifier.size(24.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }

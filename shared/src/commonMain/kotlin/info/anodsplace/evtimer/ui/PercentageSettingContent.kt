@@ -7,7 +7,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -90,7 +89,7 @@ fun PercentageSettingContent(
     Row(
         verticalAlignment = Alignment.CenterVertically
     ) {
-        TextButton(
+        AppTextButton(
             onClick = { onValueChange((value - clampedStep).coerceAtLeast(min.toFloat())) },
             enabled = value > min,
             modifier = Modifier
@@ -133,7 +132,7 @@ fun PercentageSettingContent(
                 .width(96.dp)
                 .semantics { contentDescription = inputFieldDescription }
         )
-        TextButton(
+        AppTextButton(
             onClick = { onValueChange((value + clampedStep).coerceAtMost(max.toFloat())) },
             enabled = value < max,
             modifier = Modifier

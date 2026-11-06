@@ -14,11 +14,8 @@ import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -130,7 +127,7 @@ fun EndSummaryScreen(
                             stringResource(Res.string.power_value, formatLocaleNumber(it, 0, 1), stringResource(Res.string.unit_kw))
                         } ?: unknown)
                     if (entry != null && allowReadingEditing) {
-                        TextButton(onClick = { editing = true }) {
+                        AppTextButton(onClick = { editing = true }) {
                             Text(stringResource(if (entry.actualPercent == null) Res.string.reading_add else Res.string.reading_edit))
                         }
                     }
@@ -150,10 +147,10 @@ fun EndSummaryScreen(
                 }
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedButton(onClick = onDone, modifier = Modifier.weight(1f)) {
+                AppPrimaryButton(onClick = onDone, modifier = Modifier.weight(1f)) {
                     Text(stringResource(Res.string.summary_done))
                 }
-                if (onShare != null) Button(onClick = {
+                if (onShare != null) AppSecondaryButton(onClick = {
                     scope.launch(start = CoroutineStart.UNDISPATCHED) {
                         try {
                             if (onShare(shareText) == ShareResult.Copied) snackbar.showSnackbar(copied)
@@ -230,7 +227,7 @@ internal fun CarReadingDialog(
             }
         },
         confirmButton = {
-            TextButton(enabled = valid && !busy, onClick = {
+            AppTextButton(enabled = valid && !busy, onClick = {
                 busy = true
                 failed = false
                 scope.launch {
@@ -249,7 +246,7 @@ internal fun CarReadingDialog(
             }) { Text(stringResource(Res.string.save)) }
         },
         dismissButton = {
-            TextButton(enabled = !busy, onClick = onDismiss) { Text(stringResource(Res.string.cancel)) }
+            AppTextButton(enabled = !busy, onClick = onDismiss) { Text(stringResource(Res.string.cancel)) }
         }
     )
 }

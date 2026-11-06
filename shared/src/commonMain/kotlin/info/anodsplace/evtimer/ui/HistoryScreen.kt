@@ -14,12 +14,10 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -59,7 +57,7 @@ fun HistoryScreen(
             title = { Text(stringResource(Res.string.history_delete_title)) },
             text = { Text(stringResource(Res.string.history_delete_message)) },
             confirmButton = {
-                TextButton(enabled = !busy, onClick = {
+                AppDestructiveButton(enabled = !busy, onClick = {
                     val id = requireNotNull(deletingId)
                     busy = true
                     scope.launch {
@@ -79,7 +77,7 @@ fun HistoryScreen(
                 }) { Text(stringResource(Res.string.history_delete)) }
             },
             dismissButton = {
-                TextButton(enabled = !busy, onClick = { deletingId = null }) {
+                AppTextButton(enabled = !busy, onClick = { deletingId = null }) {
                     Text(stringResource(Res.string.cancel))
                 }
             }
@@ -142,7 +140,7 @@ private fun HistoryCard(entry: ChargingHistoryEntry, onClick: () -> Unit, onDele
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-            IconButton(onClick = onDelete) {
+            AppIconButton(onClick = onDelete) {
                 Icon(painterResource(Res.drawable.ic_delete),
                     stringResource(Res.string.history_delete_description, date, preset))
             }
