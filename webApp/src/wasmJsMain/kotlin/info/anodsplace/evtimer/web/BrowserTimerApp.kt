@@ -6,6 +6,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.dismiss
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
@@ -22,6 +26,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.jetbrains.compose.resources.stringResource
+import org.jetbrains.compose.resources.painterResource
 import org.w3c.dom.events.Event
 import kotlin.time.Clock
 
@@ -53,6 +58,7 @@ internal fun BrowserTimerApp() {
     var failed by remember { mutableStateOf(false) }
     var notificationFailed by remember { mutableStateOf(false) }
     var offlineStatus by remember { mutableStateOf(pwaStatus()) }
+    val pwaSnackbar = remember { SnackbarHostState() }
     val completeTitle = stringResource(Res.string.web_notification_complete)
     val milestoneTitle = stringResource(Res.string.web_notification_milestone)
     val notificationBody = stringResource(Res.string.web_notification_body)
@@ -157,6 +163,7 @@ internal fun BrowserTimerApp() {
             notificationFailed = true
         }
         window.addEventListener("ev-timer-pwa-status", pwaChanged)
+        offlineStatus = pwaStatus()
         document.addEventListener("visibilitychange", resume)
         window.addEventListener("pageshow", resume)
         window.addEventListener("focus", resume)
@@ -173,15 +180,32 @@ internal fun BrowserTimerApp() {
     }
 
     AppTheme {
+        val updateNotice = stringResource(Res.string.web_update_notice)
+        val errorNotice = stringResource(Res.string.web_offline_error_notice)
+        val refreshAction = stringResource(Res.string.web_refresh_action)
+        val detailsAction = stringResource(Res.string.web_status_details)
+        LaunchedEffect(offlineStatus) {
+            if (offlineStatus == "update" || offlineStatus == "error") {
+                val update = offlineStatus == "update"
+                val result = pwaSnackbar.showSnackbar(
+                    message = if (update) updateNotice else errorNotice,
+                    actionLabel = if (update) refreshAction else detailsAction,
+                    withDismissAction = true,
+                    duration = SnackbarDuration.Indefinite
+                )
+                if (result == SnackbarResult.ActionPerformed) {
+                    if (update) {
+                        mutex.withLock {
+                            if (!failed) window.location.reload()
+                        }
+                    } else navigate(AppDestination.Settings)
+                }
+            }
+        }
         Surface(Modifier.fillMaxSize()) {
             Column(Modifier.fillMaxSize()) {
                 if (notificationFailed) Text(stringResource(Res.string.web_notifications_error),
                     Modifier.padding(16.dp), color = MaterialTheme.colorScheme.error)
-                if (offlineStatus == "error" || offlineStatus == "update") {
-                    Text(stringResource(if (offlineStatus == "error") Res.string.web_offline_error else Res.string.web_offline_update),
-                        Modifier.padding(16.dp),
-                        color = if (offlineStatus == "error") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface)
-                }
                 if (failed) {
                     Text(stringResource(Res.string.web_timer_error), Modifier.padding(16.dp),
                         color = MaterialTheme.colorScheme.error)
@@ -295,6 +319,29 @@ internal fun BrowserTimerApp() {
                             }
                         }
                     )
+                }
+                // Reserve layout space instead of covering timer or navigation controls.
+                SnackbarHost(pwaSnackbar, Modifier.fillMaxWidth()) { notice ->
+                    Snackbar(
+                        modifier = Modifier.padding(12.dp).semantics {
+                            liveRegion = LiveRegionMode.Polite
+                            dismiss { notice.dismiss(); true }
+                        },
+                        action = {
+                            TextButton(
+                                onClick = notice::performAction,
+                                modifier = Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp),
+                                colors = ButtonDefaults.textButtonColors(
+                                    contentColor = MaterialTheme.colorScheme.inversePrimary)
+                            ) { Text(requireNotNull(notice.visuals.actionLabel)) }
+                        },
+                        dismissAction = {
+                            IconButton(onClick = notice::dismiss, modifier = Modifier.size(48.dp)) {
+                                Icon(painterResource(Res.drawable.web_close),
+                                    stringResource(Res.string.web_notice_dismiss))
+                            }
+                        }
+                    ) { Text(notice.visuals.message) }
                 }
             }
         }
