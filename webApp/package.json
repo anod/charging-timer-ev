@@ -1,7 +1,8 @@
 {
   "private": true,
   "scripts": {
-    "test": "node --test tests/indexeddb.test.cjs tests/notifications.test.cjs tests/pwa-unit.test.cjs tests/editor-focus.test.cjs",
+    "test": "node --test tests/indexeddb.test.cjs tests/notifications.test.cjs tests/pwa-unit.test.cjs tests/editor-focus.test.cjs tests/theme.test.cjs",
+    "test:theme": "node tests/theme.cjs",
     "test:browser": "node tests/browser.cjs",
     "test:pwa": "node tests/pwa.cjs",
     "package:pages": "node pwa/pages.cjs"
