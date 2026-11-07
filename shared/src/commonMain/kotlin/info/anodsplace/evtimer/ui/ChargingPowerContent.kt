@@ -14,7 +14,6 @@ import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.SelectableChipColors
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -168,7 +167,7 @@ fun CustomPowerDialog(
             }
         },
         confirmButton = {
-            TextButton(
+            AppTextButton(
                 enabled = validPower,
                 onClick = {
                     onConfirm(requireNotNull(power))
@@ -176,7 +175,7 @@ fun CustomPowerDialog(
             ) { Text(stringResource(Res.string.add)) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(Res.string.cancel)) }
+            AppTextButton(onClick = onDismiss) { Text(stringResource(Res.string.cancel)) }
         }
     )
 }

@@ -7,18 +7,20 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.ComposeViewport
 import info.anodsplace.evtimer.data.*
+import info.anodsplace.evtimer.ui.AppDestructiveButton
+import info.anodsplace.evtimer.ui.AppPrimaryButton
+import info.anodsplace.evtimer.ui.AppSecondaryButton
+import info.anodsplace.evtimer.ui.AppTextButton
 import info.anodsplace.evtimer.web.generated.resources.*
 import kotlinx.browser.document
 import kotlinx.coroutines.CancellationException
@@ -67,7 +69,7 @@ internal fun BrowserBackupSettings(storage: BrowserStorage, state: BrowserState,
             Text(stringResource(Res.string.web_storage_description))
             Text(stringResource(Res.string.web_storage_privacy))
             Text(stringResource(Res.string.web_storage_counts, state.backup.presets.size, state.backup.sessions.size))
-            Button(enabled = !busy, onClick = {
+            AppPrimaryButton(enabled = !busy, onClick = {
                 scope.launch {
                     operation {
                         val bytes = BackupFormat.encode(storage.exportBackup(WEB_APP_VERSION))
@@ -76,7 +78,7 @@ internal fun BrowserBackupSettings(storage: BrowserStorage, state: BrowserState,
                     }
                 }
             }) { Text(stringResource(Res.string.web_backup_export)) }
-            Button(enabled = !busy && state.activeSession == null, onClick = {
+            AppSecondaryButton(enabled = !busy && state.activeSession == null, onClick = {
                 // File pickers need the browser's trusted click activation.
                 scope.launch(start = CoroutineStart.UNDISPATCHED) {
                     operation {
@@ -102,7 +104,7 @@ internal fun BrowserBackupSettings(storage: BrowserStorage, state: BrowserState,
                 }
             },
             confirmButton = {
-                TextButton(enabled = !busy, onClick = {
+                AppDestructiveButton(enabled = !busy, onClick = {
                     scope.launch {
                         operation {
                             storage.restoreBackup(backup)
@@ -113,7 +115,7 @@ internal fun BrowserBackupSettings(storage: BrowserStorage, state: BrowserState,
                 }) { Text(stringResource(Res.string.web_backup_replace)) }
             },
             dismissButton = {
-                TextButton(enabled = !busy, onClick = { pending = null }) {
+                AppTextButton(enabled = !busy, onClick = { pending = null }) {
                     Text(stringResource(Res.string.web_backup_cancel))
                 }
             }

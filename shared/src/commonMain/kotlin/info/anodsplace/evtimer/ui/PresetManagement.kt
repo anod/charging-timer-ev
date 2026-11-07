@@ -18,11 +18,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -185,10 +183,10 @@ internal fun PresetManagement(
                             renamingId = id
                         }.padding(vertical = 12.dp)
                     )
-                    IconButton(onClick = { infoId = id }) {
+                    AppIconButton(onClick = { infoId = id }) {
                         Icon(painterResource(Res.drawable.ic_info), stringResource(Res.string.calibration_info, preset.name))
                     }
-                    IconButton(onClick = { deletingId = id }, enabled = presets.size > 1) {
+                    AppIconButton(onClick = { deletingId = id }, enabled = presets.size > 1) {
                         Icon(DeletePresetIcon, stringResource(Res.string.delete_named_preset, preset.name))
                     }
                 }
@@ -211,12 +209,12 @@ internal fun PresetManagement(
             title = { Text(stringResource(Res.string.delete_preset)) },
             text = { Text(stringResource(Res.string.delete_preset_confirmation, preset.name)) },
             confirmButton = {
-                TextButton(onClick = { onDelete(preset.id); deletingId = null }) {
+                AppDestructiveButton(onClick = { onDelete(preset.id); deletingId = null }) {
                     Text(stringResource(Res.string.delete))
                 }
             },
             dismissButton = {
-                TextButton(onClick = { deletingId = null }) { Text(stringResource(Res.string.cancel)) }
+                AppTextButton(onClick = { deletingId = null }) { Text(stringResource(Res.string.cancel)) }
             }
         )
     }
@@ -240,7 +238,7 @@ internal fun PresetManagement(
                                 ),
                                     style = MaterialTheme.typography.bodySmall)
                             }
-                            TextButton(onClick = {
+                            AppTextButton(onClick = {
                                 resettingSpeed = power
                                 resetFailed = false
                             }) { Text(stringResource(Res.string.calibration_reset_speed)) }
@@ -249,7 +247,7 @@ internal fun PresetManagement(
                 }
             },
             confirmButton = {
-                TextButton(onClick = { infoId = null }) { Text(stringResource(Res.string.calibration_close)) }
+                AppTextButton(onClick = { infoId = null }) { Text(stringResource(Res.string.calibration_close)) }
             }
         )
     }
@@ -267,7 +265,7 @@ internal fun PresetManagement(
                     }
                 },
                 confirmButton = {
-                    TextButton(enabled = !resetBusy, onClick = {
+                    AppDestructiveButton(enabled = !resetBusy, onClick = {
                         resetBusy = true
                         resetFailed = false
                         scope.launch {
@@ -286,7 +284,7 @@ internal fun PresetManagement(
                     }) { Text(stringResource(Res.string.reset)) }
                 },
                 dismissButton = {
-                    TextButton(enabled = !resetBusy, onClick = { resettingSpeed = null }) {
+                    AppTextButton(enabled = !resetBusy, onClick = { resettingSpeed = null }) {
                         Text(stringResource(Res.string.cancel))
                     }
                 }
@@ -331,10 +329,10 @@ internal fun PresetRenameDialog(
             }
         },
         confirmButton = {
-            TextButton(enabled = valid, onClick = {
+            AppTextButton(enabled = valid, onClick = {
                 onRename(if (name == preset.name) preset.name else validation.name)
             }) { Text(stringResource(Res.string.save)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(Res.string.cancel)) } }
+        dismissButton = { AppTextButton(onClick = onDismiss) { Text(stringResource(Res.string.cancel)) } }
     )
 }

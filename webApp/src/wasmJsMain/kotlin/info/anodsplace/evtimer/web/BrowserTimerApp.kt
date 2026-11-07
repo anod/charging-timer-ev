@@ -185,7 +185,7 @@ internal fun BrowserTimerApp() {
                 if (failed) {
                     Text(stringResource(Res.string.web_timer_error), Modifier.padding(16.dp),
                         color = MaterialTheme.colorScheme.error)
-                    TextButton(onClick = { scope.launch { operation() } }) {
+                    AppTextButton(onClick = { scope.launch { operation() } }) {
                         Text(stringResource(Res.string.web_storage_retry))
                     }
                 }
@@ -313,7 +313,7 @@ private fun BrowserPreferences(
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(stringResource(Res.string.web_browser_settings), style = MaterialTheme.typography.titleMedium)
             Text(stringResource(Res.string.web_foreground_limit), style = MaterialTheme.typography.bodyMedium)
-            TextButton(enabled = !busy, onClick = onPermission) {
+            AppTextButton(enabled = !busy, onClick = onPermission) {
                 Text(stringResource(if (state.notificationsEnabled)
                     Res.string.web_notifications_disable else Res.string.web_notifications_enable))
             }

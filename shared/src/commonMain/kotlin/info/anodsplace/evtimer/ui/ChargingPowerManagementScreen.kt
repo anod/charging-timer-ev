@@ -6,9 +6,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
@@ -48,7 +46,7 @@ fun ChargingPowerManagementScreen(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            Button(onClick = { showCustomPowerDialog = true }) {
+            AppPrimaryButton(onClick = { showCustomPowerDialog = true }) {
                 Text(stringResource(Res.string.add_custom_power))
             }
             SettingsGroup {
@@ -62,7 +60,7 @@ fun ChargingPowerManagementScreen(
                             { Text(stringResource(Res.string.settings_power_selected)) }
                         } else null,
                         trailingContent = {
-                            IconButton(
+                            AppIconButton(
                                 enabled = powers.any { it != power },
                                 onClick = { onRemovePower(power) }
                             ) {

@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -102,12 +101,12 @@ internal fun BackupSettingsContent(
                 }
             },
             confirmButton = {
-                TextButton(onClick = onConfirm, enabled = !state.busy && isRunning == false) {
+                AppDestructiveButton(onClick = onConfirm, enabled = !state.busy && isRunning == false) {
                     Text(stringResource(Res.string.backup_restore))
                 }
             },
             dismissButton = {
-                TextButton(onClick = onDismiss, enabled = !state.busy) {
+                AppTextButton(onClick = onDismiss, enabled = !state.busy) {
                     Text(stringResource(Res.string.cancel))
                 }
             }
