@@ -3,6 +3,8 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const http = require("node:http");
+const os = require("node:os");
+const { prepare } = require("../pwa/prepare.cjs");
 
 const root = path.resolve(process.argv[2] || "build/dist/wasmJs/productionExecutable");
 const evidence = path.resolve(process.env.EV_THEME_EVIDENCE || "build/theme-evidence");
@@ -13,17 +15,23 @@ const mime = { ".html": "text/html", ".js": "application/javascript", ".mjs": "a
 
 (async () => {
     fs.mkdirSync(evidence, { recursive: true });
+    const baseline = before ? fs.mkdtempSync(path.join(os.tmpdir(), "ev-theme-baseline-")) : null;
+    if (baseline) {
+        fs.cpSync(root, baseline, { recursive: true });
+        fs.writeFileSync(path.join(baseline, "index.html"), before);
+        prepare(baseline);
+    }
     let variant = "after";
     const server = http.createServer((request, response) => {
         const relative = decodeURIComponent(new URL(request.url, "http://localhost").pathname).slice(1);
-        const file = path.resolve(root, relative || "index.html");
-        if (!file.startsWith(root + path.sep) || !fs.existsSync(file) || !fs.statSync(file).isFile()) {
+        const serving = variant === "before" ? baseline : root;
+        const file = path.resolve(serving, relative || "index.html");
+        if (!file.startsWith(serving + path.sep) || !fs.existsSync(file) || !fs.statSync(file).isFile()) {
             response.writeHead(404).end();
             return;
         }
         response.setHeader("Content-Type", mime[path.extname(file)] || "application/octet-stream");
-        response.end(variant === "before" && file === path.join(root, "index.html")
-            ? before : fs.readFileSync(file));
+        response.end(fs.readFileSync(file));
     });
     let browser;
     try {
@@ -57,9 +65,12 @@ const mime = { ".html": "text/html", ".js": "application/javascript", ".mjs": "a
                     page.on("pageerror", error => errors.push(error.message));
                     await page.goto(url);
                     await page.getByRole("button", { name: "Start Timer", exact: true }).waitFor();
+                    await page.waitForFunction(() => globalThis.evTimerPwa?.status() === "ready");
                     for (const scheme of ["light", "dark", "light"]) {
                         await page.emulateMedia({ colorScheme: scheme });
                         await page.waitForTimeout(300);
+                        assert.equal(await page.evaluate(() => evTimerPwa.status()), "ready",
+                            "Theme evidence must not include fixture-induced offline errors");
                         const values = await page.evaluate(() => ({
                             themeColor: [...document.querySelectorAll('meta[name="theme-color"]')]
                                 .find(meta => !meta.media || matchMedia(meta.media).matches)?.content,
@@ -99,5 +110,6 @@ const mime = { ".html": "text/html", ".js": "application/javascript", ".mjs": "a
     } finally {
         if (browser) await browser.close();
         await new Promise(resolve => server.close(resolve));
+        if (baseline) fs.rmSync(baseline, { recursive: true });
     }
 })().catch(error => { console.error(error); process.exitCode = 1; });
