@@ -95,12 +95,26 @@ async function labels(page, ...texts) {
                 await page.screenshot({ path: path.join(evidence, "pwa-label-failure.png") });
                 assert.fail(`Visible semantics must contain: ${text}`);
             }
+
             await page.waitForTimeout(100);
         }
     }
     // Let Compose paint the frame corresponding to the populated semantics.
     await page.evaluate(() => new Promise(resolve =>
         requestAnimationFrame(() => requestAnimationFrame(resolve))));
+}
+
+async function noticeControls(page, action) {
+    await labels(page, action, "Stop Timer");
+    await page.waitForTimeout(500);
+    const notice = await page.getByRole("button", { name: action, exact: true }).boundingBox();
+    const stop = await page.getByRole("button", { name: "Stop Timer", exact: true }).boundingBox();
+    assert.ok(notice && stop);
+    assert.ok(notice.width >= 48 && notice.height >= 48, "Action has a 48px target");
+    const centerY = notice.y + notice.height / 2;
+    assert.ok(stop.y + stop.height <= centerY - 24, "48px target must not overlap Stop Timer");
+    assert.ok(centerY + 24 <= page.viewportSize().height, "48px target stays inside viewport");
+    return { x: notice.x + notice.width / 2, y: centerY + 23 };
 }
 
 async function controlled(page, url) {
@@ -344,6 +358,7 @@ async function refresh(page) {
         await refresh(page);
         await state(page);
         await labels(page, "Charging in Progress");
+        await status(page, "error");
         await page.waitForFunction(async version => {
             const r = await navigator.serviceWorker.getRegistration();
             return !r.installing && !r.waiting && !(await caches.keys()).some(name => name.endsWith(version));
@@ -361,13 +376,16 @@ async function refresh(page) {
         other.on("domcontentloaded", () => { otherNavigations++; });
         assert.deepEqual((await state(page)).activeSession, aged);
         assert.equal(await page.evaluate(() => navigator.serviceWorker.controller.scriptURL), url + "sw.js");
-        await labels(page, "Update ready. Refresh this window to apply it. Other timer windows and saved data stay intact.",
+        await labels(page, "Update available", "Refresh",
             "Charging in Progress");
         await page.screenshot({ path: path.join(evidence, "pwa-refresh-before.png") });
         let refreshNavigations = 0;
         page.on("domcontentloaded", () => { refreshNavigations++; });
         await setOffline(context, true);
-        await refresh(page);
+        await Promise.all([
+            page.waitForEvent("load"),
+            clickCanvasButton(page, "Refresh")
+        ]);
         await shell(page, "B");
         await status(page, "ready");
         assert.equal(refreshNavigations, 2, "One manual refresh plus exactly one internal reload");
@@ -491,17 +509,47 @@ async function refresh(page) {
                 fail = "icons/icon-192.png";
                 await shot.evaluate(() => navigator.serviceWorker.getRegistration().then(r => r.update()));
                 await status(shot, "error");
-                await labels(shot, "Offline setup or update failed. Reconnect and reopen to retry. Keep a backup; do not clear site data.",
+                await labels(shot, "Offline setup or update failed. Reconnect to retry.", "Details",
                     "Charging in Progress", "Estimated charging time",
                     "Charging Speed", "Current %", "Target %", "Time Remaining", "Time to 80%", "Elapsed Time");
                 await shot.screenshot({ path: path.join(evidence, `pwa-error-${device}-${colorScheme}.png`) });
+                const detailsTarget = await noticeControls(shot, "Details");
+                if (device === "desktop") {
+                    await shot.locator("canvas").first().focus();
+                    for (let tab = 0; tab < 3; tab++) await shot.keyboard.press("Tab");
+                    await shot.keyboard.press("Enter");
+                } else await shot.mouse.click(detailsTarget.x, detailsTarget.y);
+                await labels(shot, "Offline setup or update failed. Reconnect and reopen to retry. Keep a backup; do not clear site data.",
+                    "Charging data");
+                await clickCanvasButton(shot, "Back");
                 fail = null;
                 await shot.evaluate(() => navigator.serviceWorker.getRegistration().then(r => r.update()));
                 await status(shot, "update");
-                await labels(shot, "Update ready. Refresh this window to apply it. Other timer windows and saved data stay intact.",
+                await labels(shot, "Update available", "Refresh",
                     "Charging in Progress", "Estimated charging time",
                     "Charging Speed", "Current %", "Target %", "Time Remaining", "Time to 80%", "Elapsed Time");
                 await shot.screenshot({ path: path.join(evidence, `pwa-update-${device}-${colorScheme}.png`) });
+                const refreshTarget = await noticeControls(shot, "Refresh");
+                const dismissTarget = await noticeControls(shot, "Dismiss");
+                const savedBeforeRefresh = await state(shot);
+                if (colorScheme === "dark") {
+                    await shot.mouse.click(dismissTarget.x, dismissTarget.y);
+                    await shot.getByRole("button", { name: "Dismiss", exact: true }).waitFor({ state: "hidden" });
+                    await shot.evaluate(() => {
+                        history.pushState({ evTimerDepth: 2 }, "", "#/settings");
+                        dispatchEvent(new PopStateEvent("popstate"));
+                    });
+                    await labels(shot, "Update ready. Refresh this window to apply it. Other timer windows and saved data stay intact.",
+                        "Charging data");
+                } else {
+                    await Promise.all([
+                        shot.waitForEvent("load"),
+                        shot.mouse.click(refreshTarget.x, refreshTarget.y)
+                    ]);
+                    await status(shot, "ready");
+                }
+                assert.deepEqual((await state(shot)).activeSession, savedBeforeRefresh.activeSession);
+                assert.deepEqual((await state(shot)).backup, savedBeforeRefresh.backup);
                 await shotContext.close();
                 console.log(`PWA: ${device} ${colorScheme} ready/offline/error/update evidence captured`);
                 serving = b;
@@ -518,7 +566,7 @@ async function refresh(page) {
         const failed = await failedContext.newPage();
         await failed.goto(url);
         await status(failed, "error");
-        await labels(failed, "Offline setup or update failed. Reconnect and reopen to retry. Keep a backup; do not clear site data.");
+        await labels(failed, "Offline setup or update failed. Reconnect to retry.", "Details");
         const stillUsable = await start(failed);
         assert.deepEqual((await state(failed)).activeSession, stillUsable,
             "Registration failure must not stop the online workflow or clear data");

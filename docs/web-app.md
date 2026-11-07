@@ -54,7 +54,12 @@ The privacy policy remains network-only and is not available from the offline
 shell. **Refresh this window** to apply a fully downloaded update. An update
 discovered and installed within 15 seconds of the refresh's setup also applies,
 with at most one internal reload. Slower downloads show **Update ready** for the
-next refresh. Other open timer windows are not reloaded and keep their matching
+next refresh. Update and offline-error feedback uses an indefinite Material 3
+snackbar in a dedicated bottom layout slot, not an overlay on timer/navigation
+controls. **Refresh** waits for pending timer/storage operations before invoking
+normal browser refresh; a failed storage operation prevents that refresh.
+**Details** opens Settings with persistent recovery and backup guidance. Dismissing
+a snackbar does not hide the detailed status in Settings. Other open timer windows are not reloaded and keep their matching
 shell assets, including lazy-loaded resources. No charging storage is cleared or
 migrated. Offline or failed downloads leave the last complete shell usable.
 Firefox can label a worker-served refresh as a normal navigation; a per-window
