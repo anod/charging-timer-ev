@@ -157,6 +157,7 @@ internal fun BrowserTimerApp() {
             notificationFailed = true
         }
         window.addEventListener("ev-timer-pwa-status", pwaChanged)
+        offlineStatus = pwaStatus()
         document.addEventListener("visibilitychange", resume)
         window.addEventListener("pageshow", resume)
         window.addEventListener("focus", resume)

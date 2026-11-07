@@ -3,7 +3,7 @@
     <string name="web_offline_shell_unavailable">Offline shell unavailable. Reconnect and reopen the app; do not clear site data.</string>
     <string name="web_offline_loading">Preparing offline use. Keep this page online until ready.</string>
     <string name="web_offline_ready">Ready for offline use.</string>
-    <string name="web_offline_update">Update ready. Close all timer tabs and installed windows, then reopen. Saved timers and data stay intact.</string>
+    <string name="web_offline_update">Update ready. Refresh this window to apply it. Other timer windows and saved data stay intact.</string>
     <string name="web_offline_error">Offline setup or update failed. Reconnect and reopen to retry. Keep a backup; do not clear site data.</string>
     <string name="web_offline_unsupported">Offline installation is unavailable in this browser or insecure context. Use HTTPS in a supported browser.</string>
     <string name="web_storage_title">Charging data</string>

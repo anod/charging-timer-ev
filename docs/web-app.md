@@ -32,7 +32,7 @@ enabled. Older engines without Wasm GC cannot run this Compose/Wasm app.
 | Desktop Chromium / Chrome / Edge | Production app, project-path manifest, service worker, offline profile reopen and storage checked in CI Chromium; branded Chrome/Edge not separately device-tested | Browser install UI where supported |
 | Android Chrome | Expected on current Wasm GC-capable Chrome; CI phone viewport is not physical-device verification | Install app / Add to Home screen |
 | iOS Safari | Expected on current Wasm GC-capable Safari (iOS 18.2+); **not verified on a physical device** | Manual Safari Add to Home Screen |
-| Firefox desktop | Current Wasm GC-capable versions may run in a tab; not part of initial automated verification | No desktop install flow promised |
+| Firefox desktop | Local production PWA tests cover the original waiting-worker transition, refresh updates, multi-window isolation and offline persistence | No desktop install flow promised |
 | Other/in-app browsers | Not verified; use a supported full browser | Not promised |
 
 This matrix describes the initial verification scope, not a guarantee for every
@@ -51,8 +51,42 @@ catch up when reopened; reopening is not a background alarm.
 Offline use requires one complete successful online load and service-worker
 setup. If setup fails, reconnect and reopen; do not clear site data to repair it.
 The privacy policy remains network-only and is not available from the offline
-shell. A downloaded app update applies only after **all** timer tabs and installed
-app windows close; reopen afterward. Reloading one tab does not force an update.
+shell. **Refresh this window** to apply a fully downloaded update. An update
+discovered and installed within 15 seconds of the refresh's setup also applies,
+with at most one internal reload. Slower downloads show **Update ready** for the
+next refresh. Other open timer windows are not reloaded and keep their matching
+shell assets, including lazy-loaded resources. No charging storage is cleared or
+migrated. Offline or failed downloads leave the last complete shell usable.
+Firefox can label a worker-served refresh as a normal navigation; a per-window
+history-entry marker recognizes the departing/reloaded document without treating
+a new tab or Back/Forward as a refresh. Session Storage also bounds the internal
+reload to one per refresh flow; if it is unavailable, automatic reloading is disabled.
+
+Shell inventories and document-to-version bindings live in Cache Storage, separate
+from charging data. Bindings are persisted before activating a waiting worker;
+new document navigations select the current build. Old shells are retained while
+controlled windows exist and reclaimed on a later client-free activation. New
+shells use a separate namespace so a legacy activation cannot delete an installing
+upgrade. Cleanup only considers predecessors recorded at install start, never a
+later worker's installing/waiting cache. On the
+first upgrade from the original worker, the inventory is reconstructed and
+authenticated against the original byte-derived cache version using a frozen
+copy of that worker's template. Missing/corrupt legacy inventories reject the
+upgrade rather than blessing changed bytes. Missing legacy assets fail explicitly rather than
+being repaired using a different deployment. Subsequent builds retain the original
+generated SHA-256 inventory for verification and same-version repair. Privacy
+paths remain network-only for every build.
+
+The original browser adapter cannot activate a waiting worker or internally reload.
+The first upgraded worker therefore activates automatically **after** downloading
+and verifying its entire shell and pinning existing documents. Those documents
+stay on their old shell until a navigation/refresh. If that initial legacy refresh
+itself discovers the upgrade, one further refresh is necessary; forcing a reload
+of an unidentified legacy window would risk interrupting another active timer.
+After this compatibility transition, updates discovered during refresh use the
+bounded internal reload above. Closed-document bindings are pruned during
+navigations and activation requests, so a long-lived window does not cause
+unbounded binding growth.
 
 Charging data is in the browser's IndexedDB storage for this site, not the native
 app's database. Browser storage eviction, clearing site data, or private browsing
