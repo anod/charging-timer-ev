@@ -30,7 +30,7 @@ enabled. Older engines without Wasm GC cannot run this Compose/Wasm app.
 | Browser/platform | Initial status | Installation |
 | --- | --- | --- |
 | Desktop Chromium / Chrome / Edge | Production app, project-path manifest, service worker, offline profile reopen and storage checked in CI Chromium; branded Chrome/Edge not separately device-tested | Browser install UI where supported |
-| Android Chrome | Expected on current Wasm GC-capable Chrome; CI phone viewport is not physical-device verification | Install app / Add to Home screen |
+| Android Chrome | Pixel 6a / Chrome 156 regular-tab light/dark system-bar checks passed locally; installed WebAPK not device-verified | Install app / Add to Home screen |
 | iOS Safari | Expected on current Wasm GC-capable Safari (iOS 18.2+); **not verified on a physical device** | Manual Safari Add to Home Screen |
 | Firefox desktop | Local production PWA tests cover the original waiting-worker transition, refresh updates, multi-window isolation and offline persistence | No desktop install flow promised |
 | Other/in-app browsers | Not verified; use a supported full browser | Not promised |
@@ -63,6 +63,16 @@ these areas light on engines that ignore the dark override. Real Android
 before/after light/dark captures, including cold launch, are required to confirm
 behavior for a particular browser/version; desktop phone emulation is not proof.
 
+On a Pixel 6a with regular Chrome `156.0.8078.81`, November 2026 local
+before/after captures verified the gesture-navigation background changing from
+white in both themes to the app background (`#FBFDF8` light, `#191C1A` dark).
+The status bar already followed Chrome's theme in the baseline and retained
+Chrome's own tint (`#F8FAF3` light, `#0B0F0C` dark), not the exact app color.
+These checks used the browser's **System default** theme, real Android night-mode
+changes and a localhost production shell with a matching offline-ready worker;
+no media emulation or installed-PWA launch was involved. They do not establish
+WebAPK splash behavior, three-button navigation or iOS device support.
+
 [Chrome's edge-to-edge opt-in](https://developer.chrome.com/docs/css-ui/edge-to-edge)
 (`viewport-fit=cover`) can let the page paint behind a transparent gesture bar,
 but does not recolor an installed WebAPK splash or guarantee three-button bar
@@ -79,7 +89,10 @@ change already-installed cold-launch metadata and is not used.
 Local checks: run `npm test` in `webApp` to check the document/manifest against
 `Theme.kt`, then `npm run test:theme` after building the production distribution.
 The browser check covers pre-Wasm page paint, light-dark-light media changes,
-manifest parsing and unchanged phone/desktop canvas geometry. Its screenshots
+manifest parsing and unchanged phone/desktop canvas geometry. A supplied prior
+HTML snapshot is served from a copied shell with its worker inventory regenerated;
+captures require offline-ready state to reject fixture-induced error snackbars.
+Its screenshots
 are browser viewports only, not Android system-bar evidence.
 
 ## Limitations and keeping data safe
