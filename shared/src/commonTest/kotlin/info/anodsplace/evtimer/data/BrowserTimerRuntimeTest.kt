@@ -210,6 +210,22 @@ class BrowserTimerRuntimeTest {
     }
 
     @Test
+    fun undoPowerRemovalSurvivesReloadForSelectedAndUnselectedPowers() = runTest {
+        val runtime = configured()
+        runtime.addPower(10f)
+        val initial = runtime.reconcile().configuration().settings
+        val selected = runtime.removePowerForUndo(initial.chargingPower)
+        assertTrue(selected)
+        runtime.restorePower(initial.chargingPower, selected)
+        assertEquals(initial, runtime().reconcile().configuration().settings)
+
+        val unselected = runtime.removePowerForUndo(7f)
+        assertFalse(unselected)
+        runtime.restorePower(7f, unselected)
+        assertEquals(initial, runtime().reconcile().configuration().settings)
+    }
+
+    @Test
     fun readingsLearningResetAndBackupRemainPortableAndNeverRewriteFrozenSegments() = runTest {
         val runtime = configured()
         runtime.configure(ConfigurationViewEvent.UpdatePreset)

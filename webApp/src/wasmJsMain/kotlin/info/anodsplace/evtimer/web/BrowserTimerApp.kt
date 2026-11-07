@@ -298,7 +298,16 @@ internal fun BrowserTimerApp() {
                                     AppDestination.ChargingPowers -> ChargingPowerManagementScreen(
                                         configuration.settings.availablePowers, configuration.settings.chargingPower,
                                         onAddPower = { power -> scope.launch { operation { runtime.addPower(power) } } },
-                                        onRemovePower = { power -> scope.launch { operation { runtime.removePower(power) } } },
+                                        onRemovePower = { power ->
+                                            mutex.withLock {
+                                                val selected = runtime.removePowerForUndo(power)
+                                                refresh()
+                                                selected
+                                            }
+                                        },
+                                        onUndoRemovePower = { power, selected ->
+                                            mutex.withLock { runtime.restorePower(power, selected); refresh() }
+                                        },
                                         onBack = ::back
                                     )
                                     AppDestination.History -> HistoryScreen(

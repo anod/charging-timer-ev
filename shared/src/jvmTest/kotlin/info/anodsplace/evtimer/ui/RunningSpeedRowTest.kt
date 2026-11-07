@@ -24,21 +24,21 @@ class RunningSpeedRowTest {
     @Test
     fun clickingSpeedRowOrIconOpensSheetAndBigButtonIsGone() = runDesktopComposeUiTest {
         setContent { MaterialTheme { RunningTimerScreen(state, onEvent = {}) } }
-        onNodeWithText("Change speed").assertDoesNotExist()
-        val row = onNodeWithContentDescription("Change charging speed")
+        onNodeWithText("Change power").assertDoesNotExist()
+        val row = onNodeWithContentDescription("Change charging power")
         row.assertHeightIsAtLeast(48.dp)
-        onAllNodes(hasClickAction() and hasContentDescription("Change charging speed")).assertCountEquals(1)
+        onAllNodes(hasClickAction() and hasContentDescription("Change charging power")).assertCountEquals(1)
         assertEquals(Role.Button, row.fetchSemanticsNode().config[SemanticsProperties.Role])
 
-        onNodeWithText("Charging Speed").performClick()
-        onNodeWithText("Change speed").assertExists()
+        onNodeWithText("Charging Power").performClick()
+        onNodeWithText("Change power").assertExists()
         onNodeWithText("Apply").assertExists()
     }
 
     @Test
     fun clickingTonalButtonOpensSheet() = runDesktopComposeUiTest {
         setContent { MaterialTheme { RunningTimerScreen(state, onEvent = {}) } }
-        onNodeWithContentDescription("Change charging speed").performClick()
-        onNodeWithText("Change speed").assertExists()
+        onNodeWithContentDescription("Change charging power").performClick()
+        onNodeWithText("Change power").assertExists()
     }
 }

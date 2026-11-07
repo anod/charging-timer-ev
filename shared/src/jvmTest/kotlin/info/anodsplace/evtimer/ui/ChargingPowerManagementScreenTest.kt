@@ -35,7 +35,12 @@ class ChargingPowerManagementScreenTest {
                     },
                     onRemovePower = {
                         removed += it
+                        val selected = settings.value.chargingPower == it
                         settings.value = settings.value.withRemovedPower(it)
+                        selected
+                    },
+                    onUndoRemovePower = { power, selected ->
+                        settings.value = settings.value.withRestoredPower(power, selected)
                     },
                     onBack = { backs++ }
                 )
@@ -55,9 +60,15 @@ class ChargingPowerManagementScreenTest {
         }
         onNodeWithContentDescription("Remove 50.0 kW").performScrollTo().performClick()
         runOnIdle { assertEquals(7f, settings.value.chargingPower) }
+        onNodeWithText("Undo").performClick()
+        runOnIdle {
+            assertEquals(50f, settings.value.chargingPower)
+            assertEquals(listOf(7f, 11f, 50f), settings.value.availablePowers)
+        }
+        onNodeWithContentDescription("Remove 50.0 kW").performClick()
         onNodeWithContentDescription("Remove 11.0 kW").performClick()
         onNodeWithContentDescription("Remove 7.0 kW").assertIsNotEnabled()
-        runOnIdle { assertEquals(listOf(50f, 11f), removed) }
+        runOnIdle { assertEquals(listOf(50f, 50f, 11f), removed) }
         onNodeWithContentDescription("Back").performClick()
         runOnIdle { assertEquals(1, backs) }
     }
@@ -71,7 +82,8 @@ class ChargingPowerManagementScreenTest {
                     powers = (1..30).map { it.toFloat() },
                     selectedPower = 7f,
                     onAddPower = {},
-                    onRemovePower = { removed += it },
+                    onRemovePower = { removed += it; false },
+                    onUndoRemovePower = { _, _ -> },
                     onBack = {},
                     modifier = Modifier.heightIn(max = 320.dp)
                 )

@@ -506,7 +506,7 @@ async function refresh(page) {
                 await setOffline(shotContext, true);
                 await refresh(shot);
                 await labels(shot, "Charging in Progress", "Estimated charging time",
-                    "Charging Speed", "Current %", "Target %", "Time Remaining", "Time to 80%", "Elapsed Time");
+                    "Charging Power", "Current %", "Target %", "Time Remaining", "Time to 80%", "Elapsed Time");
                 await shot.screenshot({ path: path.join(evidence, `pwa-running-offline-${device}-${colorScheme}.png`) });
                 await setOffline(shotContext, false);
                 serving = a;
@@ -515,7 +515,7 @@ async function refresh(page) {
                 await status(shot, "error");
                 await labels(shot, "Offline setup or update failed. Reconnect to retry.", "Details",
                     "Charging in Progress", "Estimated charging time",
-                    "Charging Speed", "Current %", "Target %", "Time Remaining", "Time to 80%", "Elapsed Time");
+                    "Charging Power", "Current %", "Target %", "Time Remaining", "Time to 80%", "Elapsed Time");
                 await shot.screenshot({ path: path.join(evidence, `pwa-error-${device}-${colorScheme}.png`) });
                 const detailsTarget = await noticeControls(shot, "Details");
                 if (device === "desktop") {
@@ -531,7 +531,7 @@ async function refresh(page) {
                 await status(shot, "update");
                 await labels(shot, "Update available", "Refresh",
                     "Charging in Progress", "Estimated charging time",
-                    "Charging Speed", "Current %", "Target %", "Time Remaining", "Time to 80%", "Elapsed Time");
+                    "Charging Power", "Current %", "Target %", "Time Remaining", "Time to 80%", "Elapsed Time");
                 await shot.screenshot({ path: path.join(evidence, `pwa-update-${device}-${colorScheme}.png`) });
                 const refreshTarget = await noticeControls(shot, "Refresh");
                 const dismissTarget = await noticeControls(shot, "Dismiss");

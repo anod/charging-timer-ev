@@ -31,6 +31,33 @@ import kotlin.time.Instant
 class StorageRepositoryTest {
     @Test
     @OptIn(ExperimentalCoroutinesApi::class)
+    fun undoPowerRemovalPersistsSelectedAndUnselectedOptions() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        try {
+            fixture { source ->
+                val viewModel = SettingsViewModel(source.repo, source.repo, source.repo)
+                try {
+                    val selected = viewModel.removePowerForUndo(11f)
+                    assertTrue(selected)
+                    assertEquals(3.6f, source.repository().observeSettings().first().chargingPower)
+                    viewModel.restorePower(11f, selected)
+                    assertEquals(ChargingSettings.DEFAULT, source.repository().observeSettings().first())
+
+                    val unselected = viewModel.removePowerForUndo(7f)
+                    assertFalse(unselected)
+                    viewModel.restorePower(7f, unselected)
+                    assertEquals(ChargingSettings.DEFAULT, source.repository().observeSettings().first())
+                } finally {
+                    viewModel.viewModelScope.cancel()
+                }
+            }
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
+    @OptIn(ExperimentalCoroutinesApi::class)
     fun settingsPowerManagementDraftSurvivesRestartAndBackupRestore() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         try {

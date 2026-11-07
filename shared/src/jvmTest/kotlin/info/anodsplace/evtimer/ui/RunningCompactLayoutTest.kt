@@ -66,11 +66,11 @@ class RunningCompactLayoutTest {
         setContent {
             CompositionLocalProvider(LocalDensity provides Density(1f, 2f)) {
                 AppTheme(dynamicColor = false) {
-                    EditableStatRow("Charging Speed", "3.6 kW", "Edit", onClick = {}, Modifier.width(240.dp))
+                    EditableStatRow("Charging Power", "3.6 kW", "Edit", onClick = {}, Modifier.width(240.dp))
                 }
             }
         }
-        val label = onNodeWithText("Charging Speed", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        val label = onNodeWithText("Charging Power", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
         val value = onNodeWithText("3.6 kW", useUnmergedTree = true)
         value.assertFullyRendered(maxLines = 1)
         assertTrue(value.fetchSemanticsNode().boundsInRoot.top >= label.bottom)

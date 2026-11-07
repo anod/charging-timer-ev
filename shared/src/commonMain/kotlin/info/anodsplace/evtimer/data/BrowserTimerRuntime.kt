@@ -143,13 +143,25 @@ class BrowserTimerRuntime(
         state.withConfiguration(configuration.copy(presets = presets))
     }
 
-    suspend fun removePower(powerKw: Float): BrowserState = storage.update { state ->
-        val configuration = state.configuration()
-        val settings = configuration.settings
-        require(powerKw in settings.availablePowers && settings.availablePowers.size > 1) {
-            "Cannot remove missing or last charging power"
+    suspend fun removePower(powerKw: Float): BrowserState = removePowerInternal(powerKw).first
+
+    suspend fun removePowerForUndo(powerKw: Float): Boolean = removePowerInternal(powerKw).second
+
+    private suspend fun removePowerInternal(powerKw: Float): Pair<BrowserState, Boolean> {
+        var wasSelected = false
+        val updated = storage.update { state ->
+            val configuration = state.configuration()
+            val settings = configuration.settings
+            wasSelected = settings.chargingPower == powerKw
+            state.withConfiguration(configuration.reduce(PresetEvent.Edit(settings.withRemovedPower(powerKw))))
         }
-        state.withConfiguration(configuration.reduce(PresetEvent.Edit(settings.withRemovedPower(powerKw))))
+        return updated to wasSelected
+    }
+
+    suspend fun restorePower(powerKw: Float, wasSelected: Boolean): BrowserState = storage.update { state ->
+        val configuration = state.configuration()
+        val restored = configuration.settings.withRestoredPower(powerKw, wasSelected)
+        state.withConfiguration(configuration.reduce(PresetEvent.Edit(restored)))
     }
 
     suspend fun setNotifyAt80(enabled: Boolean): BrowserState = storage.update { state ->

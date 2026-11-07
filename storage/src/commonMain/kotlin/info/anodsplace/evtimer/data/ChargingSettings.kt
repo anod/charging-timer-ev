@@ -22,6 +22,11 @@ data class ChargingSettings(
         availablePowers = (availablePowers + power).distinct().sorted()
     )
 
+    fun withRestoredPower(power: Float, wasSelected: Boolean): ChargingSettings = copy(
+        chargingPower = if (wasSelected) power else chargingPower,
+        availablePowers = (availablePowers + power).distinct().sorted()
+    )
+
     fun withRemovedPower(power: Float): ChargingSettings {
         require(power in availablePowers) { "Unknown power option" }
         val remaining = availablePowers.filterNot { it == power }

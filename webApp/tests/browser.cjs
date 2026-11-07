@@ -33,7 +33,7 @@ async function waitForAccessibleText(page, text) {
 
 const configurationLabels = ["Charging Timer for EV", "Battery: 83 kWh", "Max: 100%",
     "Start", "Charging Power", "3.6 kW", "7.0 kW", "11.0 kW", "22.0 kW", "Start Timer"];
-const runningLabels = ["Charging in Progress", "Charging Speed", "Current %", "Target %",
+const runningLabels = ["Charging in Progress", "Charging Power", "Current %", "Target %",
     "Time Remaining", "Time to 80%", "Elapsed Time", "Stop Timer"];
 const summaryLabels = ["Charge summary", "Estimated at timer stop", "Default", "Elapsed Time",
     "Energy added", "Average power", "Charging speeds", "Done"];
