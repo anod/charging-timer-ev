@@ -31,6 +31,9 @@ import info.anodsplace.evtimer.data.TestHistoryRepository
 import info.anodsplace.evtimer.uiModule
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.CompletableDeferred
 import org.koin.compose.KoinApplication
 import org.koin.dsl.module
 import org.koin.compose.viewmodel.koinViewModel
@@ -41,6 +44,49 @@ import kotlin.test.assertEquals
 
 @OptIn(ExperimentalTestApi::class, androidx.compose.ui.InternalComposeUiApi::class)
 class DesktopNavigationTest {
+    @Test
+    fun historyFailureAfterStartupShowsRetryAndRestoresTheScreen() = runDesktopComposeUiTest {
+        val service = DesktopTestService()
+        val repository = DesktopTestRepository()
+        val base = TestHistoryRepository()
+        val fail = CompletableDeferred<Unit>()
+        var attempts = 0
+        val history = object : ChargingHistoryRepository by base {
+            override fun observeHistory() = flow {
+                attempts++
+                if (attempts == 1) {
+                    emit(emptyList())
+                    fail.await()
+                    error("history unavailable")
+                }
+                emitAll(base.observeHistory())
+            }
+        }
+        val navigation = NavigationViewModel(service, history)
+        setContent {
+            KoinApplication(application = {
+                modules(uiModule, module {
+                    single<ChargingRepository> { repository }
+                    single<PresetRepository> { repository }
+                    single<ManualBackupRepository> { repository }
+                    single<ChargingService> { service }
+                    single<ClockTimeFormatter> { ClockTimeFormatter { "" } }
+                    single<ChargingHistoryRepository> { history }
+                })
+            }) { ChargingTimerApp(navigation = navigation) }
+        }
+        waitUntil(timeoutMillis = 5_000) {
+            attempts == 1 && onAllNodes(hasText("Charging in Progress")).fetchSemanticsNodes().isNotEmpty()
+        }
+        runOnIdle { fail.complete(Unit) }
+        waitUntil(timeoutMillis = 5_000) { onAllNodes(hasText("Retry")).fetchSemanticsNodes().isNotEmpty() }
+        onNodeWithText("Retry").performClick()
+        waitUntil(timeoutMillis = 5_000) {
+            onAllNodes(hasText("Charging in Progress")).fetchSemanticsNodes().isNotEmpty()
+        }
+        runOnIdle { assertEquals(2, attempts) }
+    }
+
     @Test
     @Suppress("DEPRECATION")
     fun escapeAndSettingsNavigationPreserveRunningTimer() = runDesktopComposeUiTest {
@@ -157,6 +203,7 @@ class DesktopNavigationTest {
 }
 
 private class DesktopTestService : ChargingService {
+    override fun retryLoad() = Unit
     override val status = MutableStateFlow(ChargingStatus(isLoading = false, isRunning = true))
     override suspend fun start() = Unit
     override suspend fun stop() { status.value = ChargingStatus(isLoading = false) }

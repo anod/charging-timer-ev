@@ -11,6 +11,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.resetMain
@@ -25,6 +27,33 @@ import kotlin.test.assertTrue
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class NavigationViewModelTest {
+    @Test
+    fun failedHistoryLoadCanBeRetriedAtStartup() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val base = TestHistoryRepository()
+        var failures = 1
+        val history = object : info.anodsplace.evtimer.data.ChargingHistoryRepository by base {
+            override fun observeHistory() = flow {
+                if (failures-- > 0) error("history unavailable")
+                emitAll(base.observeHistory())
+            }
+        }
+        val navigation = NavigationViewModel(NavigationTestService(false), history)
+        try {
+            runCurrent()
+            assertTrue(navigation.loadFailed.value)
+            assertTrue(navigation.backStack.value.isEmpty())
+            navigation.retryLoad()
+            runCurrent()
+            assertFalse(navigation.loadFailed.value)
+            assertFalse(navigation.loadFailed.value)
+            assertEquals(listOf(Destination.Config), navigation.backStack.value)
+        } finally {
+            navigation.viewModelScope.cancel()
+            Dispatchers.resetMain()
+        }
+    }
+
     @Test
     fun savingReadingKeepsCompletionOpenAndAcknowledgeCannotOverwriteIt() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
@@ -404,6 +433,7 @@ class NavigationViewModelTest {
 }
 
 private class NavigationTestService(active: Boolean) : ChargingService {
+    override fun retryLoad() = Unit
     override val status = MutableStateFlow(ChargingStatus(isLoading = false, isRunning = active))
     override suspend fun start() { status.value = ChargingStatus(isLoading = false, isRunning = true) }
     override suspend fun stop() { status.value = ChargingStatus(isLoading = false) }

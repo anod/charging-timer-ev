@@ -50,6 +50,96 @@ private class FakeChargingRepository : ChargingRepository {
 @OptIn(ExperimentalCoroutinesApi::class, ExperimentalTime::class)
 class ChargingServiceTest {
     @Test
+    fun observationFailureAfterInitialEmissionCanBeRetried() = runTest {
+        val base = FakeChargingRepository()
+        val fail = CompletableDeferred<Unit>()
+        var attempts = 0
+        val repository = object : ChargingRepository by base {
+            override fun observeSettings() = flow {
+                attempts++
+                if (attempts == 1) {
+                    emit(base.settings.value)
+                    fail.await()
+                    error("storage became unavailable")
+                }
+                emitAll(base.observeSettings())
+            }
+        }
+        val service = ChargingServiceImpl(repository, backgroundScope, FakeClock())
+        runCurrent()
+        assertFalse(service.status.value.isLoading)
+        fail.complete(Unit)
+        runCurrent()
+        assertTrue(service.status.value.loadFailed)
+        service.retryLoad()
+        runCurrent()
+        assertFalse(service.status.value.loadFailed)
+        assertFalse(service.status.value.isLoading)
+        assertEquals(2, attempts)
+    }
+
+    @Test
+    fun overdueCompletionStorageFailureCanRetryWithoutDuplicateWrites() = runTest {
+        val base = FakeChargingRepository()
+        val settings = ChargingSettings(60f, 150f, 75f, 80f)
+        val snapshot = ChargingSessionSnapshot.from(settings, 1_000L)
+        base.saveSession(ChargingSession(true, snapshot))
+        var sessionSubscriptions = 0
+        val repository = object : ChargingRepository by base {
+            override fun observeSession() = flow {
+                sessionSubscriptions++
+                if (sessionSubscriptions == 2) error("completion read failed")
+                emitAll(base.observeSession())
+            }
+        }
+        val service = ChargingServiceImpl(repository, backgroundScope, FakeClock(1_000_000L))
+        runCurrent()
+        assertTrue(service.status.value.loadFailed)
+        assertEquals(1, base.writes)
+        service.retryLoad()
+        runCurrent()
+        assertFalse(service.status.value.isLoading)
+        assertFalse(service.status.value.isRunning)
+        assertEquals(2, base.writes)
+        service.retryLoad()
+        runCurrent()
+        assertEquals(2, base.writes)
+    }
+
+    @Test
+    fun failedReadAndRepeatedRetriesDoNotDuplicateCollectors() = runTest {
+        val base = FakeChargingRepository()
+        var failures = 1
+        var active = 0
+        var peakActive = 0
+        val repository = object : ChargingRepository by base {
+            override fun observeSettings() = flow {
+                if (failures-- > 0) error("storage unavailable")
+                active++
+                peakActive = maxOf(peakActive, active)
+                try {
+                    emitAll(base.observeSettings())
+                } finally {
+                    active--
+                }
+            }
+        }
+        val service = ChargingServiceImpl(repository, backgroundScope, FakeClock())
+        runCurrent()
+        assertTrue(service.status.value.isLoading)
+        assertTrue(service.status.value.loadFailed)
+        service.retryLoad()
+        runCurrent()
+        assertFalse(service.status.value.isLoading)
+        assertEquals(1, active)
+        service.retryLoad()
+        runCurrent()
+        assertEquals(1, active)
+        assertEquals(1, peakActive)
+        assertEquals(0, base.writes)
+    }
+
+    @Test
     fun slowTickerWithArbitraryPhaseTracksEveryDisplayedBoundary() = verifyDisplayBoundaries(11f)
 
     @Test

@@ -15,6 +15,7 @@ import kotlin.test.assertTrue
 
 class ChargingRestoreStatusTest {
     private class Service : ChargingService {
+        override fun retryLoad() = Unit
         override val status = MutableStateFlow(ChargingStatus())
         var refreshCount = 0
         var onRefresh: () -> Unit = {}

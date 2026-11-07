@@ -1,8 +1,11 @@
 package info.anodsplace.evtimer.data
 
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -20,6 +23,7 @@ import kotlin.time.ExperimentalTime
 // Domain-level status emitted by ChargingService (does NOT include settings themselves)
 data class ChargingStatus(
     val isLoading: Boolean = true,
+    val loadFailed: Boolean = false,
     val isRunning: Boolean = false,
     val startTime: Long = 0L,
     val currentPercent: Float = 0f,
@@ -38,6 +42,7 @@ data class ChargingStatus(
  */
 interface ChargingService {
     val status: StateFlow<ChargingStatus>
+    fun retryLoad()
     suspend fun start()
     suspend fun stop()
     suspend fun changePower(powerKw: Float)
@@ -58,10 +63,21 @@ class ChargingServiceImpl(
     private var lastSession: ChargingSession = ChargingSession()
 
     private var tickerJob: Job? = null
+    private var completionJob: Job? = null
     private val sessionMutex = Mutex()
 
-    init {
-        scope.launch {
+    private val loader = RetryableLoad(scope, "Charging service",
+        onLoading = {
+            tickerJob?.cancel()
+            completionJob?.cancel()
+            mutableStatus.value = mutableStatus.value.copy(isLoading = true, loadFailed = false)
+        },
+        onError = {
+            tickerJob?.cancel()
+            completionJob?.cancel()
+            mutableStatus.value = mutableStatus.value.copy(isLoading = true, loadFailed = true)
+        }
+    ) {
             combine(
                 repository.observeSettings(),
                 repository.observeSession()
@@ -70,10 +86,14 @@ class ChargingServiceImpl(
                     lastSettings = settings
                     lastSession = session
                     recompute()
+                    currentCoroutineContext().ensureActive()
                     ensureTicker(session.isRunning)
                 }
-        }
     }
+
+    init { loader.retry() }
+
+    override fun retryLoad() = loader.retry()
 
     private fun ensureTicker(isRunning: Boolean) {
         // Restart so a stale delay never skips the boundaries of a new power segment.
@@ -119,13 +139,20 @@ class ChargingServiceImpl(
             } else null,
             evaluatedAt = now
         )
-        if (session.isRunning && now >= estimatedEndTime) {
-            scope.launch {
-                sessionMutex.withLock {
-                    val current = repository.observeSession().first()
-                    if (current.isRunning && current.snapshot == session.snapshot) {
-                        repository.saveSession(current.copy(isRunning = false))
+        if (session.isRunning && now >= estimatedEndTime && completionJob?.isActive != true) {
+            completionJob = scope.launch {
+                try {
+                    sessionMutex.withLock {
+                        val current = repository.observeSession().first()
+                        if (current.isRunning && current.snapshot == session.snapshot) {
+                            repository.saveSession(current.copy(isRunning = false))
+                        }
                     }
+                } catch (error: CancellationException) {
+                    throw error
+                } catch (error: Exception) {
+                    currentCoroutineContext().ensureActive()
+                    loader.fail(error)
                 }
             }
         }

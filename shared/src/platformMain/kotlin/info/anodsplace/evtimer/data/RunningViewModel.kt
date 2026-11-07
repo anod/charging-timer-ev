@@ -11,11 +11,13 @@ class RunningViewModel(
     private val service: ChargingService,
     private val clockTimeFormatter: ClockTimeFormatter
 ) : BaseFlowViewModel<RunningViewState, RunningViewEvent, RunningViewAction>() {
-    init {
-        viewState = RunningViewState()
-        viewModelScope.launch {
-            var lastRunningState: RunningViewState? = null
+    private var lastRunningState: RunningViewState? = null
+    private val loader = RetryableLoad(viewModelScope, "Running",
+        onLoading = { viewState = viewState.copy(isLoading = true, loadFailed = false) },
+        onError = { viewState = viewState.copy(isLoading = true, loadFailed = true) }
+    ) {
             combine(repository.observeSettings(), service.status) { settings, status ->
+                if (status.loadFailed) return@combine RunningViewState(loadFailed = true)
                 if (status.isLoading) return@combine RunningViewState()
                 if (!status.isRunning) lastRunningState?.let { return@combine it }
                 val sessionSettings = status.snapshot?.let {
@@ -48,7 +50,16 @@ class RunningViewModel(
                     }
                 ).also { if (status.isRunning) lastRunningState = it }
             }.collect { viewState = it }
-        }
+    }
+
+    init {
+        viewState = RunningViewState()
+        loader.retry()
+    }
+
+    fun retryLoad() {
+        if (service.status.value.loadFailed) service.retryLoad()
+        loader.retry()
     }
 
     override fun handleEvent(event: RunningViewEvent) {

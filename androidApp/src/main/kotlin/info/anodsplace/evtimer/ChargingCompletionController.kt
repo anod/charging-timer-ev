@@ -4,14 +4,21 @@ import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.util.Log
 import info.anodsplace.evtimer.data.ChargingHistoryEntry
 import info.anodsplace.evtimer.data.ChargingHistoryRepository
 import info.anodsplace.evtimer.data.ChargingRepository
 import info.anodsplace.evtimer.data.ChargingService
 import info.anodsplace.evtimer.data.ChargingStatus
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.retryWhen
 import kotlinx.coroutines.launch
 
 class ChargingCompletionController(
@@ -40,9 +47,9 @@ class ChargingCompletionController(
 
     init {
         scope.launch {
-            combine(chargingService.status, repository.observeNotifyAt80(), history.observeHistory()) { status, notifyAt80, entries ->
-                Triple(status, notifyAt80, entries.firstOrNull())
-            }.collect { (status, notifyAt80, latest) ->
+            completionInputs(chargingService.status, repository::observeNotifyAt80, history::observeHistory,
+                onFailure = { Log.e("ChargingCompletion", "Storage observation failed; retrying", it) }
+            ).collect { (status, notifyAt80, latest) ->
                 if (status.isLoading) return@collect
                 update(status, notifyAt80, latest)
             }
@@ -89,6 +96,23 @@ class ChargingCompletionController(
         }
         scheduledMilestone = schedule.milestoneTime
     }
+}
+
+internal fun completionInputs(
+    status: Flow<ChargingStatus>,
+    notifyAt80: () -> Flow<Boolean>,
+    history: () -> Flow<List<ChargingHistoryEntry>>,
+    retryDelayMillis: Long = 5_000,
+    onFailure: (Throwable) -> Unit
+): Flow<Triple<ChargingStatus, Boolean, ChargingHistoryEntry?>> = flow {
+    emitAll(combine(status, notifyAt80(), history()) { current, notify, entries ->
+        Triple(current, notify, entries.firstOrNull())
+    })
+}.retryWhen { error, _ ->
+    if (error !is Exception || error is CancellationException) throw error
+    onFailure(error)
+    delay(retryDelayMillis)
+    true
 }
 
 internal suspend fun ChargingService.awaitRestoreStatus(): ChargingStatus {
