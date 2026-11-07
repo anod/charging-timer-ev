@@ -66,8 +66,17 @@ fun ConfigurationScreen(
 ) {
     val settings = viewState.settings
     val presets = viewState.presetConfiguration
-    var cardExpansion by remember(presets.selectedId) {
-        mutableStateOf(expandedCards(presets.selectedId))
+    var savedCardExpansion by rememberSaveable(
+        presets.selectedId,
+        stateSaver = presetCardExpansionSaver
+    ) {
+        mutableStateOf(PresetCardExpansion(presets.selectedId, expandedCards(presets.selectedId)))
+    }
+    val cardExpansion = savedCardExpansion
+        .takeIf { it.presetId == presets.selectedId }
+        ?.cards ?: expandedCards(presets.selectedId)
+    val updateCardExpansion: (ExpandedCards) -> Unit = {
+        savedCardExpansion = PresetCardExpansion(presets.selectedId, it)
     }
     var showNameDialog by rememberSaveable { mutableStateOf(false) }
     var presetName by rememberSaveable { mutableStateOf("") }
@@ -256,7 +265,7 @@ fun ConfigurationScreen(
                     },
                     viewState = viewState,
                     expanded = cardExpansion.battery,
-                    onExpandedChange = { cardExpansion = cardExpansion.copy(battery = it) },
+                    onExpandedChange = { updateCardExpansion(cardExpansion.copy(battery = it)) },
                     modifier = Modifier
                 ) {
                     PercentageSettingContent(
@@ -285,7 +294,7 @@ fun ConfigurationScreen(
                     },
                     viewState = viewState,
                     expanded = cardExpansion.max,
-                    onExpandedChange = { cardExpansion = cardExpansion.copy(max = it) },
+                    onExpandedChange = { updateCardExpansion(cardExpansion.copy(max = it)) },
                     modifier = Modifier
                 ) {
                     val maxKwh = remember(settings.batteryCapacity, settings.maxPercent) {
@@ -319,7 +328,7 @@ fun ConfigurationScreen(
                     },
                     viewState = viewState,
                     expanded = cardExpansion.start,
-                    onExpandedChange = { cardExpansion = cardExpansion.copy(start = it) },
+                    onExpandedChange = { updateCardExpansion(cardExpansion.copy(start = it)) },
                     modifier = Modifier
                 ) {
                     val startKwh = remember(settings.batteryCapacity, settings.startPercent) {
@@ -350,7 +359,7 @@ fun ConfigurationScreen(
                     },
                     viewState = viewState,
                     expanded = cardExpansion.power,
-                    onExpandedChange = { cardExpansion = cardExpansion.copy(power = it) },
+                    onExpandedChange = { updateCardExpansion(cardExpansion.copy(power = it)) },
                     modifier = Modifier
                 ) {
                     ChargingPowerContent(
