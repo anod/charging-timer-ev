@@ -30,7 +30,7 @@ enabled. Older engines without Wasm GC cannot run this Compose/Wasm app.
 | Browser/platform | Initial status | Installation |
 | --- | --- | --- |
 | Desktop Chromium / Chrome / Edge | Production app, project-path manifest, service worker, offline profile reopen and storage checked in CI Chromium; branded Chrome/Edge not separately device-tested | Browser install UI where supported |
-| Android Chrome | Expected on current Wasm GC-capable Chrome; CI phone viewport is not physical-device verification | Install app / Add to Home screen |
+| Android Chrome | Pixel 6a / Chrome 156 regular-tab light/dark system-bar checks passed locally; installed WebAPK not device-verified | Install app / Add to Home screen |
 | iOS Safari | Expected on current Wasm GC-capable Safari (iOS 18.2+); **not verified on a physical device** | Manual Safari Add to Home Screen |
 | Firefox desktop | Local production PWA tests cover the original waiting-worker transition, refresh updates, multi-window isolation and offline persistence | No desktop install flow promised |
 | Other/in-app browsers | Not verified; use a supported full browser | Not promised |
@@ -38,6 +38,62 @@ enabled. Older engines without Wasm GC cannot run this Compose/Wasm app.
 This matrix describes the initial verification scope, not a guarantee for every
 browser/OS combination. Permissions, storage policies and installation support
 are browser-controlled.
+
+## Theme and Android system bars
+
+The document declares separate light/dark `theme-color` media queries and paints
+the page background in the same colors as the shared Compose theme, including
+before Wasm starts. Changing the system theme changes these document colors
+without reloading or changing timer/storage state.
+
+The manifest keeps light defaults and supplies dark overrides using the
+[draft `color_scheme_dark` member](https://www.w3.org/TR/appmanifest/#color_scheme_dark-member).
+Browsers without support ignore that member. This is progressive enhancement,
+**not a verified fix for Android WebAPK launch or navigation bars**:
+Chromium's [manifest parser](https://github.com/chromium/chromium/blob/f88ff908527c8f3a8068f0fe91889675741ba0d6/third_party/blink/renderer/modules/manifest/manifest_parser.cc)
+currently reads only the top-level color values (checked November 2026).
+Its Android shell has dark-color fields, but those fields alone do not demonstrate
+manifest support. Existing WebAPKs also retain installed metadata until the browser
+updates them; refreshing the page is not a WebAPK metadata update.
+
+The document theme color can affect browser/status-bar chrome; Android and the
+browser retain final control. Installed-PWA navigation bars may use the installed
+manifest theme color and launch backgrounds may use its background color, leaving
+these areas light on engines that ignore the dark override. Real Android
+before/after light/dark captures, including cold launch, are required to confirm
+behavior for a particular browser/version; desktop phone emulation is not proof.
+
+On a Pixel 6a with regular Chrome `156.0.8078.81`, November 2026 local
+before/after captures verified the gesture-navigation background changing from
+white in both themes to the app background (`#FBFDF8` light, `#191C1A` dark).
+The status bar already followed Chrome's theme in the baseline and retained
+Chrome's own tint (`#F8FAF3` light, `#0B0F0C` dark), not the exact app color.
+These checks used the browser's **System default** theme, real Android night-mode
+changes and a localhost production shell with a matching offline-ready worker;
+no media emulation or installed-PWA launch was involved. They do not establish
+WebAPK splash behavior, three-button navigation or iOS device support.
+
+[Chrome's edge-to-edge opt-in](https://developer.chrome.com/docs/css-ui/edge-to-edge)
+(`viewport-fit=cover`) can let the page paint behind a transparent gesture bar,
+but does not recolor an installed WebAPK splash or guarantee three-button bar
+colors. It also requires safe-area handling for the full Compose canvas, dialogs,
+backing text editors and bottom snackbar/controls. It is not enabled here: an
+unverified viewport change would risk obscuring controls and changing iOS layout.
+
+For unsupported WebAPKs, the safe choices are to retain light launch defaults
+until native dark-manifest support ships, or separately validate an Android
+edge-to-edge layout to address the gesture bar only. A permanently dark manifest
+regresses light mode; switching manifest URLs/colors at runtime cannot reliably
+change already-installed cold-launch metadata and is not used.
+
+Local checks: run `npm test` in `webApp` to check the document/manifest against
+`Theme.kt`, then `npm run test:theme` after building the production distribution.
+The browser check covers pre-Wasm page paint, light-dark-light media changes,
+manifest parsing and unchanged phone/desktop canvas geometry. A supplied prior
+HTML snapshot is served from a copied shell with its worker inventory regenerated;
+captures require offline-ready state to reject fixture-induced error snackbars.
+Its screenshots
+are browser viewports only, not Android system-bar evidence.
 
 ## Limitations and keeping data safe
 
