@@ -369,8 +369,12 @@ async function refresh(page) {
         await page.evaluate(() => navigator.serviceWorker.getRegistration().then(r => r.update()));
         await status(page, "update");
         const other = await context.newPage();
+        observe(other);
         await other.goto(url);
         await state(other);
+        // Resource warm-up competes with the animated first tab; slow CI CPUs can exceed 30s.
+        await other.waitForFunction(() => document.body.getAttribute("aria-busy") === "false",
+            null, { timeout: 120_000 });
         await labels(other, "Charging in Progress");
         let otherNavigations = 0;
         other.on("domcontentloaded", () => { otherNavigations++; });

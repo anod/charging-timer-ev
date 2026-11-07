@@ -83,7 +83,7 @@ jobs:
       - name: Verify exact Pages site in Chromium at project path
         if: ${{ !cancelled() && steps.pages.outcome == 'success' }}
         working-directory: webApp
-        timeout-minutes: 5
+        timeout-minutes: 10
         run: npm run test:pwa -- build/pages
 
       - name: Upload verified Pages site
