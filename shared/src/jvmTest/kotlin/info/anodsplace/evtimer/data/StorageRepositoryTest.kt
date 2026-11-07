@@ -38,15 +38,20 @@ class StorageRepositoryTest {
                 val viewModel = SettingsViewModel(source.repo, source.repo, source.repo)
                 try {
                     val selected = viewModel.removePowerForUndo(11f)
-                    assertTrue(selected)
+                    assertTrue(selected.wasSelected)
                     assertEquals(3.6f, source.repository().observeSettings().first().chargingPower)
-                    viewModel.restorePower(11f, selected)
+                    viewModel.restorePower(selected)
                     assertEquals(ChargingSettings.DEFAULT, source.repository().observeSettings().first())
 
                     val unselected = viewModel.removePowerForUndo(7f)
-                    assertFalse(unselected)
-                    viewModel.restorePower(7f, unselected)
+                    assertFalse(unselected.wasSelected)
+                    viewModel.restorePower(unselected)
                     assertEquals(ChargingSettings.DEFAULT, source.repository().observeSettings().first())
+                    val token = viewModel.removePowerForUndo(11f)
+                    source.repo.saveAsPreset("Other")
+                    val before = source.repository().observeConfiguration().first()
+                    assertFailsWith<IllegalArgumentException> { viewModel.restorePower(token) }
+                    assertEquals(before, source.repository().observeConfiguration().first())
                 } finally {
                     viewModel.viewModelScope.cancel()
                 }

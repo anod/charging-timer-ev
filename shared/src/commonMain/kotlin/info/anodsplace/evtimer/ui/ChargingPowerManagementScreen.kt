@@ -1,22 +1,25 @@
 package info.anodsplace.evtimer.ui
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -25,10 +28,10 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import info.anodsplace.evtimer.data.formatPower
+import info.anodsplace.evtimer.data.RemovedPower
 import info.anodsplace.evtimer.generated.resources.*
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
@@ -40,8 +43,8 @@ fun ChargingPowerManagementScreen(
     powers: List<Float>,
     selectedPower: Float,
     onAddPower: (Float) -> Unit,
-    onRemovePower: suspend (Float) -> Boolean,
-    onUndoRemovePower: suspend (Float, Boolean) -> Unit,
+    onRemovePower: suspend (Float) -> RemovedPower,
+    onUndoRemovePower: suspend (RemovedPower) -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -51,8 +54,8 @@ fun ChargingPowerManagementScreen(
     val scope = rememberCoroutineScope()
     val undoLabel = stringResource(Res.string.power_undo)
     val editFailed = stringResource(Res.string.power_edit_failed)
-    Box(modifier.fillMaxSize()) {
-        SettingsPage(Modifier) {
+    Column(modifier.fillMaxSize()) {
+        Column(Modifier.weight(1f)) {
             SettingsHeader(stringResource(Res.string.charging_power), onBack)
             Column(
                 Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp),
@@ -85,7 +88,7 @@ fun ChargingPowerManagementScreen(
                                         busy = true
                                         snackbar.currentSnackbarData?.dismiss()
                                         scope.launch {
-                                            val wasSelected = try {
+                                            val removed = try {
                                                 onRemovePower(power)
                                             } catch (error: CancellationException) {
                                                 throw error
@@ -102,7 +105,7 @@ fun ChargingPowerManagementScreen(
                                                 busy = true
                                                 var failed = false
                                                 try {
-                                                    onUndoRemovePower(power, wasSelected)
+                                                    onUndoRemovePower(removed)
                                                 } catch (error: CancellationException) {
                                                     throw error
                                                 } catch (error: Exception) {
@@ -128,7 +131,22 @@ fun ChargingPowerManagementScreen(
                 }
             }
         }
-        SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter))
+        SnackbarHost(snackbar, Modifier.fillMaxWidth()) { notice ->
+            Snackbar(
+                modifier = Modifier.padding(12.dp),
+                action = notice.visuals.actionLabel?.let { label ->
+                    {
+                        TextButton(
+                            onClick = notice::performAction,
+                            modifier = Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp),
+                            colors = ButtonDefaults.textButtonColors(
+                                contentColor = MaterialTheme.colorScheme.inversePrimary
+                            )
+                        ) { Text(label) }
+                    }
+                }
+            ) { Text(notice.visuals.message) }
+        }
     }
     if (showCustomPowerDialog) {
         CustomPowerDialog(

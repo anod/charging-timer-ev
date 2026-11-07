@@ -6,6 +6,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.yield
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -484,6 +485,14 @@ private class ViewModelTestRepository(initialSettings: ChargingSettings = Chargi
     override fun observeSettings() = settings
     override fun observeConfiguration() = settings.map {
         PresetConfiguration(listOf(ChargingPreset("custom", "Default", it)), "custom", it)
+    }
+    override suspend fun removePowerForUndo(power: Float): RemovedPower {
+        val (updated, removed) = observeConfiguration().first().removePower(power)
+        saveSettings(updated.settings)
+        return removed
+    }
+    override suspend fun restorePower(removed: RemovedPower) {
+        saveSettings(observeConfiguration().first().restorePower(removed).settings)
     }
     override fun observePresets() = observeConfiguration().map { it.presets }
     override suspend fun updateSelectedPreset() = Unit

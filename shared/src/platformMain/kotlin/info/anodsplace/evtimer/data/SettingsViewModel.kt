@@ -58,17 +58,11 @@ class SettingsViewModel(
         }
     }
 
-    suspend fun removePowerForUndo(power: Float): Boolean = powerEdits.withLock {
-        val latest = repository.observeSettings().first()
-        val wasSelected = latest.chargingPower == power
-        repository.saveSettings(latest.withRemovedPower(power))
-        wasSelected
-    }
+    suspend fun removePowerForUndo(power: Float): RemovedPower =
+        powerEdits.withLock { presetRepository.removePowerForUndo(power) }
 
-    suspend fun restorePower(power: Float, wasSelected: Boolean) = powerEdits.withLock {
-        val latest = repository.observeSettings().first()
-        repository.saveSettings(latest.withRestoredPower(power, wasSelected))
-    }
+    suspend fun restorePower(removed: RemovedPower) =
+        powerEdits.withLock { presetRepository.restorePower(removed) }
 
     private val mutableBackup = MutableStateFlow(BackupState())
     val backup = mutableBackup.asStateFlow()

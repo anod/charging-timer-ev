@@ -13,6 +13,7 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import info.anodsplace.evtimer.data.ChargingSettings
+import info.anodsplace.evtimer.data.RemovedPower
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -37,10 +38,10 @@ class ChargingPowerManagementScreenTest {
                         removed += it
                         val selected = settings.value.chargingPower == it
                         settings.value = settings.value.withRemovedPower(it)
-                        selected
+                        RemovedPower("custom", it, selected)
                     },
-                    onUndoRemovePower = { power, selected ->
-                        settings.value = settings.value.withRestoredPower(power, selected)
+                    onUndoRemovePower = { removed ->
+                        settings.value = settings.value.withRestoredPower(removed.power, removed.wasSelected)
                     },
                     onBack = { backs++ }
                 )
@@ -82,8 +83,8 @@ class ChargingPowerManagementScreenTest {
                     powers = (1..30).map { it.toFloat() },
                     selectedPower = 7f,
                     onAddPower = {},
-                    onRemovePower = { removed += it; false },
-                    onUndoRemovePower = { _, _ -> },
+                    onRemovePower = { removed += it; RemovedPower("custom", it, false) },
+                    onUndoRemovePower = { },
                     onBack = {},
                     modifier = Modifier.heightIn(max = 320.dp)
                 )

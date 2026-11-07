@@ -305,8 +305,8 @@ internal fun BrowserTimerApp() {
                                                 selected
                                             }
                                         },
-                                        onUndoRemovePower = { power, selected ->
-                                            mutex.withLock { runtime.restorePower(power, selected); refresh() }
+                                        onUndoRemovePower = { removed ->
+                                            mutex.withLock { runtime.restorePower(removed); refresh() }
                                         },
                                         onBack = ::back
                                     )

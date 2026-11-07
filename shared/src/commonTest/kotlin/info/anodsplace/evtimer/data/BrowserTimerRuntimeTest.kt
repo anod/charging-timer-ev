@@ -215,14 +215,28 @@ class BrowserTimerRuntimeTest {
         runtime.addPower(10f)
         val initial = runtime.reconcile().configuration().settings
         val selected = runtime.removePowerForUndo(initial.chargingPower)
-        assertTrue(selected)
-        runtime.restorePower(initial.chargingPower, selected)
+        assertTrue(selected.wasSelected)
+        runtime.restorePower(selected)
         assertEquals(initial, runtime().reconcile().configuration().settings)
 
         val unselected = runtime.removePowerForUndo(7f)
-        assertFalse(unselected)
-        runtime.restorePower(7f, unselected)
+        assertFalse(unselected.wasSelected)
+        runtime.restorePower(unselected)
         assertEquals(initial, runtime().reconcile().configuration().settings)
+    }
+
+    @Test
+    fun undoRejectsChangedPresetInAnotherRuntimeWithoutModifyingIt() = runTest {
+        val first = configured()
+        val originalId = first.reconcile().configuration().selectedId
+        val otherId = first.configure(ConfigurationViewEvent.SaveAsPreset("Other")).configuration().selectedId
+        first.configure(ConfigurationViewEvent.SelectPreset(originalId))
+        val removed = first.removePowerForUndo(11f)
+        val second = runtime()
+        second.configure(ConfigurationViewEvent.SelectPreset(otherId))
+        val before = second.reconcile()
+        assertFailsWith<IllegalArgumentException> { first.restorePower(removed) }
+        assertEquals(before, second.reconcile())
     }
 
     @Test
