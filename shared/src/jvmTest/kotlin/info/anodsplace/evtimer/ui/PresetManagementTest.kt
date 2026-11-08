@@ -15,6 +15,7 @@ import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isDialog
@@ -27,6 +28,7 @@ import androidx.compose.ui.test.performCustomAccessibilityActionWithLabel
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
+import androidx.compose.ui.unit.dp
 import info.anodsplace.evtimer.data.ChargingPreset
 import info.anodsplace.evtimer.data.ChargingSettings
 import info.anodsplace.evtimer.data.ChargingCalibration
@@ -67,7 +69,7 @@ class PresetManagementTest {
         onNodeWithText("DC").assertDoesNotExist()
         onNodeWithText("Close").performClick()
         assertEquals(height, onNodeWithTag("preset-home").fetchSemanticsNode().boundsInRoot.height)
-        onNodeWithText("Home").performClick()
+        onNodeWithContentDescription("Rename Home").assertHeightIsAtLeast(48.dp).performClick()
         onNodeWithText("Preset name").assertExists()
         onNodeWithText("Cancel").performClick()
     }
@@ -163,7 +165,7 @@ class PresetManagementTest {
         setContent {
             MaterialTheme { Column { PresetManagement(listOf(initial), { _, _ -> }, {}, { _, _ -> }, {}) } }
         }
-        onNodeWithText("Default").assertIsEnabled().performClick()
+        onNodeWithContentDescription("Rename Default").assertHeightIsAtLeast(48.dp).performClick()
         onNodeWithText("Cancel").performClick()
         onNodeWithContentDescription("Delete Default").assertIsNotEnabled()
         assertEquals(emptyList(), onNodeWithTag("preset-custom").fetchSemanticsNode().config[SemanticsActions.CustomActions])

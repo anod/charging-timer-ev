@@ -91,6 +91,13 @@ private val TonalTypography = DefaultTypography.copy(
 private val LocalUsesDynamicColor = staticCompositionLocalOf { true }
 internal val TonalChipShape = RoundedCornerShape(16.dp)
 
+internal object UiSpacing {
+    val small = 8.dp
+    val medium = 16.dp
+    val large = 24.dp
+    val extraLarge = 32.dp
+}
+
 // Dynamic palettes are wallpaper-dependent; only the audited static surfaces use alpha.
 internal fun tonalSurfaceColor(surface: Color, usesDynamicColor: Boolean): Color =
     surface.copy(alpha = if (usesDynamicColor) 1f else 0.9f)

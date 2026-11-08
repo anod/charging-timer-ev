@@ -35,7 +35,6 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import org.jetbrains.compose.resources.stringResource
@@ -161,7 +160,7 @@ fun ConfigurationScreen(
                         color = MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.bodySmall,
                         modifier = Modifier
-                            .padding(start = 24.dp, end = 24.dp, top = 8.dp)
+                            .padding(start = UiSpacing.large, end = UiSpacing.large, top = UiSpacing.small)
                             .semantics { contentDescription = startErrorDescription }
                             .align(Alignment.CenterHorizontally)
                     )
@@ -172,7 +171,7 @@ fun ConfigurationScreen(
                     modifier = Modifier
                         .widthIn(max = readablePageWidth)
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                        .padding(horizontal = UiSpacing.medium, vertical = UiSpacing.small)
                 ) {
                     Text(stringResource(Res.string.start_timer))
                 }
@@ -186,16 +185,10 @@ fun ConfigurationScreen(
                 .widthIn(max = contentWidth)
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .padding(UiSpacing.medium),
+            verticalArrangement = Arrangement.spacedBy(UiSpacing.medium)
         ) {
-            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = stringResource(Res.string.app_title),
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.weight(1f)
-                )
+            RootScreenHeader(stringResource(Res.string.app_title)) {
                 AppIconButton(onClick = onOpenSettings) {
                     Icon(painterResource(Res.drawable.ic_settings), stringResource(Res.string.settings_title))
                 }
@@ -262,11 +255,11 @@ fun ConfigurationScreen(
 
             BoxWithConstraints(Modifier.fillMaxWidth()) {
             val cardWidth = with(LocalDensity.current) {
-                ((constraints.maxWidth - 12.dp.roundToPx()) / 2).toDp()
+                ((constraints.maxWidth - UiSpacing.small.roundToPx()) / 2).toDp()
             }
             FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                horizontalArrangement = Arrangement.spacedBy(UiSpacing.small),
+                verticalArrangement = Arrangement.spacedBy(UiSpacing.small)
             ) {
                 // Battery Capacity (collapsed by default)
                 CollapsibleSettingCard(

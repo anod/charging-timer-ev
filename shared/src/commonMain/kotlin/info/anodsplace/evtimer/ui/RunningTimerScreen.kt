@@ -187,29 +187,34 @@ fun RunningTimerScreen(
                 .fillMaxHeight()
                 .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
                 .verticalScroll(rememberScrollState())
-                .padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 16.dp + stopBarHeight),
+                .padding(
+                    start = UiSpacing.medium,
+                    top = UiSpacing.medium,
+                    end = UiSpacing.medium,
+                    bottom = UiSpacing.medium + stopBarHeight
+                ),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(32.dp)
+            verticalArrangement = Arrangement.spacedBy(UiSpacing.extraLarge)
         ) {
             BoxWithConstraints(Modifier.fillMaxWidth()) {
             val paneWidth = if (layout.twoColumns) {
-                with(LocalDensity.current) { ((constraints.maxWidth - 32.dp.roundToPx()) / 2).toDp() }
+                with(LocalDensity.current) {
+                    ((constraints.maxWidth - UiSpacing.extraLarge.roundToPx()) / 2).toDp()
+                }
             } else maxWidth
             FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(32.dp),
-                verticalArrangement = Arrangement.spacedBy(32.dp)
+                horizontalArrangement = Arrangement.spacedBy(UiSpacing.extraLarge),
+                verticalArrangement = Arrangement.spacedBy(UiSpacing.extraLarge)
             ) {
             Column(
                 Modifier.width(paneWidth).testTag("running-progress-pane"),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(32.dp)
+                verticalArrangement = Arrangement.spacedBy(UiSpacing.extraLarge)
             ) {
-            Text(
-                text = stringResource(
+            RootScreenHeader(
+                title = stringResource(
                     if (viewState.isFinished) Res.string.charging_finished else Res.string.charging_in_progress
-                ),
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold
+                )
             )
 
             // Battery indicator with animated charging cell
@@ -235,10 +240,14 @@ fun RunningTimerScreen(
                 colors = tonalCardColors(),
                 border = tonalCardBorder()
             ) {
-                // The 48dp speed row replaces 12dp of padding and 12dp of spacing so the rows below keep their positions.
                 Column(
-                    modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 12.dp, bottom = 24.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                    modifier = Modifier.padding(
+                        start = UiSpacing.large,
+                        end = UiSpacing.large,
+                        top = UiSpacing.medium,
+                        bottom = UiSpacing.large
+                    ),
+                    verticalArrangement = Arrangement.spacedBy(UiSpacing.small)
                 ) {
                     EditableStatRow(
                         label = stringResource(Res.string.charging_speed),
@@ -251,7 +260,7 @@ fun RunningTimerScreen(
                         onClick = { showChangeSpeed = true }
                     )
 
-                    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Column(verticalArrangement = Arrangement.spacedBy(UiSpacing.medium)) {
                     val currentKwh = remember(settings.batteryCapacity, calculation.estimatedPercent) {
                         ChargingCalculator.calculateKwh(settings.batteryCapacity, calculation.estimatedPercent)
                     }
@@ -346,7 +355,7 @@ fun RunningTimerScreen(
                     .align(Alignment.Center)
                     .widthIn(max = readablePageWidth)
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp)
+                    .padding(horizontal = UiSpacing.medium, vertical = UiSpacing.small)
             ) {
                 Text(stringResource(Res.string.stop_timer))
             }
@@ -389,7 +398,7 @@ internal fun TimePredictionBar(
             FlowRow(
                 Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+                verticalArrangement = Arrangement.spacedBy(UiSpacing.small)
             ) {
                 Text(
                     startTimeText,
@@ -566,9 +575,9 @@ fun ChangeSpeedSheet(
             modifier = Modifier
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 24.dp)
-                .padding(bottom = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .padding(horizontal = UiSpacing.large)
+                .padding(bottom = UiSpacing.large),
+            verticalArrangement = Arrangement.spacedBy(UiSpacing.medium)
         ) {
             Text(stringResource(Res.string.change_speed), style = MaterialTheme.typography.titleLarge)
             ChargingPowerChips(
@@ -704,7 +713,7 @@ fun StatRow(
     FlowRow(
         modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
-        verticalArrangement = Arrangement.spacedBy(4.dp)
+        verticalArrangement = Arrangement.spacedBy(UiSpacing.small)
     ) {
         Text(
             text = label,
@@ -736,7 +745,7 @@ fun EditableStatRow(
             .heightIn(min = 48.dp)
             .clickable(onClickLabel = actionLabel, role = Role.Button, onClick = onClick),
         horizontalArrangement = Arrangement.SpaceBetween,
-        verticalArrangement = Arrangement.spacedBy(4.dp),
+        verticalArrangement = Arrangement.spacedBy(UiSpacing.small),
         itemVerticalAlignment = Alignment.CenterVertically
     ) {
         Text(
@@ -752,7 +761,7 @@ fun EditableStatRow(
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onSurface
             )
-            Spacer(modifier = Modifier.width(12.dp))
+            Spacer(modifier = Modifier.width(UiSpacing.small))
             Box(
                 modifier = Modifier.size(48.dp),
                 contentAlignment = Alignment.Center

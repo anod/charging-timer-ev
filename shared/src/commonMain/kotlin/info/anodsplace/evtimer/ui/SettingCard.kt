@@ -18,7 +18,7 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun SettingCard(
     modifier: Modifier = Modifier,
-    verticalSpacing: Dp = 8.dp,
+    verticalSpacing: Dp = UiSpacing.small,
     content: @Composable ColumnScope.() -> Unit
 ) {
     Card(
@@ -28,7 +28,7 @@ fun SettingCard(
         border = tonalCardBorder()
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(UiSpacing.medium),
             verticalArrangement = Arrangement.spacedBy(verticalSpacing)
         ) {
             content()

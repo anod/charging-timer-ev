@@ -4,7 +4,7 @@
     <string name="settings_presets_summary">Manage saved charging setups</string>
     <string name="settings_history_summary">Past sessions and charge summaries</string>
     <string name="settings_notify_summary">Alert when charging reaches 80%</string>
-    <string name="settings_presets_help">Tap a name to rename. Drag the handle to reorder.</string>
+    <string name="settings_presets_help">Use the edit button to rename. Drag the handle to reorder.</string>
     <string name="settings_back">Back</string>
     <string name="settings_about">About</string>
     <string name="settings_version">Version %1$s</string>

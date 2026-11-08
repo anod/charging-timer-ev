@@ -6,7 +6,7 @@ const os = require("node:os");
 const path = require("node:path");
 const { prepare } = require("../pwa/prepare.cjs");
 const { createHash } = require("node:crypto");
-const { button: clickCanvasButton } = require("./canvas.cjs");
+const { button: clickCanvasButton, text: clickCanvasText } = require("./canvas.cjs");
 
 const distribution = path.resolve(process.argv[2] || "build/dist/wasmJs/productionExecutable");
 const pagesSite = process.argv[2] !== undefined;
@@ -501,6 +501,10 @@ async function refresh(page) {
                 await labels(shot, "Ready for offline use.", "Charging data",
                     "Charging history", "Enable foreground notifications", "About", "Open-source licenses");
                 await shot.screenshot({ path: path.join(evidence, `pwa-settings-${device}-${colorScheme}.png`) });
+                await clickCanvasText(shot, "Presets");
+                await labels(shot, "Presets", "Use the edit button to rename. Drag the handle to reorder.",
+                    "Rename Default", "Keep at least one preset.");
+                await clickCanvasButton(shot, "Back");
                 await clickCanvasButton(shot, "Back");
                 await start(shot);
                 await setOffline(shotContext, true);
@@ -554,6 +558,9 @@ async function refresh(page) {
                 }
                 assert.deepEqual((await state(shot)).activeSession, savedBeforeRefresh.activeSession);
                 assert.deepEqual((await state(shot)).backup, savedBeforeRefresh.backup);
+                if (colorScheme === "dark") await clickCanvasButton(shot, "Back");
+                await clickCanvasButton(shot, "Stop Timer");
+                await labels(shot, "Charge summary", "Car reading", "Not recorded", "Add car reading");
                 await shotContext.close();
                 console.log(`PWA: ${device} ${colorScheme} ready/offline/error/update evidence captured`);
                 serving = b;

@@ -92,12 +92,12 @@ fun HistoryScreen(
                     CircularProgressIndicator()
                 }
                 entries.isEmpty() -> Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    Text(stringResource(Res.string.history_empty), Modifier.padding(24.dp),
+                    Text(stringResource(Res.string.history_empty), Modifier.padding(UiSpacing.large),
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 else -> LazyColumn(
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    contentPadding = PaddingValues(UiSpacing.medium),
+                    verticalArrangement = Arrangement.spacedBy(UiSpacing.small)
                 ) {
                     items(entries, key = { it.id }) { entry ->
                         HistoryCard(entry, { onOpenSummary(entry) }, { deletingId = entry.id })
@@ -119,9 +119,15 @@ private fun HistoryCard(entry: ChargingHistoryEntry, onClick: () -> Unit, onDele
     val date = formatSessionDate(entry.snapshot.startTime)
     Card(onClick = onClick, modifier = Modifier.fillMaxWidth(),
         colors = tonalCardColors(), border = tonalCardBorder()) {
-        Row(Modifier.fillMaxWidth().padding(start = 16.dp, top = 12.dp, end = 4.dp, bottom = 12.dp),
+        Row(
+            Modifier.fillMaxWidth().padding(
+                start = UiSpacing.medium,
+                top = UiSpacing.medium,
+                end = UiSpacing.small,
+                bottom = UiSpacing.medium
+            ),
             verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(UiSpacing.small)) {
                 Text(date, style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(stringResource(Res.string.value_with_separator, preset,

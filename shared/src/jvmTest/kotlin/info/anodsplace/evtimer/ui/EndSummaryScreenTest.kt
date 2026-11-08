@@ -2,10 +2,13 @@ package info.anodsplace.evtimer.ui
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
+import androidx.compose.ui.test.assertHeightIsAtLeast
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
@@ -45,7 +48,10 @@ class EndSummaryScreenTest {
                     })
             }
         }
-        onNodeWithText("Add car reading").performScrollTo().performClick()
+        onNodeWithText("Car reading").assertExists()
+        onNodeWithText("Not recorded").assertExists()
+        onNodeWithContentDescription("Add car reading").assertHeightIsAtLeast(48.dp)
+        onNodeWithText("Car reading").assertHeightIsAtLeast(48.dp).performScrollTo().performClick()
         onNodeWithText("Battery percentage").performTextReplacement(" 28,5 ")
         onNodeWithText("Read when timer stopped").assertIsOff().performClick()
         onNodeWithText("Read when timer stopped").assertIsOn()
@@ -53,13 +59,16 @@ class EndSummaryScreenTest {
         onNodeWithText("Car shows").assertDoesNotExist()
         onNodeWithText("20% → 28.5%").assertExists()
         onNodeWithText("Car reading · Estimated 30%").assertExists()
+        onNodeWithText("Car reading").assertExists()
+        onNodeWithText("28.5%").assertExists()
         onNodeWithTag("charging-waves").assertDoesNotExist()
         runOnIdle { assertFalse(done); assertTrue(entry.value.calibrationEnabled); assertFalse(entry.value.reviewed) }
-        onNodeWithText("Edit car reading").performScrollTo().performClick()
+        onNodeWithContentDescription("Edit car reading").assertHeightIsAtLeast(48.dp).performScrollTo().performClick()
         onNodeWithText("Battery percentage").performTextReplacement("")
         onNodeWithText("Save").performClick()
         runOnIdle { assertNull(entry.value.actualPercent); assertFalse(entry.value.calibrationEnabled) }
         onNodeWithText("20% → 30%").assertExists()
+        onNodeWithText("Not recorded").assertExists()
         onNodeWithText("Done").performScrollTo().performClick()
         runOnIdle { assertTrue(done) }
     }
@@ -75,7 +84,7 @@ class EndSummaryScreenTest {
                     entry = entry, onSaveReading = { _, value, enabled -> saved = value; consent = enabled })
             }
         }
-        onNodeWithText("Add car reading").performScrollTo().performClick()
+        onNodeWithContentDescription("Add car reading").performScrollTo().performClick()
         for (invalid in listOf("NaN", "101", "-1", "28..5")) {
             onNodeWithText("Battery percentage").performTextReplacement(invalid)
             onNodeWithText("Save").assertIsNotEnabled()
@@ -85,7 +94,7 @@ class EndSummaryScreenTest {
         onNodeWithText("Read when timer stopped").performClick()
         onNodeWithText("Cancel").performClick()
         runOnIdle { assertNull(saved) }
-        onNodeWithText("Add car reading").performScrollTo().performClick()
+        onNodeWithContentDescription("Add car reading").performScrollTo().performClick()
         onNodeWithText("Battery percentage").performTextReplacement("18.5")
         onNodeWithText("Read when timer stopped").assertIsNotEnabled().assertIsOff()
         onNodeWithText("Save").performClick()

@@ -465,16 +465,16 @@ async function verifyPowerUndo(browser, origin) {
         await clickCanvasButton(parityPage, "Settings");
         console.log("Parity: opening settings/presets");
         await clickCanvasText(parityPage, "Presets");
-        await waitForAccessibleText(parityPage, "Tap a name to rename");
+        await waitForAccessibleText(parityPage, "Use the edit button to rename. Drag the handle to reorder.");
         assert.equal(new URL(parityPage.url()).hash, "#/presets");
         await parityPage.goBack();
         await waitForAccessibleText(parityPage, "About");
         await parityPage.goForward();
-        await waitForAccessibleText(parityPage, "Tap a name to rename");
+        await waitForAccessibleText(parityPage, "Use the edit button to rename. Drag the handle to reorder.");
         const renameBaseline = await paintedDialogBaseline(parityPage);
         const backBounds = await parityPage.getByRole("button", { name: "Back", exact: true }).boundingBox();
         assert.ok(backBounds);
-        await clickCanvasText(parityPage, "Home");
+        await clickCanvasButton(parityPage, "Rename Home");
         const nameInput = parityPage.getByRole("textbox").first();
         await clickCanvas(parityPage, nameInput);
         await parityPage.keyboard.press("Control+a");
@@ -544,7 +544,7 @@ async function verifyPowerUndo(browser, origin) {
         await parityPage.mouse.wheel(0, -2000);
         await waitForAccessibleText(parityPage, "Charging Power");
         await clickCanvasText(parityPage, "Presets");
-        await waitForAccessibleText(parityPage, "Tap a name to rename");
+        await waitForAccessibleText(parityPage, "Use the edit button to rename. Drag the handle to reorder.");
         await parityPage.evaluate(() => {
             const originalRead = evTimerStorage.read;
             let release;
@@ -604,6 +604,10 @@ async function verifyPowerUndo(browser, origin) {
         await waitForAccessibleText(parityPage, "20% → 33.3%");
         const parityCard = parityPage.getByRole("button").filter({ hasText: "20% → 33.3%" }).first();
         await clickCanvas(parityPage, parityCard);
+        await waitForAccessibleText(parityPage, "Car reading");
+        await waitForAccessibleText(parityPage, "Not recorded");
+        const readingRow = await parityPage.getByRole("button", { name: "Add car reading", exact: true }).boundingBox();
+        assert.ok(readingRow && readingRow.height >= 48, "Car reading row has a 48px target");
         const readingBaseline = await paintedDialogBaseline(parityPage, true);
         await clickCanvasButton(parityPage, "Add car reading");
         assert.ok(!(await parityPage.screenshot({ clip: readingBaseline.clip })).equals(readingBaseline.image),
@@ -622,6 +626,8 @@ async function verifyPowerUndo(browser, origin) {
         await assertPaintedDialogDismissed(parityPage, readingBaseline);
         await parityPage.reload();
         await waitForAccessibleText(parityPage, "20% → 32%");
+        await waitForAccessibleText(parityPage, "Car reading");
+        await waitForAccessibleText(parityPage, "Edit car reading");
         await clickCanvasButton(parityPage, "Share");
         console.log("Parity: sharing");
         await parityPage.waitForFunction(() => sharedTexts.length === 1);
@@ -657,7 +663,7 @@ async function verifyPowerUndo(browser, origin) {
         await parityPage.mouse.click(closeBounds.x + closeBounds.width / 2, closeBounds.y + closeBounds.height / 2);
         await assertPaintedDialogDismissed(parityPage, calibrationBaseline);
         await parityPage.reload();
-        await waitForAccessibleText(parityPage, "Tap a name to rename");
+        await waitForAccessibleText(parityPage, "Use the edit button to rename. Drag the handle to reorder.");
         await clickCanvasButton(parityPage, "Back");
         await parityPage.mouse.move(550, 400);
         await parityPage.mouse.wheel(0, 1200);
