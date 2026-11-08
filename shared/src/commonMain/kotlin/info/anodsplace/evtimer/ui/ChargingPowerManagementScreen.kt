@@ -60,7 +60,7 @@ fun ChargingPowerManagementScreen(
     Box(modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
     Column(Modifier.widthIn(max = readablePageWidth).fillMaxSize()) {
         Column(Modifier.weight(1f)) {
-            SettingsHeader(stringResource(Res.string.charging_power), onBack)
+            SettingsHeader(stringResource(Res.string.charging_power), onBack, showBack = !LocalSettingsTwoPane.current)
             Column(
                 Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(UiSpacing.medium),
                 verticalArrangement = Arrangement.spacedBy(UiSpacing.medium)

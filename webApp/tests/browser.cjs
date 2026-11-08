@@ -240,8 +240,8 @@ async function verifyPowerUndo(browser, origin) {
             await page.goBack();
             await clickCanvasButton(page, "Settings");
             const importButton = page.getByRole("button", { name: "Import backup", exact: true });
-            // The centered settings page can be taller than the viewport.
-            await page.mouse.move(550, 450);
+            // Backup controls are in the Settings list pane at this width.
+            await page.mouse.move(250, 450);
             await page.mouse.wheel(0, 600);
             await importButton.waitFor();
             await page.waitForTimeout(300);
@@ -283,6 +283,9 @@ async function verifyPowerUndo(browser, origin) {
 
             // Transparent semantics proxies share the canvas control's bounds but
             // have pointer-events:none. Send trusted pointer input through to the canvas.
+            await page.mouse.move(250, 450);
+            await page.mouse.wheel(0, 600);
+            await page.waitForTimeout(300);
             const [download] = await Promise.all([
                 page.waitForEvent("download"),
                 clickCanvasButton(page, "Export backup")
@@ -303,9 +306,6 @@ async function verifyPowerUndo(browser, origin) {
                 '"actualPercent":78.5,"calibrationEnabled":true,' +
                 '"segments":[{"startedAt":100,"powerKw":11,"efficiency":0.85}]}]');
             const beforeImport = await waitForRecord(page);
-            await page.mouse.move(550, 450);
-            await page.mouse.wheel(0, 600);
-            await page.waitForTimeout(300);
             const [chooser] = await Promise.all([
                 page.waitForEvent("filechooser"),
                 clickCanvasButton(page, "Import backup")
@@ -427,8 +427,40 @@ async function verifyPowerUndo(browser, origin) {
             await context.close();
           }
         }
+        const settingsLayoutContext = await browser.newContext({
+            locale: "en-US", viewport: { width: 500, height: 800 }
+        });
+        const settingsLayoutPage = await settingsLayoutContext.newPage();
+        const settingsLayoutErrors = [];
+        settingsLayoutPage.on("pageerror", error => settingsLayoutErrors.push(error.message));
+        await settingsLayoutPage.goto(origin);
+        assert.notEqual(await waitForRecord(settingsLayoutPage), null);
+        await clickCanvasButton(settingsLayoutPage, "Settings");
+        await waitForAccessibleText(settingsLayoutPage, "Settings");
+        await clickCanvasText(settingsLayoutPage, "Presets");
+        await waitForAccessibleText(settingsLayoutPage, "Use the edit button to rename. Drag the handle to reorder.");
+        assert.equal(await settingsLayoutPage.getByRole("button", { name: "Back", exact: true }).count(), 1);
+        await settingsLayoutPage.setViewportSize({ width: 1200, height: 900 });
+        await waitForAccessibleText(settingsLayoutPage, "Settings");
+        await waitForAccessibleText(settingsLayoutPage, "Use the edit button to rename. Drag the handle to reorder.");
+        assert.equal(await settingsLayoutPage.getByText("Choose a setting to view its details", { exact: true }).count(), 0,
+            "The selected detail replaces the empty-state placeholder");
+        assert.equal(new URL(settingsLayoutPage.url()).hash, "#/presets");
+        assert.equal(await settingsLayoutPage.getByRole("button", { name: "Back", exact: true }).count(), 1,
+            "The wide layout keeps only the Settings-list back button, not a detail-pane back arrow");
+        await settingsLayoutPage.setViewportSize({ width: 500, height: 800 });
+        await waitForAccessibleText(settingsLayoutPage, "Use the edit button to rename. Drag the handle to reorder.");
+        assert.equal(new URL(settingsLayoutPage.url()).hash, "#/presets");
+        await settingsLayoutPage.goBack();
+        await waitForAccessibleText(settingsLayoutPage, "Settings");
+        await settingsLayoutPage.setViewportSize({ width: 1200, height: 900 });
+        await waitForAccessibleText(settingsLayoutPage, "Choose a setting to view its details");
+        assert.equal(new URL(settingsLayoutPage.url()).hash, "#/settings");
+        assert.deepEqual(settingsLayoutErrors, []);
+        await settingsLayoutContext.close();
+
         // Exercise the same Settings hierarchy and screen callbacks as native.
-        const parityContext = await browser.newContext({ locale: "en-US", viewport: { width: 1100, height: 900 } });
+        const parityContext = await browser.newContext({ locale: "en-US", viewport: { width: 800, height: 900 } });
         await parityContext.addInitScript(() => {
             globalThis.sharedTexts = [];
             globalThis.shareFailure = false;

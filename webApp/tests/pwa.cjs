@@ -499,13 +499,26 @@ async function refresh(page) {
                 await shot.screenshot({ path: path.join(evidence, `pwa-ready-${device}-${colorScheme}.png`) });
                 await clickCanvasButton(shot, "Settings");
                 await labels(shot, "Ready for offline use.", "Charging data",
-                    "Charging history", "Enable foreground notifications", "About", "Open-source licenses");
+                    "Charging history", "Enable foreground notifications", "About", "Open-source licenses",
+                    ...(device === "desktop" ? ["Choose a setting to view its details"] : []));
                 await shot.screenshot({ path: path.join(evidence, `pwa-settings-${device}-${colorScheme}.png`) });
                 await clickCanvasText(shot, "Presets");
                 await labels(shot, "Presets", "Use the edit button to rename. Drag the handle to reorder.",
                     "Rename Default", "Keep at least one preset.");
-                await clickCanvasButton(shot, "Back");
-                await clickCanvasButton(shot, "Back");
+                if (device === "desktop") {
+                    await shot.screenshot({ path: path.join(evidence, `pwa-settings-presets-${colorScheme}.png`) });
+                    await shot.goBack();
+                    await labels(shot, "Choose a setting to view its details");
+                    await clickCanvasText(shot, "Charging history");
+                    await labels(shot, "Charging history", "No past sessions yet");
+                    await shot.screenshot({ path: path.join(evidence, `pwa-settings-history-${colorScheme}.png`) });
+                    await shot.goBack();
+                    await labels(shot, "Choose a setting to view its details");
+                    await shot.goBack();
+                } else {
+                    await clickCanvasButton(shot, "Back");
+                    await clickCanvasButton(shot, "Back");
+                }
                 await start(shot);
                 await setOffline(shotContext, true);
                 await refresh(shot);

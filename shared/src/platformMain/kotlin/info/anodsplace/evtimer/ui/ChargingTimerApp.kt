@@ -46,16 +46,25 @@ fun ChargingTimerApp(
             if (backStack.isEmpty() || navigationLoadFailed) {
                 LoadStateContent(navigationLoadFailed, navigation::retryLoad, modifier)
             } else {
-                NavDisplay(
-                    backStack = backStack,
-                    onBack = { navigation.onBack() },
-                    entryDecorators = listOf(
-                        rememberSaveableStateHolderNavEntryDecorator(),
-                        rememberViewModelStoreNavEntryDecorator(),
-                        remember { OpaqueBackgroundNavEntryDecorator() }
-                    ),
-                    entryProvider = { destination ->
-                        NavEntry(destination) {
+                val selectedDetail = when (backStack.lastOrNull()) {
+                    Destination.ChargingPowers -> SettingsItem.ChargingPower
+                    Destination.Presets, Destination.PresetEditor -> SettingsItem.Presets
+                    Destination.History, Destination.EndSummary -> SettingsItem.History
+                    Destination.Licenses -> SettingsItem.Licenses
+                    else -> null
+                }
+                AdaptiveSettingsNavigation {
+                    NavDisplay(
+                        backStack = backStack,
+                        onBack = { navigation.onBack() },
+                        sceneStrategies = listOf(rememberSettingsListDetailSceneStrategy<Destination>()),
+                        entryDecorators = listOf(
+                            rememberSaveableStateHolderNavEntryDecorator(),
+                            rememberViewModelStoreNavEntryDecorator(),
+                            remember { OpaqueBackgroundNavEntryDecorator() }
+                        ),
+                        entryProvider = { destination ->
+                            NavEntry(destination, metadata = settingsMetadata(destination)) {
                             when (destination) {
                                 Destination.Config -> {
                                     val viewModel = koinViewModel<ConfigurationViewModel>()
@@ -97,6 +106,7 @@ fun ChargingTimerApp(
                                         onOpenLicenses = { navigation.navigate(Destination.Licenses) },
                                         backupContent = { BackupSettings(viewModel) },
                                         onOpenHistory = { navigation.navigate(Destination.History) },
+                                        selectedDetail = selectedDetail,
                                         modifier = modifier.windowInsetsPadding(WindowInsets.systemBars)
                                     )
                                 }
@@ -167,9 +177,18 @@ fun ChargingTimerApp(
                                 else -> error("Screen not implemented for $destination")
                             }
                         }
-                    }
-                )
+                        }
+                    )
+                }
             }
         }
     }
+}
+
+@OptIn(androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi::class)
+private fun settingsMetadata(destination: Destination): Map<String, Any> = when (destination) {
+    Destination.Settings -> settingsListPaneMetadata()
+    Destination.ChargingPowers, Destination.Presets, Destination.PresetEditor,
+    Destination.History, Destination.EndSummary, Destination.Licenses -> settingsDetailPaneMetadata()
+    else -> emptyMap()
 }
