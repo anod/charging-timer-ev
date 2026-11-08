@@ -11,7 +11,7 @@
     <string name="reading_no_gain">Reading must exceed the start percentage.</string>
     <string name="reading_interrupted">Interrupted sessions are not used for calibration.</string>
     <string name="reading_no_energy">No charging duration or energy to calibrate.</string>
-    <string name="reading_mixed_power">Speed changed; not used for calibration.</string>
+    <string name="reading_mixed_power">Power changed; not used for calibration.</string>
     <string name="reading_preset_required">Preset unavailable; not used for calibration.</string>
     <string name="reading_save_failed">Could not save the reading. Try again.</string>
     <string name="calibration_info">Estimate information for %1$s</string>
@@ -103,9 +103,9 @@
     <string name="power_value">%1$s %2$s</string>
 
     <string name="charging_in_progress">Charging in Progress</string>
-    <string name="charging_speed">Charging Speed</string>
-    <string name="change_charging_speed">Change charging speed</string>
-    <string name="change_speed">Change speed</string>
+    <string name="charging_speed">Charging Power</string>
+    <string name="change_charging_speed">Change charging power</string>
+    <string name="change_speed">Change power</string>
     <string name="current_percent">Current %</string>
     <string name="target_percent">Target %</string>
     <string name="time_remaining">Time Remaining</string>

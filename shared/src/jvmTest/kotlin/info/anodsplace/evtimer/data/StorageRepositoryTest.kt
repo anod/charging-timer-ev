@@ -31,6 +31,38 @@ import kotlin.time.Instant
 class StorageRepositoryTest {
     @Test
     @OptIn(ExperimentalCoroutinesApi::class)
+    fun undoPowerRemovalPersistsSelectedAndUnselectedOptions() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        try {
+            fixture { source ->
+                val viewModel = SettingsViewModel(source.repo, source.repo, source.repo)
+                try {
+                    val selected = viewModel.removePowerForUndo(11f)
+                    assertTrue(selected.wasSelected)
+                    assertEquals(3.6f, source.repository().observeSettings().first().chargingPower)
+                    viewModel.restorePower(selected)
+                    assertEquals(ChargingSettings.DEFAULT, source.repository().observeSettings().first())
+
+                    val unselected = viewModel.removePowerForUndo(7f)
+                    assertFalse(unselected.wasSelected)
+                    viewModel.restorePower(unselected)
+                    assertEquals(ChargingSettings.DEFAULT, source.repository().observeSettings().first())
+                    val token = viewModel.removePowerForUndo(11f)
+                    source.repo.saveAsPreset("Other")
+                    val before = source.repository().observeConfiguration().first()
+                    assertFailsWith<IllegalArgumentException> { viewModel.restorePower(token) }
+                    assertEquals(before, source.repository().observeConfiguration().first())
+                } finally {
+                    viewModel.viewModelScope.cancel()
+                }
+            }
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
+    @OptIn(ExperimentalCoroutinesApi::class)
     fun settingsPowerManagementDraftSurvivesRestartAndBackupRestore() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         try {

@@ -38,6 +38,8 @@ interface PresetRepository {
     fun observeCalibration(): Flow<ChargingCalibration> = flowOf(ChargingCalibration())
     suspend fun resetLearnedEstimates(presetId: String, powerKw: Float) { error("Calibration reset is not supported") }
     fun observeConfiguration(): Flow<PresetConfiguration>
+    suspend fun removePowerForUndo(power: Float): RemovedPower = error("Power removal is not supported")
+    suspend fun restorePower(removed: RemovedPower): Unit = error("Power restoration is not supported")
     suspend fun updateSelectedPreset()
     suspend fun saveAsPreset(name: String)
     suspend fun resetPreset()

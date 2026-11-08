@@ -1,5 +1,7 @@
 package info.anodsplace.evtimer.data
 
+data class RemovedPower(val presetId: String, val power: Float, val wasSelected: Boolean)
+
 data class PresetConfiguration(
     val presets: List<ChargingPreset>,
     val selectedId: String,
@@ -7,6 +9,15 @@ data class PresetConfiguration(
 ) {
     val selected: ChargingPreset get() = presets.first { it.id == selectedId }
     val isEdited: Boolean get() = !settings.matchesPreset(selected.settings)
+
+    fun removePower(power: Float): Pair<PresetConfiguration, RemovedPower> =
+        reduce(PresetEvent.Edit(settings.withRemovedPower(power))) to
+            RemovedPower(selectedId, power, settings.chargingPower == power)
+
+    fun restorePower(removed: RemovedPower): PresetConfiguration {
+        require(selectedId == removed.presetId) { "Charging setup changed since power removal" }
+        return reduce(PresetEvent.Edit(settings.withRestoredPower(removed.power, removed.wasSelected)))
+    }
 
     fun reduce(event: PresetEvent): PresetConfiguration = when (event) {
         is PresetEvent.Select -> {

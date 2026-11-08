@@ -222,13 +222,31 @@ class ChargingRepositoryImpl(
     override suspend fun saveAsPreset(name: String) =
         changeConfiguration(PresetEvent.SaveNew(kotlin.uuid.Uuid.random().toString(), name))
 
-    private suspend fun changeConfiguration(event: PresetEvent) {
+    override suspend fun removePowerForUndo(power: Float): RemovedPower {
+        var removed: RemovedPower? = null
+        changeConfiguration { before ->
+            val (after, token) = before.removePower(power)
+            removed = token
+            after
+        }
+        return requireNotNull(removed)
+    }
+
+    override suspend fun restorePower(removed: RemovedPower) {
+        changeConfiguration { it.restorePower(removed) }
+    }
+
+    private suspend fun changeConfiguration(event: PresetEvent) = changeConfiguration { before ->
+        if (event is PresetEvent.Select) require(before.presets.any { it.id == event.id }) { "Unknown preset: ${event.id}" }
+        before.reduce(event)
+    }
+
+    private suspend fun changeConfiguration(transform: (PresetConfiguration) -> PresetConfiguration) {
         initialize()
         withContext(Dispatchers.Default) {
             mutex.withLock {
                 val before = configuration(dataStore.data.first(), readPresets())
-                if (event is PresetEvent.Select) require(before.presets.any { it.id == event.id }) { "Unknown preset: ${event.id}" }
-                val after = before.reduce(event)
+                val after = transform(before)
                 database.transaction {
                     after.presets.filter { it !in before.presets }.forEach(::putPreset)
                     before.presets.filter { old -> after.presets.none { it.id == old.id } }

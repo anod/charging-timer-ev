@@ -80,16 +80,19 @@ class SettingsViewModel(
 
     fun removePower(power: Float) {
         viewModelScope.launch {
-            powerEdits.withLock {
-                val latest = repository.observeSettings().first()
-                if (power !in latest.availablePowers || latest.availablePowers.none { it != power }) {
-                    println("Charging settings: rejecting missing or last power option removal")
-                    return@withLock
-                }
-                repository.saveSettings(latest.withRemovedPower(power))
+            try {
+                removePowerForUndo(power)
+            } catch (error: IllegalArgumentException) {
+                println("Charging settings: rejecting power removal: ${error.message}")
             }
         }
     }
+
+    suspend fun removePowerForUndo(power: Float): RemovedPower =
+        powerEdits.withLock { presetRepository.removePowerForUndo(power) }
+
+    suspend fun restorePower(removed: RemovedPower) =
+        powerEdits.withLock { presetRepository.restorePower(removed) }
 
     private val mutableBackup = MutableStateFlow(BackupState())
     val backup = mutableBackup.asStateFlow()

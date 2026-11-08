@@ -112,7 +112,8 @@ fun ChargingTimerApp(
                                         powers = loaded.availablePowers,
                                         selectedPower = loaded.chargingPower,
                                         onAddPower = viewModel::addPower,
-                                        onRemovePower = viewModel::removePower,
+                                        onRemovePower = viewModel::removePowerForUndo,
+                                        onUndoRemovePower = viewModel::restorePower,
                                         onBack = { navigation.onBack() },
                                         modifier = modifier.windowInsetsPadding(WindowInsets.systemBars)
                                     )

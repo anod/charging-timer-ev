@@ -12,8 +12,8 @@ const screenshots = path.resolve("build/browser-evidence");
 const mime = { ".wasm": "application/wasm", ".js": "application/javascript",
     ".mjs": "application/javascript", ".html": "text/html", ".json": "application/json" };
 
-async function waitForRecord(page, accept = record => record !== null) {
-    const deadline = Date.now() + 120_000;
+async function waitForRecord(page, accept = record => record !== null, timeout = 120_000) {
+    const deadline = Date.now() + timeout;
     while (Date.now() < deadline) {
         const record = await page.evaluate(async () =>
             globalThis.evTimerStorage ? JSON.parse(await globalThis.evTimerStorage.read()) : null);
@@ -33,7 +33,7 @@ async function waitForAccessibleText(page, text) {
 
 const configurationLabels = ["Charging Timer for EV", "Battery: 83 kWh", "Max: 100%",
     "Start", "Charging Power", "3.6 kW", "7.0 kW", "11.0 kW", "22.0 kW", "Start Timer"];
-const runningLabels = ["Charging in Progress", "Charging Speed", "Current %", "Target %",
+const runningLabels = ["Charging in Progress", "Charging Power", "Current %", "Target %",
     "Time Remaining", "Time to 80%", "Elapsed Time", "Stop Timer"];
 const summaryLabels = ["Charge summary", "Estimated at timer stop", "Default", "Elapsed Time",
     "Energy added", "Average power", "Charging speeds", "Done"];
@@ -49,6 +49,82 @@ async function capture(page, name, labels) {
         requestAnimationFrame(() => requestAnimationFrame(resolve))));
     for (const label of labels) await waitForAccessibleText(page, label);
     await page.screenshot({ path: path.join(screenshots, `${name}.png`) });
+}
+
+async function verifyPowerUndo(browser, origin) {
+    const context = await browser.newContext({ locale: "en-US", viewport: { width: 800, height: 480 } });
+    const page = await context.newPage();
+    const settings = record => {
+        const { preferences, presets } = JSON.parse(record.payload).backup;
+        return preferences.draft ?? presets.find(preset => preset.id === preferences.selectedPresetId);
+    };
+    const hasPower = (record, power) => settings(record).powerOptions.some(value => Math.abs(value - power) < 0.001);
+    try {
+        await page.goto(origin);
+        assert.ok(await waitForRecord(page));
+        await page.evaluate(async () => {
+            const record = JSON.parse(await evTimerStorage.read());
+            const state = JSON.parse(record.payload);
+            state.backup.presets[0].powerOptions = [3.6, 7, 11, 15, 20, 25, 30];
+            await evTimerStorage.write(record.revision, JSON.stringify(state));
+        });
+        await page.reload();
+        await waitForAccessibleText(page, "Start Timer");
+        await clickCanvasButton(page, "Settings");
+        await clickCanvasText(page, "Charging Power");
+        await clickCanvasButton(page, "Remove 3.6 kW");
+        await waitForAccessibleText(page, "3.6 kW removed");
+        const undo = page.getByRole("button", { name: "Undo", exact: true });
+        const box = await undo.boundingBox();
+        assert.ok(box && box.width >= 48 && box.height >= 48, "Undo has a 48px pointer target");
+        console.log(`Undo pointer bounds: ${box.width} x ${box.height} CSS pixels`);
+        await page.mouse.click(box.x + box.width / 2, box.y + box.height - 2);
+        assert.ok(await waitForRecord(page, r => r && settings(r).chargingPower === 11 && hasPower(r, 3.6)),
+            "Undo edge click restores the removed power without changing the selection");
+        console.log("Undo bottom edge click restored power");
+
+        await clickCanvasButton(page, "Remove 3.6 kW");
+        await waitForAccessibleText(page, "3.6 kW removed");
+        const topBox = await undo.boundingBox();
+        assert.ok(topBox && topBox.width >= 48 && topBox.height >= 48, "Undo retains a 48px pointer target");
+        await page.mouse.click(topBox.x + topBox.width / 2, topBox.y + 2);
+        assert.ok(await waitForRecord(page, r => r && hasPower(r, 3.6), 8_000),
+            "Undo top edge click restores power");
+        console.log("Undo top edge click restored power");
+
+        await clickCanvasButton(page, "Remove 3.6 kW");
+        await waitForAccessibleText(page, "Undo");
+        const lastRemove = page.getByRole("button", { name: "Remove 30.0 kW", exact: true });
+        await page.mouse.move(400, 300);
+        let lastBox;
+        for (let i = 0; i < 10; i++) {
+            lastBox = await lastRemove.boundingBox();
+            const undoBox = await undo.boundingBox();
+            if (lastBox && lastBox.width > 0 && lastBox.height > 0 && undoBox &&
+                lastBox.y >= 0 && lastBox.y + lastBox.height < undoBox.y) break;
+            await page.mouse.wheel(0, 1000);
+            await page.waitForTimeout(100);
+        }
+        const undoBox = await undo.boundingBox();
+        assert.ok(lastBox && lastBox.width > 0 && lastBox.height > 0 && undoBox &&
+            lastBox.y >= 0 && lastBox.y + lastBox.height < undoBox.y,
+            "Last row is fully visible above the snackbar");
+        console.log("Last row pointer bounds:", lastBox, "Undo bounds:", undoBox);
+        await page.screenshot({ path: path.join(screenshots, "power-undo-last-row.png") });
+        await page.mouse.click(lastBox.x + lastBox.width / 2, lastBox.y + lastBox.height / 2);
+        await waitForAccessibleText(page, "30.0 kW removed");
+        const last = await waitForRecord(page, r => r && !hasPower(r, 30));
+        assert.ok(last, "Last row remains pointer-accessible while snackbar is shown");
+        for (let i = 0; i < 8; i++) {
+            await page.keyboard.press("Tab");
+        }
+        await page.keyboard.press("Enter");
+        assert.ok(await waitForRecord(page, r => r && hasPower(r, 30), 8_000),
+            "Undo responds to keyboard activation");
+        console.log("Last row pointer access while snackbar visible and keyboard Undo verified");
+    } finally {
+        await context.close();
+    }
 }
 
 (async () => {
@@ -70,6 +146,8 @@ async function capture(page, name, labels) {
     const browser = await chromium.launch({ headless: true });
     try {
         const origin = `http://127.0.0.1:${server.address().port}`;
+        await verifyPowerUndo(browser, origin);
+        if (process.env.POWER_UNDO_ONLY === "1") return;
         let dialogFailure;
         try {
             await verifyDialogFocus(browser, origin, screenshots);
