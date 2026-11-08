@@ -240,6 +240,9 @@ async function verifyPowerUndo(browser, origin) {
             await page.goBack();
             await clickCanvasButton(page, "Settings");
             const importButton = page.getByRole("button", { name: "Import backup", exact: true });
+            // The centered settings page can be taller than the viewport.
+            await page.mouse.move(550, 450);
+            await page.mouse.wheel(0, 600);
             await importButton.waitFor();
             await page.waitForTimeout(300);
             let blockedChooser = 0;
@@ -300,6 +303,9 @@ async function verifyPowerUndo(browser, origin) {
                 '"actualPercent":78.5,"calibrationEnabled":true,' +
                 '"segments":[{"startedAt":100,"powerKw":11,"efficiency":0.85}]}]');
             const beforeImport = await waitForRecord(page);
+            await page.mouse.move(550, 450);
+            await page.mouse.wheel(0, 600);
+            await page.waitForTimeout(300);
             const [chooser] = await Promise.all([
                 page.waitForEvent("filechooser"),
                 clickCanvasButton(page, "Import backup")

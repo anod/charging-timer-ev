@@ -31,6 +31,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.windowInsetsPadding
@@ -60,6 +61,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.only
@@ -138,6 +140,7 @@ fun formatElapsedTime(minutes: Int): String {
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun RunningTimerScreen(
     viewState: RunningViewState,
@@ -165,7 +168,9 @@ fun RunningTimerScreen(
     var stopBarHeightPx by remember { mutableIntStateOf(0) }
     val stopBarHeight = with(LocalDensity.current) { stopBarHeightPx.toDp() }
 
-    Box(modifier = modifier.fillMaxSize()) {
+    BoxWithConstraints(modifier = modifier.fillMaxSize()) {
+        val layout = adaptiveLayout(maxWidth, maxHeight)
+        val contentWidth = minOf(maxWidth, if (layout.twoColumns) wideTimerWidth else readablePageWidth)
         // Content scrolls under the pinned Stop bar, which blurs whatever passes beneath it.
         Box(
             modifier = Modifier
@@ -174,15 +179,31 @@ fun RunningTimerScreen(
         ) {
         ChargingWavesBackground(modifier = Modifier.fillMaxSize())
 
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
         Column(
             modifier = Modifier
-                .fillMaxSize()
+                .widthIn(max = contentWidth)
+                .fillMaxWidth()
+                .fillMaxHeight()
                 .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
                 .verticalScroll(rememberScrollState())
                 .padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 16.dp + stopBarHeight),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(32.dp)
         ) {
+            BoxWithConstraints(Modifier.fillMaxWidth()) {
+            val paneWidth = if (layout.twoColumns) {
+                with(LocalDensity.current) { ((constraints.maxWidth - 32.dp.roundToPx()) / 2).toDp() }
+            } else maxWidth
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(32.dp),
+                verticalArrangement = Arrangement.spacedBy(32.dp)
+            ) {
+            Column(
+                Modifier.width(paneWidth).testTag("running-progress-pane"),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(32.dp)
+            ) {
             Text(
                 text = stringResource(
                     if (viewState.isFinished) Res.string.charging_finished else Res.string.charging_in_progress
@@ -205,10 +226,11 @@ fun RunningTimerScreen(
                     estimatedEndTimeText = viewState.estimatedEndTimeText
                 )
             }
+            }
 
             // Charging Stats
             Card(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.width(paneWidth).testTag("running-stats-pane"),
                 shape = MaterialTheme.shapes.medium,
                 colors = tonalCardColors(),
                 border = tonalCardBorder()
@@ -298,6 +320,9 @@ fun RunningTimerScreen(
                 }
             }
 
+            }
+            }
+        }
         }
         }
 
@@ -318,6 +343,8 @@ fun RunningTimerScreen(
             AppDestructiveButton(
                 onClick = { onEvent(RunningViewEvent.StopCharging) },
                 modifier = Modifier
+                    .align(Alignment.Center)
+                    .widthIn(max = readablePageWidth)
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 12.dp)
             ) {
