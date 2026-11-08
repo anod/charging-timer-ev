@@ -3,12 +3,15 @@ package info.anodsplace.evtimer.ui
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
@@ -28,6 +31,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -141,13 +145,18 @@ fun ConfigurationScreen(
         )
     }
 
-    // Scaffold provides a persistent bottom bar with the Start button while the content scrolls.
+    BoxWithConstraints(modifier.fillMaxSize()) {
+    val layout = adaptiveLayout(maxWidth, maxHeight)
+    val contentWidth = if (layout.twoColumns) wideTimerWidth else readablePageWidth
+    val cardWidth = with(LocalDensity.current) {
+        ((minOf(maxWidth, contentWidth) - 32.dp - 12.dp).roundToPx() / 2).toDp()
+    }
     Scaffold(
-        modifier = modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxSize(),
         bottomBar = {
             val invalidRange = settings.startPercent >= settings.maxPercent
             val startErrorDescription = stringResource(Res.string.start_percent_error_description)
-            Column(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
                 if (invalidRange) {
                     Text(
                         text = stringResource(Res.string.start_percent_exceeds_max),
@@ -163,6 +172,7 @@ fun ConfigurationScreen(
                     onClick = { onEvent(ConfigurationViewEvent.StartCharging) },
                     enabled = !invalidRange,
                     modifier = Modifier
+                        .widthIn(max = readablePageWidth)
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 12.dp)
                 ) {
@@ -171,9 +181,12 @@ fun ConfigurationScreen(
             }
         }
     ) { innerPadding ->
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
         Column(
             modifier = Modifier
                 .padding(innerPadding)
+                .widthIn(max = contentWidth)
+                .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -266,7 +279,7 @@ fun ConfigurationScreen(
                     viewState = viewState,
                     expanded = cardExpansion.battery,
                     onExpandedChange = { updateCardExpansion(cardExpansion.copy(battery = it)) },
-                    modifier = Modifier
+                    modifier = if (layout.twoColumns) Modifier.width(cardWidth) else Modifier
                 ) {
                     PercentageSettingContent(
                         label = stringResource(Res.string.battery_capacity),
@@ -295,7 +308,7 @@ fun ConfigurationScreen(
                     viewState = viewState,
                     expanded = cardExpansion.max,
                     onExpandedChange = { updateCardExpansion(cardExpansion.copy(max = it)) },
-                    modifier = Modifier
+                    modifier = if (layout.twoColumns) Modifier.width(cardWidth) else Modifier
                 ) {
                     val maxKwh = remember(settings.batteryCapacity, settings.maxPercent) {
                         ChargingCalculator.calculateKwh(settings.batteryCapacity, settings.maxPercent)
@@ -329,7 +342,7 @@ fun ConfigurationScreen(
                     viewState = viewState,
                     expanded = cardExpansion.start,
                     onExpandedChange = { updateCardExpansion(cardExpansion.copy(start = it)) },
-                    modifier = Modifier
+                    modifier = if (layout.twoColumns) Modifier.width(cardWidth) else Modifier
                 ) {
                     val startKwh = remember(settings.batteryCapacity, settings.startPercent) {
                         ChargingCalculator.calculateKwh(settings.batteryCapacity, settings.startPercent)
@@ -360,13 +373,15 @@ fun ConfigurationScreen(
                     viewState = viewState,
                     expanded = cardExpansion.power,
                     onExpandedChange = { updateCardExpansion(cardExpansion.copy(power = it)) },
-                    modifier = Modifier
+                    modifier = if (layout.twoColumns) Modifier.width(cardWidth) else Modifier
                 ) {
                     ChargingPowerContent(
                         settings = viewState.settings,
                         onEvent = onEvent
                     )
                 }
+                }
+            }
             }
         }
     }

@@ -2,10 +2,12 @@ package info.anodsplace.evtimer.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.sizeIn
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
@@ -28,6 +30,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import info.anodsplace.evtimer.data.formatPower
@@ -54,7 +57,8 @@ fun ChargingPowerManagementScreen(
     val scope = rememberCoroutineScope()
     val undoLabel = stringResource(Res.string.power_undo)
     val editFailed = stringResource(Res.string.power_edit_failed)
-    Column(modifier.fillMaxSize()) {
+    Box(modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+    Column(Modifier.widthIn(max = readablePageWidth).fillMaxSize()) {
         Column(Modifier.weight(1f)) {
             SettingsHeader(stringResource(Res.string.charging_power), onBack)
             Column(
@@ -147,6 +151,7 @@ fun ChargingPowerManagementScreen(
                 }
             ) { Text(notice.visuals.message) }
         }
+    }
     }
     if (showCustomPowerDialog) {
         CustomPowerDialog(
