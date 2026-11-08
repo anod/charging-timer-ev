@@ -6,10 +6,10 @@ const val CUSTOM_PRESET_ID = "custom"
 
 data class ConfigurationViewState(
     val isLoading: Boolean = true,
-    val loadFailed: Boolean = false,
     val settings: ChargingSettings = ChargingSettings(),
     val presets: List<ChargingPreset> = listOf(ChargingPreset(CUSTOM_PRESET_ID, "Default", ChargingSettings.DEFAULT)),
-    val selectedPresetId: String = CUSTOM_PRESET_ID
+    val selectedPresetId: String = CUSTOM_PRESET_ID,
+    val loadFailed: Boolean = false
 ) {
     val presetConfiguration get() = PresetConfiguration(presets, selectedPresetId, settings)
 }
@@ -67,7 +67,6 @@ fun timeProgress(snapshot: ChargingSessionSnapshot, now: Long, estimatedEndTime:
 
 data class RunningViewState(
     val isLoading: Boolean = true,
-    val loadFailed: Boolean = false,
     val startTime: Long = 0L,
     val estimatedEndTime: Long = 0L,
     val estimatedEndTimeText: String = "",
@@ -77,7 +76,8 @@ data class RunningViewState(
     val milestoneEstimate: MilestoneEstimate? = null,
     val milestoneEtaText: String = "",
     val startTimeText: String = "",
-    val timeProgress: TimeProgress? = null
+    val timeProgress: TimeProgress? = null,
+    val loadFailed: Boolean = false
 ) {
     val isFinished: Boolean
         get() = !isLoading && estimatedEndTime > 0L &&

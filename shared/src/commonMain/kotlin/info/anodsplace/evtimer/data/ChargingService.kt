@@ -23,7 +23,6 @@ import kotlin.time.ExperimentalTime
 // Domain-level status emitted by ChargingService (does NOT include settings themselves)
 data class ChargingStatus(
     val isLoading: Boolean = true,
-    val loadFailed: Boolean = false,
     val isRunning: Boolean = false,
     val startTime: Long = 0L,
     val currentPercent: Float = 0f,
@@ -33,7 +32,8 @@ data class ChargingStatus(
     val snapshot: ChargingSessionSnapshot? = null,
     val elapsedMinutes: Int = 0,
     val milestoneEstimate: MilestoneEstimate? = null,
-    val evaluatedAt: Long = 0L
+    val evaluatedAt: Long = 0L,
+    val loadFailed: Boolean = false
 )
 
 /**
