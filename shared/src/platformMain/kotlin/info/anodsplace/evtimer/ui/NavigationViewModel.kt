@@ -5,9 +5,12 @@ import androidx.lifecycle.viewModelScope
 import info.anodsplace.evtimer.data.ChargingService
 import info.anodsplace.evtimer.data.ChargingHistoryEntry
 import info.anodsplace.evtimer.data.ChargingHistoryRepository
+import info.anodsplace.evtimer.data.RetryableLoad
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 enum class Destination {
@@ -15,7 +18,7 @@ enum class Destination {
 }
 
 class NavigationViewModel(
-    service: ChargingService,
+    private val service: ChargingService,
     private val history: ChargingHistoryRepository
 ) : ViewModel() {
     private var wasRunning: Boolean? = service.status.value.takeUnless { it.isLoading }?.isRunning
@@ -25,9 +28,15 @@ class NavigationViewModel(
     val summary = mutableSummary.asStateFlow()
     private val mutableBackStack = MutableStateFlow(if (wasRunning == true) sessionStack(true) else emptyList())
     val backStack = mutableBackStack.asStateFlow()
+    private val mutableLoadFailed = MutableStateFlow(false)
+    val loadFailed = combine(mutableLoadFailed, service.status) { historyFailed, status ->
+        historyFailed || status.loadFailed
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
-    init {
-        viewModelScope.launch {
+    private val loader = RetryableLoad(viewModelScope, "Navigation",
+        onLoading = { mutableLoadFailed.value = false },
+        onError = { mutableLoadFailed.value = true }
+    ) {
             combine(service.status, history.observeHistory()) { status, entries -> status to entries }
                 .collect { (status, entries) ->
                     if (status.isLoading) return@collect
@@ -56,7 +65,13 @@ class NavigationViewModel(
                         } else sessionStack(status.isRunning)
                     }
                 }
-        }
+    }
+
+    init { loader.retry() }
+
+    fun retryLoad() {
+        if (service.status.value.loadFailed) service.retryLoad()
+        loader.retry()
     }
 
     fun openHistorySummary(entry: ChargingHistoryEntry) {

@@ -1,7 +1,6 @@
 package info.anodsplace.evtimer.ui
 
 import androidx.compose.material3.Surface
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.systemBars
@@ -41,10 +40,11 @@ fun ChargingTimerApp(
     navigation: NavigationViewModel = koinViewModel()
 ) {
     val backStack by navigation.backStack.collectAsState()
+    val navigationLoadFailed by navigation.loadFailed.collectAsState()
     AppTheme {
         Surface {
-            if (backStack.isEmpty()) {
-                Box(modifier.fillMaxSize())
+            if (backStack.isEmpty() || navigationLoadFailed) {
+                LoadStateContent(navigationLoadFailed, navigation::retryLoad, modifier)
             } else {
                 NavDisplay(
                     backStack = backStack,
@@ -65,7 +65,9 @@ fun ChargingTimerApp(
                                             navigation.navigate(Destination.Running)
                                         }
                                     }
-                                    if (viewState.isLoading) Box(modifier.fillMaxSize())
+                                    if (viewState.isLoading) LoadStateContent(
+                                        viewState.loadFailed, viewModel::retryLoad, modifier
+                                    )
                                     else ConfigurationScreen(
                                         viewState, viewModel::handleEvent,
                                         modifier.windowInsetsPadding(WindowInsets.systemBars),
@@ -75,13 +77,19 @@ fun ChargingTimerApp(
                                 Destination.Running -> {
                                     val viewModel = koinViewModel<RunningViewModel>()
                                     val viewState by viewModel.viewStates.collectAsState()
-                                    if (viewState.isLoading) Box(modifier.fillMaxSize())
+                                    if (viewState.isLoading) LoadStateContent(
+                                        viewState.loadFailed, viewModel::retryLoad, modifier
+                                    )
                                     else RunningTimerScreen(viewState, viewModel::handleEvent, modifier)
                                 }
                                 Destination.Settings -> {
                                     val viewModel = koinViewModel<SettingsViewModel>()
                                     val notifyAt80 by viewModel.notifyAt80.collectAsState()
-                                    SettingsScreen(
+                                    val settings by viewModel.settings.collectAsState()
+                                    val loadFailed by viewModel.settingsLoadFailed.collectAsState()
+                                    if (settings == null || loadFailed) LoadStateContent(
+                                        loadFailed, viewModel::retrySettingsLoad, modifier
+                                    ) else SettingsScreen(
                                         notifyAt80, viewModel::setNotifyAt80,
                                         onOpenPresets = { navigation.navigate(Destination.Presets) },
                                         onOpenChargingPowers = { navigation.navigate(Destination.ChargingPowers) },
@@ -95,8 +103,11 @@ fun ChargingTimerApp(
                                 Destination.ChargingPowers -> {
                                     val viewModel = koinViewModel<SettingsViewModel>()
                                     val settings by viewModel.settings.collectAsState()
+                                    val loadFailed by viewModel.settingsLoadFailed.collectAsState()
                                     val loaded = settings
-                                    if (loaded == null) Box(modifier.fillMaxSize())
+                                    if (loaded == null || loadFailed) LoadStateContent(
+                                        loadFailed, viewModel::retrySettingsLoad, modifier
+                                    )
                                     else ChargingPowerManagementScreen(
                                         powers = loaded.availablePowers,
                                         selectedPower = loaded.chargingPower,
@@ -111,7 +122,11 @@ fun ChargingTimerApp(
                                     val viewModel = koinViewModel<SettingsViewModel>()
                                     val presets by viewModel.presets.collectAsState()
                                     val calibration by viewModel.calibration.collectAsState()
-                                    PresetManagementScreen(
+                                    val settings by viewModel.settings.collectAsState()
+                                    val loadFailed by viewModel.settingsLoadFailed.collectAsState()
+                                    if (settings == null || loadFailed) LoadStateContent(
+                                        loadFailed, viewModel::retrySettingsLoad, modifier
+                                    ) else PresetManagementScreen(
                                         presets, viewModel::renamePreset, viewModel::deletePreset,
                                         viewModel::movePreset, viewModel::reorderPresets,
                                         onBack = { navigation.onBack() },

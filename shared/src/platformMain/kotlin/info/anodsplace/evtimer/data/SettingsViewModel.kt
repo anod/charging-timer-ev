@@ -2,11 +2,10 @@ package info.anodsplace.evtimer.data
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CancellationException
@@ -32,8 +31,39 @@ class SettingsViewModel(
     private val backups: ManualBackupRepository
 ) : ViewModel() {
     private val powerEdits = Mutex()
-    val settings: StateFlow<ChargingSettings?> =
-        repository.observeSettings().stateIn(viewModelScope, SharingStarted.Eagerly, null)
+    private val mutableSettings = MutableStateFlow<ChargingSettings?>(null)
+    val settings: StateFlow<ChargingSettings?> = mutableSettings.asStateFlow()
+    private val mutableSettingsLoadFailed = MutableStateFlow(false)
+    val settingsLoadFailed = mutableSettingsLoadFailed.asStateFlow()
+    private val mutableSession = MutableStateFlow<ChargingSession?>(null)
+    val session: StateFlow<ChargingSession?> = mutableSession.asStateFlow()
+    private val mutableNotifyAt80 = MutableStateFlow<Boolean?>(null)
+    val notifyAt80: StateFlow<Boolean?> = mutableNotifyAt80.asStateFlow()
+    private val mutablePresets = MutableStateFlow<List<ChargingPreset>>(emptyList())
+    val presets: StateFlow<List<ChargingPreset>> = mutablePresets.asStateFlow()
+    private val mutableCalibration = MutableStateFlow(ChargingCalibration())
+    val calibration: StateFlow<ChargingCalibration> = mutableCalibration.asStateFlow()
+    private val settingsLoader = RetryableLoad(viewModelScope, "Charging powers",
+        onLoading = { mutableSettings.value = null; mutableSettingsLoadFailed.value = false },
+        onError = { mutableSettingsLoadFailed.value = true }
+    ) {
+        combine(
+            repository.observeSettings(), repository.observeSession(), repository.observeNotifyAt80(),
+            presetRepository.observePresets(), presetRepository.observeCalibration()
+        ) { settings, session, notify, presets, calibration ->
+            SettingsData(settings, session, notify, presets, calibration)
+        }.collect {
+            mutableSession.value = it.session
+            mutableNotifyAt80.value = it.notifyAt80
+            mutablePresets.value = it.presets
+            mutableCalibration.value = it.calibration
+            mutableSettings.value = it.settings
+        }
+    }
+
+    init { settingsLoader.retry() }
+
+    fun retrySettingsLoad() = settingsLoader.retry()
 
     fun addPower(power: Float) {
         viewModelScope.launch {
@@ -66,8 +96,6 @@ class SettingsViewModel(
 
     private val mutableBackup = MutableStateFlow(BackupState())
     val backup = mutableBackup.asStateFlow()
-    val session: StateFlow<ChargingSession?> =
-        repository.observeSession().stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     fun backupFileName(): String = "ev-charging-timer-${Clock.System.now().toString().substringBefore('T')}.json"
 
@@ -113,21 +141,20 @@ class SettingsViewModel(
         }
     }
 
-    val notifyAt80: StateFlow<Boolean?> =
-        repository.observeNotifyAt80().stateIn(viewModelScope, SharingStarted.Eagerly, null)
-
-    val presets: StateFlow<List<ChargingPreset>> =
-        presetRepository.observePresets().stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
-
-    val calibration: StateFlow<ChargingCalibration> =
-        presetRepository.observeCalibration().stateIn(viewModelScope, SharingStarted.Eagerly, ChargingCalibration())
-
     suspend fun resetLearnedEstimates(presetId: String, powerKw: Float) =
         presetRepository.resetLearnedEstimates(presetId, powerKw)
 
     fun renamePreset(id: String, name: String) {
         viewModelScope.launch { presetRepository.renamePreset(id, name) }
     }
+
+    private data class SettingsData(
+        val settings: ChargingSettings,
+        val session: ChargingSession,
+        val notifyAt80: Boolean,
+        val presets: List<ChargingPreset>,
+        val calibration: ChargingCalibration
+    )
 
     fun deletePreset(id: String) {
         viewModelScope.launch { presetRepository.deletePreset(id) }

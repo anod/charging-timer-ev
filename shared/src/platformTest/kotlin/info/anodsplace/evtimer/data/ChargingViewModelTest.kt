@@ -6,7 +6,9 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.yield
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -26,6 +28,96 @@ import kotlin.time.Instant
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ChargingViewModelTest {
+    @Test
+    fun configurationAndRunningRetryFailedStorageSubscriptions() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val base = ViewModelTestRepository()
+        var settingsFailures = 1
+        var configurationFailures = 1
+        val repository = object : ChargingRepository by base {
+            override fun observeSettings() = flow {
+                if (settingsFailures-- > 0) error("settings unavailable")
+                emitAll(base.observeSettings())
+            }
+        }
+        val presets = object : PresetRepository by base {
+            override fun observeConfiguration() = flow {
+                if (configurationFailures-- > 0) error("configuration unavailable")
+                emitAll(base.observeConfiguration())
+            }
+        }
+        val service = ViewModelTestService()
+        val config = ConfigurationViewModel(repository, service, presets)
+        val running = RunningViewModel(repository, service, ClockTimeFormatter { "" })
+        try {
+            runCurrent()
+            assertTrue(config.viewState.loadFailed)
+            assertTrue(running.viewState.loadFailed)
+            config.retryLoad()
+            running.retryLoad()
+            assertTrue(config.viewState.isLoading)
+            assertTrue(running.viewState.isLoading)
+            runCurrent()
+            assertFalse(config.viewState.isLoading)
+            assertFalse(running.viewState.isLoading)
+        } finally {
+            config.viewModelScope.cancel()
+            running.viewModelScope.cancel()
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
+    fun chargingPowersRetryFailedSettingsSubscription() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val base = ViewModelTestRepository()
+        var failures = 1
+        val repository = object : ChargingRepository by base {
+            override fun observeSettings() = flow {
+                if (failures-- > 0) error("settings unavailable")
+                emitAll(base.observeSettings())
+            }
+        }
+        val viewModel = SettingsViewModel(repository, base, base)
+        try {
+            runCurrent()
+            assertTrue(viewModel.settingsLoadFailed.value)
+            viewModel.retrySettingsLoad()
+            assertFalse(viewModel.settingsLoadFailed.value)
+            runCurrent()
+            assertEquals(ChargingSettings(), viewModel.settings.value)
+        } finally {
+            viewModel.viewModelScope.cancel()
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
+    fun settingsRetryRestartsOtherEagerStorageObservers() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val base = ViewModelTestRepository()
+        var failures = 1
+        val repository = object : ChargingRepository by base {
+            override fun observeNotifyAt80() = flow {
+                if (failures-- > 0) error("notification settings unavailable")
+                emitAll(base.observeNotifyAt80())
+            }
+        }
+        val viewModel = SettingsViewModel(repository, base, base)
+        try {
+            runCurrent()
+            assertTrue(viewModel.settingsLoadFailed.value)
+            viewModel.retrySettingsLoad()
+            runCurrent()
+            assertFalse(viewModel.settingsLoadFailed.value)
+            assertEquals(true, viewModel.notifyAt80.value)
+            assertEquals(ChargingSettings(), viewModel.settings.value)
+        } finally {
+            viewModel.viewModelScope.cancel()
+            Dispatchers.resetMain()
+        }
+    }
+
     @Test
     fun settingsPowerEditsSelectAddedPowerAndGuardMissingAndLastOptions() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
@@ -515,6 +607,7 @@ private class ViewModelTestRepository(initialSettings: ChargingSettings = Chargi
 }
 
 private class ViewModelTestService : ChargingService {
+    override fun retryLoad() = Unit
     var starts = 0
     var stops = 0
     var refreshes = 0
