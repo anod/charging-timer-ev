@@ -5,8 +5,8 @@ with the preset-row **+**. Working changes show an asterisk on the selected pres
 Tap that chip to Update the saved preset or Reset the working changes. This applies to
 Default too; changes are not silently written over saved presets.
 
-Settings uses one compact row per preset. Drag its handle to reorder, tap the name to
-rename/add emoji, or tap the trash icon for confirmed deletion. Reordering is previewed
+Settings uses one compact row per preset. Drag its handle to reorder, tap the edit
+(pencil) button to rename/add emoji, or tap the trash icon for confirmed deletion. Reordering is previewed
 during the drag and saved once on drop; cancelling the gesture leaves the saved order
 unchanged. Screen readers also expose Move up/Move down actions on each row.
 Default is an ordinary preset: it can be renamed, moved or deleted. At least one preset

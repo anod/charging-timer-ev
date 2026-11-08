@@ -355,7 +355,7 @@ fun RunningTimerScreen(
                     .align(Alignment.Center)
                     .widthIn(max = readablePageWidth)
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp)
+                    .padding(horizontal = UiSpacing.medium, vertical = UiSpacing.small)
             ) {
                 Text(stringResource(Res.string.stop_timer))
             }
@@ -575,9 +575,9 @@ fun ChangeSpeedSheet(
             modifier = Modifier
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 24.dp)
-                .padding(bottom = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .padding(horizontal = UiSpacing.large)
+                .padding(bottom = UiSpacing.large),
+            verticalArrangement = Arrangement.spacedBy(UiSpacing.medium)
         ) {
             Text(stringResource(Res.string.change_speed), style = MaterialTheme.typography.titleLarge)
             ChargingPowerChips(

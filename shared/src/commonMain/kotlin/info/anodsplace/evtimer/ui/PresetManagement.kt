@@ -194,7 +194,7 @@ internal fun PresetManagement(
         }
     }
     if (presets.size == 1) {
-        Text(stringResource(Res.string.last_preset_hint), Modifier.padding(horizontal = 8.dp),
+        Text(stringResource(Res.string.last_preset_hint), Modifier.padding(horizontal = UiSpacing.small),
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
     presets.firstOrNull { it.id == renamingId }?.let { preset ->

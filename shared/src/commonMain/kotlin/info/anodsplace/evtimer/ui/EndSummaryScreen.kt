@@ -14,7 +14,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
@@ -30,7 +29,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.semantics.Role
 import info.anodsplace.evtimer.data.ChargingHistoryEntry
@@ -90,12 +88,12 @@ fun EndSummaryScreen(
     Box(modifier.fillMaxSize()) {
         Column(
             Modifier.align(Alignment.TopCenter).widthIn(max = readablePageWidth)
-            .fillMaxSize().verticalScroll(rememberScrollState()).padding(UiSpacing.medium),
+                .fillMaxSize().verticalScroll(rememberScrollState()).padding(UiSpacing.medium),
             verticalArrangement = Arrangement.spacedBy(UiSpacing.medium)
         ) {
             RootScreenHeader(stringResource(Res.string.summary_title))
             Card(Modifier.fillMaxWidth(), colors = tonalCardColors(), border = tonalCardBorder()) {
-            Column(Modifier.padding(UiSpacing.medium), verticalArrangement = Arrangement.spacedBy(UiSpacing.small)) {
+                Column(Modifier.padding(UiSpacing.medium), verticalArrangement = Arrangement.spacedBy(UiSpacing.small)) {
                     Text(
                         stringResource(
                             Res.string.summary_percent,
@@ -130,15 +128,16 @@ fun EndSummaryScreen(
                             stringResource(Res.string.power_value, formatLocaleNumber(it, 0, 1), stringResource(Res.string.unit_kw))
                         } ?: unknown)
                     if (entry != null && allowReadingEditing) {
-                        AppIconButton(onClick = { editing = true }) {
-                            Icon(
-                                imageVector = EditIcon,
-                                contentDescription = stringResource(
-                                    if (entry.actualPercent == null) Res.string.reading_add else Res.string.reading_edit
-                                ),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
+                        EditableStatRow(
+                            label = stringResource(Res.string.reading_label),
+                            value = entry.actualPercent?.let {
+                                stringResource(Res.string.reading_value, formatLocaleNumber(it, 0, 1))
+                            } ?: stringResource(Res.string.reading_not_recorded),
+                            actionLabel = stringResource(
+                                if (entry.actualPercent == null) Res.string.reading_add else Res.string.reading_edit
+                            ),
+                            onClick = { editing = true }
+                        )
                     }
                 }
             }

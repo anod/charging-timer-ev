@@ -2,6 +2,9 @@
     <string name="unit_percent">%</string>
     <string name="reading_add">Add car reading</string>
     <string name="reading_edit">Edit car reading</string>
+    <string name="reading_label">Car reading</string>
+    <string name="reading_value">%1$s%</string>
+    <string name="reading_not_recorded">Not recorded</string>
     <string name="reading_title">Car shows</string>
     <string name="reading_percent">Battery percentage</string>
     <string name="reading_estimated">Estimated at timer stop</string>

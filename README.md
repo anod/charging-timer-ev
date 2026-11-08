@@ -75,8 +75,9 @@ foreground service only when the migrated session is still running.
 
 ### Learning from car readings
 
-On the completion summary or a history summary, use **Add/Edit car reading** to
-record the car's percentage, including decimals. Save keeps the summary open;
+On the completion summary or a history summary, tap the **Car reading** row or its
+pencil to record the car's percentage, including decimals. The row shows the saved
+percentage or **Not recorded**. Save keeps the summary open;
 Cancel discards the draft, and Done acknowledges completion separately. Clearing
 the field and saving removes the reading. Summary totals use the saved reading
 while keeping the original estimate visible.

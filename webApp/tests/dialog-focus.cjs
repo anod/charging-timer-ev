@@ -62,7 +62,7 @@ async function verifyDialogFocus(browser, origin, screenshots) {
                 }
             });
             const baseline = await paintedDialogBaseline(page);
-            await text(page, "Default");
+            await button(page, "Rename Default");
             assert.ok(!(await page.screenshot({ clip: baseline.clip })).equals(baseline.image),
                 "Painted comparison region must detect the open dialog");
             if (variant === "emoji") {

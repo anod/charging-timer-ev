@@ -7,8 +7,8 @@ App actions use the shared composables in `AppButtons.kt`. Filled, outlined, and
 | Primary | Filled primary action for the main positive or forward action. | Configuration: Start Timer; Running: Apply; End summary: Done; Charging Power settings: Add custom power; browser backup: Export. |
 | Secondary | Outlined action paired with a primary action or used for a non-destructive alternative. | End summary: Share; browser backup: Import. |
 | Destructive | Filled error-colored action for irreversible removal or replacement. | Preset deletion, history deletion, learned-estimate reset, and backup restore confirmation on Android and web. |
-| Text | Low-emphasis action, especially for dialogs, inline editing, and compact adjustments. | Other dialog and sheet actions, browser retry/notification permission, car-reading edit, and percentage +/- controls. |
-| Icon | Icon-only action with a minimum 48dp target and its existing accessibility label. | Settings navigation, preset info/delete, history delete, and charging-power removal. The Running speed affordance uses the same unfilled icon treatment inside its 48dp-or-larger labeled row action. |
+| Text | Low-emphasis action, especially for dialogs, inline editing, and compact adjustments. | Other dialog and sheet actions, browser retry/notification permission, and percentage +/- controls. |
+| Icon | Icon action with a minimum 48dp target and its accessibility label. | Settings navigation, preset rename/info/delete, history delete, and charging-power removal. Running speed and Summary car-reading edits use the same unfilled icon treatment inside 48dp-or-larger labeled rows showing the current value. |
 
 Use the text role for dialog and sheet dismissal or confirmation actions; use the destructive role when confirmation commits a destructive operation. Preserve each action's existing callback and accessibility semantics when changing its visual role.
 

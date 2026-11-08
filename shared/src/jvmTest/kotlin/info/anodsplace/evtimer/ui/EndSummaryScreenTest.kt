@@ -48,7 +48,10 @@ class EndSummaryScreenTest {
                     })
             }
         }
-        onNodeWithContentDescription("Add car reading").assertHeightIsAtLeast(48.dp).performScrollTo().performClick()
+        onNodeWithText("Car reading").assertExists()
+        onNodeWithText("Not recorded").assertExists()
+        onNodeWithContentDescription("Add car reading").assertHeightIsAtLeast(48.dp)
+        onNodeWithText("Car reading").assertHeightIsAtLeast(48.dp).performScrollTo().performClick()
         onNodeWithText("Battery percentage").performTextReplacement(" 28,5 ")
         onNodeWithText("Read when timer stopped").assertIsOff().performClick()
         onNodeWithText("Read when timer stopped").assertIsOn()
@@ -56,6 +59,8 @@ class EndSummaryScreenTest {
         onNodeWithText("Car shows").assertDoesNotExist()
         onNodeWithText("20% → 28.5%").assertExists()
         onNodeWithText("Car reading · Estimated 30%").assertExists()
+        onNodeWithText("Car reading").assertExists()
+        onNodeWithText("28.5%").assertExists()
         onNodeWithTag("charging-waves").assertDoesNotExist()
         runOnIdle { assertFalse(done); assertTrue(entry.value.calibrationEnabled); assertFalse(entry.value.reviewed) }
         onNodeWithContentDescription("Edit car reading").assertHeightIsAtLeast(48.dp).performScrollTo().performClick()
@@ -63,6 +68,7 @@ class EndSummaryScreenTest {
         onNodeWithText("Save").performClick()
         runOnIdle { assertNull(entry.value.actualPercent); assertFalse(entry.value.calibrationEnabled) }
         onNodeWithText("20% → 30%").assertExists()
+        onNodeWithText("Not recorded").assertExists()
         onNodeWithText("Done").performScrollTo().performClick()
         runOnIdle { assertTrue(done) }
     }
