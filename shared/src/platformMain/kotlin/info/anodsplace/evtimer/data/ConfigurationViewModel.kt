@@ -13,24 +13,37 @@ class ConfigurationViewModel(
     private val presetRepository: PresetRepository
 ) : BaseFlowViewModel<ConfigurationViewState, ConfigurationViewEvent, ConfigurationViewAction>() {
     private val events = Channel<ConfigurationViewEvent>(Channel.UNLIMITED)
+    private val loader = RetryableLoad(viewModelScope, "Configuration",
+        onLoading = { viewState = viewState.copy(isLoading = true, loadFailed = false) },
+        onError = { viewState = viewState.copy(isLoading = true, loadFailed = true) }
+    ) {
+        combine(presetRepository.observeConfiguration(), service.status) { configuration, status ->
+            configuration to status
+        }.collect { (configuration, status) ->
+            if (status.loadFailed) {
+                viewState = viewState.copy(isLoading = true, loadFailed = true)
+            } else if (status.isLoading) {
+                viewState = viewState.copy(isLoading = true, loadFailed = false)
+            } else {
+                viewState = ConfigurationViewState(
+                    isLoading = false, settings = configuration.settings,
+                    presets = configuration.presets, selectedPresetId = configuration.selectedId
+                )
+            }
+        }
+    }
 
     init {
         viewState = ConfigurationViewState()
-        viewModelScope.launch {
-            combine(
-                presetRepository.observeConfiguration(), service.status
-            ) { configuration, status -> configuration to status }
-                .collect { (configuration, status) ->
-                    if (status.isLoading) return@collect
-                    viewState = ConfigurationViewState(
-                        isLoading = false, settings = configuration.settings,
-                        presets = configuration.presets, selectedPresetId = configuration.selectedId
-                    )
-                }
-        }
+        loader.retry()
         viewModelScope.launch {
             for (event in events) processEvent(event)
         }
+    }
+
+    fun retryLoad() {
+        if (service.status.value.loadFailed) service.retryLoad()
+        loader.retry()
     }
 
     override fun handleEvent(event: ConfigurationViewEvent) {
