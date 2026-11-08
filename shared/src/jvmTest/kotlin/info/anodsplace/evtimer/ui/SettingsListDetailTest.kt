@@ -1,6 +1,7 @@
 package info.anodsplace.evtimer.ui
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
@@ -13,10 +14,14 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.assertWidthIsEqualTo
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import androidx.compose.ui.unit.Dp
@@ -25,6 +30,7 @@ import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
 import info.anodsplace.evtimer.generated.resources.Res
+import info.anodsplace.evtimer.generated.resources.ic_presets
 import info.anodsplace.evtimer.generated.resources.preset_name
 import info.anodsplace.evtimer.generated.resources.settings_presets_help
 import info.anodsplace.evtimer.generated.resources.settings_presets
@@ -32,9 +38,91 @@ import info.anodsplace.evtimer.generated.resources.settings_select_detail
 import org.jetbrains.compose.resources.stringResource
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 @OptIn(ExperimentalTestApi::class)
 class SettingsListDetailTest {
+    @Test
+    fun settingsAndDetailHeadersRemainVerticallyAligned() = runDesktopComposeUiTest(
+        width = 1200,
+        height = 200
+    ) {
+        setContent {
+            MaterialTheme {
+                Row(Modifier.width(1200.dp).height(100.dp)) {
+                    Box(Modifier.weight(1f)) {
+                        SettingsHeader("Settings", onBack = {}, showBack = true)
+                    }
+                    Box(Modifier.weight(1f)) {
+                        SettingsHeader("Charging history", onBack = {}, showBack = false)
+                    }
+                }
+            }
+        }
+
+        val settingsTop = onNodeWithText("Settings").fetchSemanticsNode().boundsInRoot.top
+        val detailTop = onNodeWithText("Charging history").fetchSemanticsNode().boundsInRoot.top
+        assertEquals(settingsTop, detailTop, 0.5f)
+    }
+
+    @Test
+    fun settingsRowExposesSelectedStateToAccessibility() = runDesktopComposeUiTest(
+        width = 400,
+        height = 800
+    ) {
+        setContent {
+            MaterialTheme {
+                SettingsRow(
+                    title = "Presets",
+                    icon = Res.drawable.ic_presets,
+                    onClick = {},
+                    selected = true
+                )
+            }
+        }
+
+        onNodeWithText("Presets").assertIsSelected()
+    }
+
+    @Test
+    fun completionSummaryWithoutSettingsListFillsExpandedWindow() = runDesktopComposeUiTest(
+        width = 1400,
+        height = 900
+    ) {
+        val backStack = mutableStateListOf("config", "completion-summary")
+        assertTrue(settingsDetailPaneMetadata(includeInSettingsScene = "settings" in backStack).isEmpty())
+        setContent {
+            MaterialTheme {
+                Box(Modifier.width(1200.dp).height(800.dp)) {
+                    AdaptiveSettingsNavigation {
+                        NavDisplay(
+                            backStack = backStack,
+                            onBack = {},
+                            sceneStrategies = listOf(rememberSettingsListDetailSceneStrategy<String>()),
+                            entryProvider = { key ->
+                                NavEntry(
+                                    key,
+                                    metadata = if (key == "completion-summary") {
+                                        settingsDetailPaneMetadata(includeInSettingsScene = "settings" in backStack)
+                                    }
+                                    else emptyMap()
+                                ) {
+                                    if (key == "completion-summary") {
+                                        Box(Modifier.fillMaxSize().testTag("completion-summary-pane"))
+                                    }
+                                }
+                            }
+                        )
+                    }
+                }
+            }
+        }
+
+        onNodeWithTag("completion-summary-pane").assertWidthIsEqualTo(1200.dp)
+        onNodeWithText("Choose a setting to view its details").assertDoesNotExist()
+        onNodeWithText("Settings").assertDoesNotExist()
+    }
+
     @Test
     fun expandedSettingsKeepsListBesideSelectionAndBackReturnsToPlaceholder() = runDesktopComposeUiTest(
         width = 1400,

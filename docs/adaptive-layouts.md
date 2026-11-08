@@ -15,8 +15,9 @@ and are re-evaluated as the window changes.
   breakpoint (840 dp or wider and at least 480 dp high). The Settings list stays
   in the first pane while Charging Power, Presets, History, Licenses, and a
   History summary appear in the detail pane. With no selected detail, the pane
-  shows a localized prompt. Detail headers omit the back arrow in this layout;
-  system Back or Escape returns to the list, then exits Settings.
+  shows a localized prompt. A completion summary without a Settings entry in
+  the back stack remains full-screen. Detail headers omit the back arrow in
+  this layout; system Back or Escape returns to the list, then exits Settings.
 - Below that breakpoint, Settings and its destinations keep the existing
   single-pane push navigation and back-arrow headers. Their content remains
   centered in a maximum 720 dp page.

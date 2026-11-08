@@ -110,6 +110,10 @@ class NavigationViewModelTest {
                 navigation.openHistorySummary(old)
                 assertEquals(listOf(Destination.Config, Destination.Settings, Destination.History, Destination.EndSummary),
                     navigation.backStack.value)
+                navigation.navigate(Destination.Presets)
+                assertEquals(Destination.Presets, navigation.backStack.value.last())
+                assertTrue(navigation.onBack())
+                assertEquals(Destination.EndSummary, navigation.backStack.value.last())
                 assertTrue(navigation.onBack())
                 runCurrent()
                 assertEquals(listOf(Destination.Config, Destination.Settings, Destination.History), navigation.backStack.value)

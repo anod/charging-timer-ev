@@ -403,6 +403,11 @@ async function verifyPowerUndo(browser, origin) {
             };
             await verifySummary();
             await capture(page, `summary-${evidence}`, summaryLabels);
+            if (device === "desktop") {
+                assert.equal(await page.getByText("Choose a setting to view its details", { exact: true }).count(), 0,
+                    "A completion summary must remain full-screen without a Settings entry");
+                await capture(page, `summary-completion-wide-${colorScheme}`, summaryLabels);
+            }
             await page.reload();
             await verifySummary();
             await clickCanvasButton(page, "Done");
@@ -418,6 +423,11 @@ async function verifyPowerUndo(browser, origin) {
             const card = page.getByRole("button").filter({ hasText: `60% → ${endText}%` }).first();
             await clickCanvas(page, card);
             await verifySummary();
+            if (device === "desktop") {
+                await waitForAccessibleText(page, "Charging history");
+                await capture(page, `summary-history-wide-${colorScheme}`,
+                    ["Charging history", ...summaryLabels]);
+            }
             await clickCanvasButton(page, "Done");
             await waitForAccessibleText(page, `${energy} kWh`);
             assert.deepEqual(JSON.parse((await waitForRecord(page)).payload).backup.sessions[0],

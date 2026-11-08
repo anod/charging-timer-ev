@@ -11,11 +11,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
@@ -149,7 +149,7 @@ internal fun SettingsRow(
             else Color.Transparent
         ),
         modifier = Modifier.fillMaxWidth()
-            .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
+            .selectable(selected = selected, enabled = enabled, role = Role.Button, onClick = onClick)
     )
 }
 
@@ -165,7 +165,8 @@ internal fun SettingsSection(title: String, content: @Composable () -> Unit) {
 @Composable
 internal fun SettingsHeader(title: String, onBack: () -> Unit, showBack: Boolean = true) {
     Row(
-        Modifier.fillMaxWidth().padding(horizontal = UiSpacing.medium, vertical = UiSpacing.small),
+        Modifier.fillMaxWidth().heightIn(min = 64.dp)
+            .padding(horizontal = UiSpacing.medium, vertical = UiSpacing.small),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(UiSpacing.medium)
     ) {

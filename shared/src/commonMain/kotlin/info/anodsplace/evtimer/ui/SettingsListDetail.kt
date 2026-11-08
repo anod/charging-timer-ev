@@ -44,8 +44,8 @@ fun settingsListPaneMetadata(): Map<String, Any> =
     ListDetailSceneStrategy.listPane(detailPlaceholder = { SettingsDetailPlaceholder() })
 
 @OptIn(ExperimentalMaterial3AdaptiveApi::class)
-fun settingsDetailPaneMetadata(): Map<String, Any> =
-    ListDetailSceneStrategy.detailPane()
+fun settingsDetailPaneMetadata(includeInSettingsScene: Boolean = true): Map<String, Any> =
+    if (includeInSettingsScene) ListDetailSceneStrategy.detailPane() else emptyMap()
 
 @Composable
 internal fun SettingsDetailPlaceholder() {

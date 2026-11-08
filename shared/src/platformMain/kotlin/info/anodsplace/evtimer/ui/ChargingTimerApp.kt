@@ -64,7 +64,13 @@ fun ChargingTimerApp(
                             remember { OpaqueBackgroundNavEntryDecorator() }
                         ),
                         entryProvider = { destination ->
-                            NavEntry(destination, metadata = settingsMetadata(destination)) {
+                            NavEntry(
+                                destination,
+                                metadata = settingsMetadata(
+                                    destination,
+                                    hasSettingsEntry = Destination.Settings in backStack
+                                )
+                            ) {
                             when (destination) {
                                 Destination.Config -> {
                                     val viewModel = koinViewModel<ConfigurationViewModel>()
@@ -186,9 +192,13 @@ fun ChargingTimerApp(
 }
 
 @OptIn(androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi::class)
-private fun settingsMetadata(destination: Destination): Map<String, Any> = when (destination) {
+private fun settingsMetadata(
+    destination: Destination,
+    hasSettingsEntry: Boolean
+): Map<String, Any> = when (destination) {
     Destination.Settings -> settingsListPaneMetadata()
     Destination.ChargingPowers, Destination.Presets, Destination.PresetEditor,
-    Destination.History, Destination.EndSummary, Destination.Licenses -> settingsDetailPaneMetadata()
+    Destination.History, Destination.EndSummary, Destination.Licenses ->
+        settingsDetailPaneMetadata(includeInSettingsScene = hasSettingsEntry)
     else -> emptyMap()
 }

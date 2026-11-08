@@ -232,7 +232,15 @@ internal fun BrowserTimerApp() {
                             sceneStrategies = listOf(rememberSettingsListDetailSceneStrategy<AppRoute>()),
                             entryDecorators = listOf(rememberSaveableStateHolderNavEntryDecorator()),
                             entryProvider = { route ->
-                                NavEntry(route, metadata = settingsMetadata(route.destination)) {
+                                NavEntry(
+                                    route,
+                                    metadata = settingsMetadata(
+                                        route.destination,
+                                        hasSettingsEntry = navigation.backStack.any {
+                                            it.destination == AppDestination.Settings
+                                        }
+                                    )
+                                ) {
                                     // NavDisplay retains entries; read observable state inside their content.
                                     val loaded = requireNotNull(state)
                                     val configuration = loaded.configuration()
@@ -369,10 +377,14 @@ internal fun BrowserTimerApp() {
 }
 
 @OptIn(androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi::class)
-private fun settingsMetadata(destination: AppDestination): Map<String, Any> = when (destination) {
+private fun settingsMetadata(
+    destination: AppDestination,
+    hasSettingsEntry: Boolean
+): Map<String, Any> = when (destination) {
     AppDestination.Settings -> settingsListPaneMetadata()
     AppDestination.ChargingPowers, AppDestination.Presets, AppDestination.History,
-    AppDestination.EndSummary, AppDestination.Licenses -> settingsDetailPaneMetadata()
+    AppDestination.EndSummary, AppDestination.Licenses ->
+        settingsDetailPaneMetadata(includeInSettingsScene = hasSettingsEntry)
     else -> emptyMap()
 }
 

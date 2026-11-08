@@ -95,7 +95,7 @@ class NavigationViewModel(
             viewModelScope.launch { history.acknowledgeSession(entry.id) }
             return true
         }
-        historySummaryId = null
+        if (stack.last() == Destination.EndSummary) historySummaryId = null
         mutableBackStack.value = stack.dropLast(1)
         return true
     }
