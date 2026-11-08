@@ -217,117 +217,136 @@ internal fun BrowserTimerApp() {
                 if (loaded == null || navigation.backStack.isEmpty()) {
                     if (!failed) CircularProgressIndicator(Modifier.padding(24.dp))
                 } else {
-                    NavDisplay(
-                        backStack = navigation.backStack,
-                        onBack = { back() },
-                        modifier = Modifier.weight(1f).fillMaxWidth(),
-                        entryDecorators = listOf(rememberSaveableStateHolderNavEntryDecorator()),
-                        entryProvider = { route ->
-                            NavEntry(route) {
-                                // NavDisplay retains entries; read observable state inside their content.
-                                val loaded = requireNotNull(state)
-                                val configuration = loaded.configuration()
-                                when (route.destination) {
-                                    AppDestination.Config -> ConfigurationScreen(
-                                        ConfigurationViewState(false, configuration.settings, configuration.presets, configuration.selectedId),
-                                        onEvent = { event ->
-                                            scope.launch {
-                                                operation {
-                                                    if (event == ConfigurationViewEvent.StartCharging) runtime.start()
-                                                    else runtime.configure(event)
-                                                    if (event == ConfigurationViewEvent.StartCharging) {
-                                                        applyNavigation(navigation.navigate(AppDestination.Running), push = true)
-                                                    }
-                                                }
-                                            }
-                                        },
-                                        onOpenSettings = { navigate(AppDestination.Settings) }
-                                    )
-                                    AppDestination.Running -> loaded.runningViewState(now, formatter)?.let { running ->
-                                        RunningTimerScreen(running, { event ->
-                                            scope.launch {
-                                                operation {
-                                                    when (event) {
-                                                        RunningViewEvent.StopCharging -> runtime.stop()
-                                                        RunningViewEvent.UpdateCalculation -> runtime.reconcile()
-                                                        is RunningViewEvent.ChangePower -> runtime.changePower(event.powerKw)
-                                                        is RunningViewEvent.AddPower -> runtime.addPower(event.powerKw)
-                                                    }
-                                                }
-                                            }
-                                        })
-                                    }
-                                    AppDestination.Settings -> SettingsScreen(
-                                        loaded.backup.preferences.notifyAt80,
-                                        { enabled -> scope.launch { operation { runtime.setNotifyAt80(enabled) } } },
-                                        onBack = ::back,
-                                        onOpenLicenses = { navigate(AppDestination.Licenses) },
-                                        onOpenPresets = { navigate(AppDestination.Presets) },
-                                        onOpenHistory = { navigate(AppDestination.History) },
-                                        onOpenChargingPowers = { navigate(AppDestination.ChargingPowers) },
-                                        backupContent = {
-                                            BrowserPreferences(loaded, offlineStatus, notificationFailed, busy) {
-                                                // Permission must be requested inside trusted user activation.
-                                                scope.launch(start = CoroutineStart.UNDISPATCHED) {
-                                                    try {
-                                                        if (state?.notificationsEnabled == true) notifications.disable()
-                                                        else notifications.enable()
-                                                        notificationFailed = false
-                                                    } catch (error: CancellationException) {
-                                                        throw error
-                                                    } catch (error: Exception) {
-                                                        println("Browser notification permission: ${error.message}")
-                                                        notificationFailed = true
-                                                    }
-                                                    operation()
-                                                }
-                                            }
-                                            BrowserBackupSettings(storage, loaded) { mutex.withLock { refresh() } }
+                    val selectedDetail = when (navigation.current?.destination) {
+                        AppDestination.ChargingPowers -> SettingsItem.ChargingPower
+                        AppDestination.Presets -> SettingsItem.Presets
+                        AppDestination.History, AppDestination.EndSummary -> SettingsItem.History
+                        AppDestination.Licenses -> SettingsItem.Licenses
+                        else -> null
+                    }
+                    AdaptiveSettingsNavigation(Modifier.weight(1f).fillMaxWidth()) {
+                        NavDisplay(
+                            backStack = navigation.backStack,
+                            onBack = { back() },
+                            modifier = Modifier.fillMaxSize(),
+                            sceneStrategies = listOf(rememberSettingsListDetailSceneStrategy<AppRoute>()),
+                            entryDecorators = listOf(rememberSaveableStateHolderNavEntryDecorator()),
+                            entryProvider = { route ->
+                                NavEntry(
+                                    route,
+                                    metadata = settingsMetadata(
+                                        route.destination,
+                                        hasSettingsEntry = navigation.backStack.any {
+                                            it.destination == AppDestination.Settings
                                         }
                                     )
-                                    AppDestination.Presets -> PresetManagementScreen(
-                                        configuration.presets,
-                                        onRename = { id, name -> scope.launch { operation { runtime.renamePreset(id, name) } } },
-                                        onDelete = { id -> scope.launch { operation { runtime.deletePreset(id) } } },
-                                        onMove = { id, direction -> scope.launch { operation { runtime.movePreset(id, direction) } } },
-                                        onReorder = { ids -> scope.launch { operation { runtime.reorderPresets(ids) } } },
-                                        onBack = ::back,
-                                        calibration = loaded.calibration(),
-                                        onResetCalibration = { id, power -> mutex.withLock { runtime.resetLearnedEstimates(id, power); refresh() } }
-                                    )
-                                    AppDestination.ChargingPowers -> ChargingPowerManagementScreen(
-                                        configuration.settings.availablePowers, configuration.settings.chargingPower,
-                                        onAddPower = { power -> scope.launch { operation { runtime.addPower(power) } } },
-                                        onRemovePower = { power ->
-                                            mutex.withLock {
-                                                val selected = runtime.removePowerForUndo(power)
-                                                refresh()
-                                                selected
-                                            }
-                                        },
-                                        onUndoRemovePower = { removed ->
-                                            mutex.withLock { runtime.restorePower(removed); refresh() }
-                                        },
-                                        onBack = ::back
-                                    )
-                                    AppDestination.History -> HistoryScreen(
-                                        loaded.historyEntries(),
-                                        onOpenSummary = { applyNavigation(navigation.openSummary(it.id), push = true) },
-                                        onDelete = { id -> mutex.withLock { runtime.deleteHistory(id); refresh() } },
-                                        onBack = ::back
-                                    )
-                                    AppDestination.EndSummary -> loaded.historyEntries().firstOrNull { it.id == route.summaryId }?.let { entry ->
-                                        EndSummaryScreen(entry.summary(), onShare = ::shareSummary, onDone = ::back,
-                                            entry = entry,
-                                            onSaveReading = { id, actual, enabled ->
-                                                mutex.withLock { runtime.saveReading(id, actual, enabled); refresh() }
+                                ) {
+                                    // NavDisplay retains entries; read observable state inside their content.
+                                    val loaded = requireNotNull(state)
+                                    val configuration = loaded.configuration()
+                                    when (route.destination) {
+                                        AppDestination.Config -> ConfigurationScreen(
+                                            ConfigurationViewState(false, configuration.settings, configuration.presets, configuration.selectedId),
+                                            onEvent = { event ->
+                                                scope.launch {
+                                                    operation {
+                                                        if (event == ConfigurationViewEvent.StartCharging) runtime.start()
+                                                        else runtime.configure(event)
+                                                        if (event == ConfigurationViewEvent.StartCharging) {
+                                                            applyNavigation(navigation.navigate(AppDestination.Running), push = true)
+                                                        }
+                                                    }
+                                                }
+                                            },
+                                            onOpenSettings = { navigate(AppDestination.Settings) }
+                                        )
+                                        AppDestination.Running -> loaded.runningViewState(now, formatter)?.let { running ->
+                                            RunningTimerScreen(running, { event ->
+                                                scope.launch {
+                                                    operation {
+                                                        when (event) {
+                                                            RunningViewEvent.StopCharging -> runtime.stop()
+                                                            RunningViewEvent.UpdateCalculation -> runtime.reconcile()
+                                                            is RunningViewEvent.ChangePower -> runtime.changePower(event.powerKw)
+                                                            is RunningViewEvent.AddPower -> runtime.addPower(event.powerKw)
+                                                        }
+                                                    }
+                                                }
                                             })
+                                        }
+                                        AppDestination.Settings -> SettingsScreen(
+                                            loaded.backup.preferences.notifyAt80,
+                                            { enabled -> scope.launch { operation { runtime.setNotifyAt80(enabled) } } },
+                                            onBack = ::back,
+                                            onOpenLicenses = { navigate(AppDestination.Licenses) },
+                                            onOpenPresets = { navigate(AppDestination.Presets) },
+                                            onOpenHistory = { navigate(AppDestination.History) },
+                                            onOpenChargingPowers = { navigate(AppDestination.ChargingPowers) },
+                                            selectedDetail = selectedDetail,
+                                            backupContent = {
+                                                BrowserPreferences(loaded, offlineStatus, notificationFailed, busy) {
+                                                    // Permission must be requested inside trusted user activation.
+                                                    scope.launch(start = CoroutineStart.UNDISPATCHED) {
+                                                        try {
+                                                            if (state?.notificationsEnabled == true) notifications.disable()
+                                                            else notifications.enable()
+                                                            notificationFailed = false
+                                                        } catch (error: CancellationException) {
+                                                            throw error
+                                                        } catch (error: Exception) {
+                                                            println("Browser notification permission: ${error.message}")
+                                                            notificationFailed = true
+                                                        }
+                                                        operation()
+                                                    }
+                                                }
+                                                BrowserBackupSettings(storage, loaded) { mutex.withLock { refresh() } }
+                                            }
+                                        )
+                                        AppDestination.Presets -> PresetManagementScreen(
+                                            configuration.presets,
+                                            onRename = { id, name -> scope.launch { operation { runtime.renamePreset(id, name) } } },
+                                            onDelete = { id -> scope.launch { operation { runtime.deletePreset(id) } } },
+                                            onMove = { id, direction -> scope.launch { operation { runtime.movePreset(id, direction) } } },
+                                            onReorder = { ids -> scope.launch { operation { runtime.reorderPresets(ids) } } },
+                                            onBack = ::back,
+                                            calibration = loaded.calibration(),
+                                            onResetCalibration = { id, power -> mutex.withLock { runtime.resetLearnedEstimates(id, power); refresh() } }
+                                        )
+                                        AppDestination.ChargingPowers -> ChargingPowerManagementScreen(
+                                            configuration.settings.availablePowers, configuration.settings.chargingPower,
+                                            onAddPower = { power -> scope.launch { operation { runtime.addPower(power) } } },
+                                            onRemovePower = { power ->
+                                                mutex.withLock {
+                                                    val selected = runtime.removePowerForUndo(power)
+                                                    refresh()
+                                                    selected
+                                                }
+                                            },
+                                            onUndoRemovePower = { removed ->
+                                                mutex.withLock { runtime.restorePower(removed); refresh() }
+                                            },
+                                            onBack = ::back
+                                        )
+                                        AppDestination.History -> HistoryScreen(
+                                            loaded.historyEntries(),
+                                            onOpenSummary = { applyNavigation(navigation.openSummary(it.id), push = true) },
+                                            onDelete = { id -> mutex.withLock { runtime.deleteHistory(id); refresh() } },
+                                            onBack = ::back
+                                        )
+                                        AppDestination.EndSummary -> loaded.historyEntries().firstOrNull { it.id == route.summaryId }?.let { entry ->
+                                            EndSummaryScreen(entry.summary(), onShare = ::shareSummary, onDone = ::back,
+                                                entry = entry,
+                                                onSaveReading = { id, actual, enabled ->
+                                                    mutex.withLock { runtime.saveReading(id, actual, enabled); refresh() }
+                                                })
+                                        }
+                                        AppDestination.Licenses -> LicensesScreen(onBack = ::back)
                                     }
-                                    AppDestination.Licenses -> LicensesScreen(onBack = ::back)
                                 }
                             }
-                        }
-                    )
+                        )
+                    }
                 }
                 // Reserve layout space instead of covering timer or navigation controls.
                 SnackbarHost(pwaSnackbar, Modifier.fillMaxWidth()) { notice ->
@@ -355,6 +374,18 @@ internal fun BrowserTimerApp() {
             }
         }
     }
+}
+
+@OptIn(androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi::class)
+private fun settingsMetadata(
+    destination: AppDestination,
+    hasSettingsEntry: Boolean
+): Map<String, Any> = when (destination) {
+    AppDestination.Settings -> settingsListPaneMetadata()
+    AppDestination.ChargingPowers, AppDestination.Presets, AppDestination.History,
+    AppDestination.EndSummary, AppDestination.Licenses ->
+        settingsDetailPaneMetadata(includeInSettingsScene = hasSettingsEntry)
+    else -> emptyMap()
 }
 
 @Composable

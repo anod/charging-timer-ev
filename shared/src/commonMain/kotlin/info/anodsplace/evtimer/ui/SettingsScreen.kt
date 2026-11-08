@@ -11,11 +11,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
@@ -54,7 +54,8 @@ fun SettingsScreen(
     modifier: Modifier = Modifier,
     onOpenHistory: () -> Unit = {},
     onOpenChargingPowers: () -> Unit = {},
-    backupContent: @Composable () -> Unit = {}
+    backupContent: @Composable () -> Unit = {},
+    selectedDetail: SettingsItem? = null
 ) {
     val uriHandler = LocalUriHandler.current
     SettingsPage(modifier) {
@@ -65,13 +66,16 @@ fun SettingsScreen(
         ) {
             SettingsSection(stringResource(Res.string.settings_charging)) {
                 SettingsRow(stringResource(Res.string.charging_power), Res.drawable.ic_power,
-                    stringResource(Res.string.settings_charging_powers_summary), onOpenChargingPowers)
+                    stringResource(Res.string.settings_charging_powers_summary), onOpenChargingPowers,
+                    selected = selectedDetail == SettingsItem.ChargingPower)
                 SettingsDivider()
                 SettingsRow(stringResource(Res.string.settings_presets), Res.drawable.ic_presets,
-                    stringResource(Res.string.settings_presets_summary), onOpenPresets)
+                    stringResource(Res.string.settings_presets_summary), onOpenPresets,
+                    selected = selectedDetail == SettingsItem.Presets)
                 SettingsDivider()
                 SettingsRow(stringResource(Res.string.history_title), Res.drawable.ic_history,
-                    stringResource(Res.string.settings_history_summary), onOpenHistory)
+                    stringResource(Res.string.settings_history_summary), onOpenHistory,
+                    selected = selectedDetail == SettingsItem.History)
                 SettingsDivider()
                 ListItem(
                     headlineContent = { Text(stringResource(Res.string.notify_at_80)) },
@@ -104,7 +108,7 @@ fun SettingsScreen(
                     onClick = { uriHandler.openUri("https://github.com/anod/charging-timer-ev/blob/main/docs/privacy.md") })
                 SettingsDivider()
                 SettingsRow(stringResource(Res.string.settings_oss_licenses), Res.drawable.ic_document,
-                    onClick = onOpenLicenses)
+                    onClick = onOpenLicenses, selected = selectedDetail == SettingsItem.Licenses)
             }
         }
     }
@@ -131,7 +135,8 @@ internal fun SettingsRow(
     icon: DrawableResource,
     supportingText: String? = null,
     onClick: () -> Unit,
-    enabled: Boolean = true
+    enabled: Boolean = true,
+    selected: Boolean = false
 ) {
     ListItem(
         headlineContent = { Text(title, Modifier.alpha(if (enabled) 1f else 0.38f)) },
@@ -139,9 +144,12 @@ internal fun SettingsRow(
         leadingContent = {
             Box(Modifier.alpha(if (enabled) 1f else 0.38f)) { SettingsIcon(icon) }
         },
-        colors = settingsRowColors(),
+        colors = ListItemDefaults.colors(
+            containerColor = if (selected) MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.45f)
+            else Color.Transparent
+        ),
         modifier = Modifier.fillMaxWidth()
-            .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
+            .selectable(selected = selected, enabled = enabled, role = Role.Button, onClick = onClick)
     )
 }
 
@@ -155,15 +163,18 @@ internal fun SettingsSection(title: String, content: @Composable () -> Unit) {
 }
 
 @Composable
-internal fun SettingsHeader(title: String, onBack: () -> Unit) {
+internal fun SettingsHeader(title: String, onBack: () -> Unit, showBack: Boolean = true) {
     Row(
-        Modifier.fillMaxWidth().padding(horizontal = UiSpacing.medium, vertical = UiSpacing.small),
+        Modifier.fillMaxWidth().heightIn(min = 64.dp)
+            .padding(horizontal = UiSpacing.medium, vertical = UiSpacing.small),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(UiSpacing.medium)
     ) {
-        Surface(shape = CircleShape, color = tonalCardContainerColor(), border = tonalCardBorder()) {
-            AppIconButton(onClick = onBack) {
-                Icon(painterResource(Res.drawable.ic_back), stringResource(Res.string.settings_back))
+        if (showBack) {
+            Surface(shape = CircleShape, color = tonalCardContainerColor(), border = tonalCardBorder()) {
+                AppIconButton(onClick = onBack) {
+                    Icon(painterResource(Res.drawable.ic_back), stringResource(Res.string.settings_back))
+                }
             }
         }
         Text(title, style = MaterialTheme.typography.headlineSmall)
@@ -183,7 +194,7 @@ fun PresetManagementScreen(
     onResetCalibration: suspend (String, Float) -> Unit = { _, _ -> }
 ) {
     SettingsPage(modifier) {
-        SettingsHeader(stringResource(Res.string.settings_presets), onBack)
+        SettingsHeader(stringResource(Res.string.settings_presets), onBack, showBack = !LocalSettingsTwoPane.current)
         Column(
             Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(UiSpacing.medium),
             verticalArrangement = Arrangement.spacedBy(UiSpacing.medium)

@@ -86,7 +86,7 @@ fun HistoryScreen(
     }
     Box(modifier.fillMaxSize()) {
         Column(Modifier.align(Alignment.TopCenter).widthIn(max = readablePageWidth).fillMaxSize()) {
-            SettingsHeader(stringResource(Res.string.history_title), onBack)
+            SettingsHeader(stringResource(Res.string.history_title), onBack, showBack = !LocalSettingsTwoPane.current)
             when {
                 entries == null -> Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator()

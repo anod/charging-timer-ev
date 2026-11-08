@@ -11,11 +11,21 @@ and are re-evaluated as the window changes.
 - Running keeps the battery and timeline above the statistics on compact,
   medium, and short windows. Expanded, non-short windows place them beside the
   statistics; the Stop action remains pinned and is limited to 720 dp.
-- Settings, charging powers, presets, history, licenses, and summaries retain
-  their existing navigation and scrolling, centered in a maximum 720 dp page.
+- Settings uses Navigation 3's list-detail scene strategy at the expanded
+  breakpoint (840 dp or wider and at least 480 dp high). The Settings list stays
+  in the first pane while Charging Power, Presets, History, Licenses, and a
+  History summary appear in the detail pane. With no selected detail, the pane
+  shows a localized prompt. A completion summary without a Settings entry in
+  the back stack remains full-screen. Detail headers omit the back arrow in
+  this layout; system Back or Escape returns to the list, then exits Settings.
+- Below that breakpoint, Settings and its destinations keep the existing
+  single-pane push navigation and back-arrow headers. Their content remains
+  centered in a maximum 720 dp page.
 - Timer content is capped at 1120 dp in the two-column layout. Smaller and
   short layouts use a maximum 720 dp content width.
 
-Resizing changes layout only; it does not change the navigation stack or timer
-state. The animated background remains exclusive to Running. Settings
-list/detail navigation is a separate follow-up.
+Resizing and fold/unfold change layout only. The Navigation 3 back stack remains
+the source of the selected detail, and entry state, dialogs, drafts, and the
+running timer are retained across the layout change. History summaries remain
+reachable from History in either layout. The animated background remains
+exclusive to Running.

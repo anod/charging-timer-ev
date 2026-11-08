@@ -24,6 +24,7 @@ async function verifyDialogFocus(browser, origin, screenshots) {
         try {
             await page.goto(origin);
             await button(page, "Settings");
+            await text(page, "Choose a setting to view its details");
             await text(page, "Presets");
             await page.evaluate(() => {
                 const describe = node => node ? {

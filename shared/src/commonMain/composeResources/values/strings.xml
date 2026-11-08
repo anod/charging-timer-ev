@@ -56,6 +56,7 @@
     <string name="load_failed">Could not load data. Please try again.</string>
     <string name="retry">Retry</string>
     <string name="history_title">Charging history</string>
+    <string name="settings_select_detail">Choose a setting to view its details</string>
     <string name="history_empty">No past sessions yet</string>
     <string name="history_no_preset">Session</string>
     <string name="history_stats">%1$s kWh · %2$s · avg %3$s kW</string>

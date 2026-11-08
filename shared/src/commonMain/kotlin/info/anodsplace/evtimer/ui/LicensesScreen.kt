@@ -15,7 +15,7 @@ fun LicensesScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
         Res.readBytes("files/aboutlibraries.json").decodeToString()
     }
     SettingsPage(modifier) {
-        SettingsHeader(stringResource(Res.string.settings_oss_licenses), onBack)
+        SettingsHeader(stringResource(Res.string.settings_oss_licenses), onBack, showBack = !LocalSettingsTwoPane.current)
         LibrariesContainer(
             libraries, Modifier.weight(1f),
             actionLabels = LibraryActionBadges(
