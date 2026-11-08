@@ -61,6 +61,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.only
@@ -192,14 +193,14 @@ fun RunningTimerScreen(
         ) {
             BoxWithConstraints(Modifier.fillMaxWidth()) {
             val paneWidth = if (layout.twoColumns) {
-                with(LocalDensity.current) { ((maxWidth - 32.dp).roundToPx() / 2).toDp() }
+                with(LocalDensity.current) { ((constraints.maxWidth - 32.dp.roundToPx()) / 2).toDp() }
             } else maxWidth
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(32.dp),
                 verticalArrangement = Arrangement.spacedBy(32.dp)
             ) {
             Column(
-                Modifier.width(paneWidth),
+                Modifier.width(paneWidth).testTag("running-progress-pane"),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(32.dp)
             ) {
@@ -229,7 +230,7 @@ fun RunningTimerScreen(
 
             // Charging Stats
             Card(
-                modifier = Modifier.width(paneWidth),
+                modifier = Modifier.width(paneWidth).testTag("running-stats-pane"),
                 shape = MaterialTheme.shapes.medium,
                 colors = tonalCardColors(),
                 border = tonalCardBorder()

@@ -32,6 +32,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -148,9 +149,6 @@ fun ConfigurationScreen(
     BoxWithConstraints(modifier.fillMaxSize()) {
     val layout = adaptiveLayout(maxWidth, maxHeight)
     val contentWidth = if (layout.twoColumns) wideTimerWidth else readablePageWidth
-    val cardWidth = with(LocalDensity.current) {
-        ((minOf(maxWidth, contentWidth) - 32.dp - 12.dp).roundToPx() / 2).toDp()
-    }
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         bottomBar = {
@@ -262,6 +260,10 @@ fun ConfigurationScreen(
                 )
             }
 
+            BoxWithConstraints(Modifier.fillMaxWidth()) {
+            val cardWidth = with(LocalDensity.current) {
+                ((constraints.maxWidth - 12.dp.roundToPx()) / 2).toDp()
+            }
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -279,7 +281,8 @@ fun ConfigurationScreen(
                     viewState = viewState,
                     expanded = cardExpansion.battery,
                     onExpandedChange = { updateCardExpansion(cardExpansion.copy(battery = it)) },
-                    modifier = if (layout.twoColumns) Modifier.width(cardWidth) else Modifier
+                    modifier = (if (layout.twoColumns) Modifier.width(cardWidth) else Modifier)
+                        .testTag("configuration-battery-card")
                 ) {
                     PercentageSettingContent(
                         label = stringResource(Res.string.battery_capacity),
@@ -308,7 +311,8 @@ fun ConfigurationScreen(
                     viewState = viewState,
                     expanded = cardExpansion.max,
                     onExpandedChange = { updateCardExpansion(cardExpansion.copy(max = it)) },
-                    modifier = if (layout.twoColumns) Modifier.width(cardWidth) else Modifier
+                    modifier = (if (layout.twoColumns) Modifier.width(cardWidth) else Modifier)
+                        .testTag("configuration-max-card")
                 ) {
                     val maxKwh = remember(settings.batteryCapacity, settings.maxPercent) {
                         ChargingCalculator.calculateKwh(settings.batteryCapacity, settings.maxPercent)
@@ -381,6 +385,7 @@ fun ConfigurationScreen(
                     )
                 }
                 }
+            }
             }
             }
         }
