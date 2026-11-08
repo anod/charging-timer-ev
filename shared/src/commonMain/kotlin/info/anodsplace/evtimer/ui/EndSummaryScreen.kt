@@ -14,6 +14,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
@@ -89,12 +90,12 @@ fun EndSummaryScreen(
     Box(modifier.fillMaxSize()) {
         Column(
             Modifier.align(Alignment.TopCenter).widthIn(max = readablePageWidth)
-                .fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            .fillMaxSize().verticalScroll(rememberScrollState()).padding(UiSpacing.medium),
+            verticalArrangement = Arrangement.spacedBy(UiSpacing.medium)
         ) {
-            Text(stringResource(Res.string.summary_title), style = MaterialTheme.typography.headlineMedium)
+            RootScreenHeader(stringResource(Res.string.summary_title))
             Card(Modifier.fillMaxWidth(), colors = tonalCardColors(), border = tonalCardBorder()) {
-                Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(Modifier.padding(UiSpacing.medium), verticalArrangement = Arrangement.spacedBy(UiSpacing.small)) {
                     Text(
                         stringResource(
                             Res.string.summary_percent,
@@ -129,15 +130,21 @@ fun EndSummaryScreen(
                             stringResource(Res.string.power_value, formatLocaleNumber(it, 0, 1), stringResource(Res.string.unit_kw))
                         } ?: unknown)
                     if (entry != null && allowReadingEditing) {
-                        AppTextButton(onClick = { editing = true }) {
-                            Text(stringResource(if (entry.actualPercent == null) Res.string.reading_add else Res.string.reading_edit))
+                        AppIconButton(onClick = { editing = true }) {
+                            Icon(
+                                imageVector = EditIcon,
+                                contentDescription = stringResource(
+                                    if (entry.actualPercent == null) Res.string.reading_add else Res.string.reading_edit
+                                ),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                     }
                 }
             }
             if (summary.segments.isNotEmpty()) {
                 Card(Modifier.fillMaxWidth(), colors = tonalCardColors(), border = tonalCardBorder()) {
-                    Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Column(Modifier.padding(UiSpacing.medium), verticalArrangement = Arrangement.spacedBy(UiSpacing.small)) {
                         Text(stringResource(Res.string.summary_speeds), style = MaterialTheme.typography.titleMedium)
                         summary.segments.forEach {
                             SummaryRow(
@@ -148,7 +155,7 @@ fun EndSummaryScreen(
                     }
                 }
             }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(UiSpacing.small)) {
                 AppPrimaryButton(onClick = onDone, modifier = Modifier.weight(1f)) {
                     Text(stringResource(Res.string.summary_done))
                 }
@@ -195,7 +202,7 @@ internal fun CarReadingDialog(
         onDismissRequest = { if (!busy) onDismiss() },
         title = { Text(stringResource(Res.string.reading_title)) },
         text = {
-            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(UiSpacing.small)) {
                 OutlinedTextField(
                     value = text, onValueChange = { text = it; failed = false },
                     label = { Text(stringResource(Res.string.reading_percent)) },
@@ -255,7 +262,7 @@ internal fun CarReadingDialog(
 
 @Composable
 private fun SummaryRow(label: String, value: String) {
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(UiSpacing.small)) {
         Text(label, Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(value, style = MaterialTheme.typography.titleMedium)
     }

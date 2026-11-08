@@ -62,8 +62,8 @@ fun ChargingPowerManagementScreen(
         Column(Modifier.weight(1f)) {
             SettingsHeader(stringResource(Res.string.charging_power), onBack)
             Column(
-                Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(UiSpacing.medium),
+                verticalArrangement = Arrangement.spacedBy(UiSpacing.medium)
             ) {
                 Text(
                     stringResource(Res.string.settings_charging_powers_help),
@@ -77,7 +77,7 @@ fun ChargingPowerManagementScreen(
                 SettingsGroup {
                     powers.forEachIndexed { index, power ->
                         val removedMessage = stringResource(Res.string.power_removed, formatPower(power))
-                        if (index > 0) SettingsDivider(inset = 16.dp)
+                        if (index > 0) SettingsDivider(inset = UiSpacing.medium)
                         ListItem(
                             headlineContent = {
                                 Text(stringResource(Res.string.power_value, formatPower(power), stringResource(Res.string.unit_kw)))
@@ -137,7 +137,7 @@ fun ChargingPowerManagementScreen(
         }
         SnackbarHost(snackbar, Modifier.fillMaxWidth()) { notice ->
             Snackbar(
-                modifier = Modifier.padding(12.dp),
+                modifier = Modifier.padding(UiSpacing.small),
                 action = notice.visuals.actionLabel?.let { label ->
                     {
                         TextButton(

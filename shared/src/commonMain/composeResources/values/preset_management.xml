@@ -1,6 +1,7 @@
 <resources>
     <string name="settings_presets">Presets</string>
     <string name="rename_preset">Rename</string>
+    <string name="rename_named_preset">Rename %1$s</string>
     <string name="delete">Delete</string>
     <string name="delete_preset">Delete preset?</string>
     <string name="delete_preset_confirmation">Delete "%1$s"? If selected, the first remaining preset will be used instead.</string>

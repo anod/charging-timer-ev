@@ -5,8 +5,10 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.clickable
@@ -31,6 +33,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Dp
 import info.anodsplace.evtimer.APP_VERSION
@@ -57,8 +60,8 @@ fun SettingsScreen(
     SettingsPage(modifier) {
         SettingsHeader(stringResource(Res.string.settings_title), onBack)
         Column(
-            modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(UiSpacing.medium),
+            verticalArrangement = Arrangement.spacedBy(UiSpacing.medium)
         ) {
             SettingsSection(stringResource(Res.string.settings_charging)) {
                 SettingsRow(stringResource(Res.string.charging_power), Res.drawable.ic_power,
@@ -144,8 +147,8 @@ internal fun SettingsRow(
 
 @Composable
 internal fun SettingsSection(title: String, content: @Composable () -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(title, Modifier.padding(start = 8.dp, top = 8.dp, bottom = 4.dp),
+    Column(verticalArrangement = Arrangement.spacedBy(UiSpacing.small)) {
+        Text(title, Modifier.padding(start = UiSpacing.small, top = UiSpacing.small, bottom = UiSpacing.small),
             style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
         SettingsGroup(content)
     }
@@ -154,9 +157,9 @@ internal fun SettingsSection(title: String, content: @Composable () -> Unit) {
 @Composable
 internal fun SettingsHeader(title: String, onBack: () -> Unit) {
     Row(
-        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+        Modifier.fillMaxWidth().padding(horizontal = UiSpacing.medium, vertical = UiSpacing.small),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(16.dp)
+        horizontalArrangement = Arrangement.spacedBy(UiSpacing.medium)
     ) {
         Surface(shape = CircleShape, color = tonalCardContainerColor(), border = tonalCardBorder()) {
             AppIconButton(onClick = onBack) {
@@ -182,8 +185,8 @@ fun PresetManagementScreen(
     SettingsPage(modifier) {
         SettingsHeader(stringResource(Res.string.settings_presets), onBack)
         Column(
-            Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(UiSpacing.medium),
+            verticalArrangement = Arrangement.spacedBy(UiSpacing.medium)
         ) {
             Text(stringResource(Res.string.settings_presets_help), Modifier.padding(horizontal = 8.dp),
                 style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -204,6 +207,27 @@ internal fun SettingsPage(modifier: Modifier, content: @Composable ColumnScope.(
 internal fun SettingsGroup(content: @Composable () -> Unit) {
     Card(colors = tonalCardColors(), border = tonalCardBorder()) {
         content()
+    }
+}
+
+@Composable
+internal fun RootScreenHeader(
+    title: String,
+    modifier: Modifier = Modifier,
+    actions: @Composable RowScope.() -> Unit = {}
+) {
+    Row(
+        modifier.fillMaxWidth().heightIn(min = 48.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(UiSpacing.small)
+    ) {
+        Text(
+            title,
+            modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.Bold
+        )
+        actions()
     }
 }
 

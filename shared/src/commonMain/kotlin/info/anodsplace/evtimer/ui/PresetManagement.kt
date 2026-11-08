@@ -2,7 +2,6 @@ package info.anodsplace.evtimer.ui
 
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -129,7 +128,6 @@ internal fun PresetManagement(
     val rowPitch = with(LocalDensity.current) { 57.dp.toPx() }
     val moveUp = stringResource(Res.string.move_up)
     val moveDown = stringResource(Res.string.move_down)
-    val rename = stringResource(Res.string.rename_preset)
     if (showTitle) Text(stringResource(Res.string.settings_presets), style = MaterialTheme.typography.titleLarge)
     SettingsGroup {
         dragState.order.forEachIndexed { index, id ->
@@ -179,12 +177,13 @@ internal fun PresetManagement(
                     Text(
                         preset.name, style = MaterialTheme.typography.titleMedium,
                         maxLines = 1, overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f).clickable(onClickLabel = rename) {
-                            renamingId = id
-                        }.padding(vertical = 12.dp)
+                        modifier = Modifier.weight(1f).padding(vertical = UiSpacing.small)
                     )
                     AppIconButton(onClick = { infoId = id }) {
                         Icon(painterResource(Res.drawable.ic_info), stringResource(Res.string.calibration_info, preset.name))
+                    }
+                    AppIconButton(onClick = { renamingId = id }) {
+                        Icon(EditIcon, stringResource(Res.string.rename_named_preset, preset.name))
                     }
                     AppIconButton(onClick = { deletingId = id }, enabled = presets.size > 1) {
                         Icon(DeletePresetIcon, stringResource(Res.string.delete_named_preset, preset.name))
