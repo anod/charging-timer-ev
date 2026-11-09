@@ -93,6 +93,25 @@ The AAB is at `androidApp/build/outputs/bundle/release/androidApp-release.aab`.
 The optimized Android default rules and library consumer rules are used for R8;
 no blanket Koin, Compose, or DataStore keep rules are added.
 
+## Play Console edge-to-edge warnings
+
+The Play warning that edge-to-edge may not display for all users is a static DEX
+check: R8 can inline `EdgeToEdge.enable()` into `MainActivity`, hiding the
+recommended call from the scanner. `androidApp/proguard-rules.pro` keeps the
+public `androidx.activity.EdgeToEdge.enable(...)` method and Kotlin's
+`enable$default(...)` bridge by name, preventing R8 from removing or inlining
+the call path. To verify a minified AAB, extract `base/dex/classes.dex` and run
+`dexdump -d` on it; confirm the `EdgeToEdge` class, the call from
+`MainActivity.onCreate` to its `enable$default` bridge, and the bridge's call to
+`enable(...)`.
+
+The deprecated status/navigation bar color warning comes from AndroidX
+internals, not app calls: `androidx.activity`'s `EdgeToEdgeApi29` and
+`EdgeToEdgeApi35` still call these setters, and the core-splashscreen theme
+declares transparent status/navigation bar colors. This is expected until
+AndroidX changes those implementations. Both warnings clear only after a new
+bundle is uploaded and processed by Play.
+
 ## Baseline Profile
 
 The `:baselineprofile` module contains a Macrobenchmark journey for cold startup
