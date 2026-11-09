@@ -149,6 +149,9 @@ fun RunningTimerScreen(
 ) {
     val calculation = viewState.calculation
     val settings = viewState.settings
+    val headerTitle = stringResource(
+        if (viewState.isFinished) Res.string.charging_finished else Res.string.charging_in_progress
+    )
     var showChangeSpeed by rememberSaveable { mutableStateOf(false) }
 
     if (showChangeSpeed) {
@@ -167,10 +170,21 @@ fun RunningTimerScreen(
     val hazeState = rememberHazeState()
     var stopBarHeightPx by remember { mutableIntStateOf(0) }
     val stopBarHeight = with(LocalDensity.current) { stopBarHeightPx.toDp() }
+    var headerHeightPx by remember { mutableIntStateOf(0) }
+    val headerHeight = with(LocalDensity.current) { headerHeightPx.toDp() }
 
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
-        val layout = adaptiveLayout(maxWidth, maxHeight)
-        val contentWidth = minOf(maxWidth, if (layout.twoColumns) wideTimerWidth else readablePageWidth)
+        val twoColumns = runningTimerUsesTwoColumns(maxWidth, maxHeight)
+        val viewportHeight = maxHeight
+        val bodyHeight = (
+            viewportHeight -
+                headerHeight -
+                UiSpacing.extraLarge -
+                UiSpacing.medium -
+                UiSpacing.medium -
+                stopBarHeight
+            ).coerceAtLeast(0.dp)
+        val contentWidth = minOf(maxWidth, if (twoColumns) wideTimerWidth else readablePageWidth)
         // Content scrolls under the pinned Stop bar, which blurs whatever passes beneath it.
         Box(
             modifier = Modifier
@@ -196,12 +210,23 @@ fun RunningTimerScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(UiSpacing.extraLarge)
         ) {
-            BoxWithConstraints(Modifier.fillMaxWidth()) {
-            val paneWidth = if (layout.twoColumns) {
-                with(LocalDensity.current) {
-                    ((constraints.maxWidth - UiSpacing.extraLarge.roundToPx()) / 2).toDp()
-                }
-            } else maxWidth
+            if (twoColumns) {
+                RootScreenHeader(
+                    title = headerTitle,
+                    modifier = Modifier.onSizeChanged { headerHeightPx = it.height }
+                )
+            }
+            BoxWithConstraints(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .then(if (twoColumns) Modifier.heightIn(min = bodyHeight) else Modifier),
+                contentAlignment = if (twoColumns) Alignment.Center else Alignment.TopCenter
+            ) {
+            val paneWidth = runningTimerPaneWidth(
+                availableWidthPx = constraints.maxWidth,
+                density = LocalDensity.current,
+                twoColumns = twoColumns
+            )
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(UiSpacing.extraLarge),
                 verticalArrangement = Arrangement.spacedBy(UiSpacing.extraLarge)
@@ -211,11 +236,7 @@ fun RunningTimerScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(UiSpacing.extraLarge)
             ) {
-            RootScreenHeader(
-                title = stringResource(
-                    if (viewState.isFinished) Res.string.charging_finished else Res.string.charging_in_progress
-                )
-            )
+            if (!twoColumns) RootScreenHeader(title = headerTitle)
 
             // Battery indicator with animated charging cell
             BatteryChargingIndicator(
