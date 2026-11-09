@@ -23,6 +23,64 @@ import kotlin.test.assertTrue
 @OptIn(ExperimentalTestApi::class)
 class CustomPowerDialogTest {
     @Test
+    fun suggestionsExcludeExistingPowersUsingNumericEqualityAndDropEmptyGroups() {
+        val groups = availableCustomPowerSuggestions(listOf(7.0f))
+
+        assertEquals(
+            listOf("2.3", "3.6", "11", "22"),
+            groups.first { it.type == CustomPowerSuggestionType.AC }.powers
+        )
+        assertEquals(
+            listOf("50", "100", "150"),
+            groups.first { it.type == CustomPowerSuggestionType.DC }.powers
+        )
+        assertEquals(
+            emptyList(),
+            availableCustomPowerSuggestions(listOf(2.3f, 3.6f, 7f, 11f, 22f, 50f, 100f, 150f))
+                .map { it.type }
+        )
+    }
+
+    @Test
+    fun dialogHidesFilteredGroupsAndKeepsManualEntryWhenAllSuggestionsAreUsed() = runDesktopComposeUiTest {
+        val allSuggestions = listOf(2.3f, 3.6f, 7f, 11f, 22f, 50f, 100f, 150f)
+        val confirmed = mutableListOf<Float>()
+        setContent {
+            MaterialTheme {
+                CustomPowerDialog(
+                    onDismiss = {},
+                    onConfirm = { confirmed += it },
+                    existingPowers = allSuggestions
+                )
+            }
+        }
+
+        onNodeWithText("AC").assertDoesNotExist()
+        onNodeWithText("DC").assertDoesNotExist()
+        onNodeWithText("2.3 kW").assertDoesNotExist()
+        onNodeWithText("Power (kW)").performTextReplacement("9.5")
+        onNodeWithText("Add").assertIsEnabled().performClick()
+        assertEquals(listOf(9.5f), confirmed)
+    }
+
+    @Test
+    fun dialogHidesOnlyTheGroupWithNoRemainingSuggestions() = runDesktopComposeUiTest {
+        setContent {
+            MaterialTheme {
+                CustomPowerDialog(
+                    onDismiss = {},
+                    onConfirm = {},
+                    existingPowers = listOf(2.3f, 3.6f, 7f, 11f, 22f)
+                )
+            }
+        }
+
+        onNodeWithText("AC").assertDoesNotExist()
+        onNodeWithText("DC").assertExists()
+        onNodeWithText("50.0 kW").assertExists()
+    }
+
+    @Test
     fun configurationOnlySelectsPowerAndKeepsQuickAdd() = runDesktopComposeUiTest {
         val events = mutableListOf<ConfigurationViewEvent>()
         setContent {
@@ -49,7 +107,7 @@ class CustomPowerDialogTest {
     }
 
     @Test
-    fun allQuickPicksReplaceTheEditableValueWithoutConfirming() = runDesktopComposeUiTest {
+    fun allQuickPicksUseCanonicalTextWithoutConfirming() = runDesktopComposeUiTest {
         val confirmed = mutableListOf<Float>()
         var dismissals = 0
         setContent {
@@ -64,8 +122,11 @@ class CustomPowerDialogTest {
         for (suggestion in listOf("2.3", "3.6", "7", "11", "22", "50", "100", "150")) {
             val formattedSuggestion = if ('.' in suggestion) suggestion else "$suggestion.0"
             onNodeWithText("$formattedSuggestion kW").performScrollTo().performClick().assertIsSelected()
-            assertEquals(suggestion,
-                onNodeWithText("Power (kW)").fetchSemanticsNode().config[SemanticsProperties.EditableText].text)
+            assertEquals(
+                suggestion,
+                onNodeWithText("Power (kW)").fetchSemanticsNode().config[SemanticsProperties.EditableText].text,
+                "Quick picks must retain their canonical literal text, including 2.3 and 7"
+            )
             onNodeWithText("Add").assertIsEnabled()
             assertEquals(emptyList(), confirmed)
             assertEquals(0, dismissals)
