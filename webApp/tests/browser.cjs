@@ -31,6 +31,14 @@ async function waitForAccessibleText(page, text) {
     }
 }
 
+async function waitForAccessibleTextAbsent(page, text) {
+    const deadline = Date.now() + 10_000;
+    while ((await page.locator("body").ariaSnapshot()).includes(text)) {
+        assert.ok(Date.now() < deadline, `Accessible UI must not contain: ${text}`);
+        await page.waitForTimeout(100);
+    }
+}
+
 const configurationLabels = ["Charging Timer for EV", "Battery: 83 kWh", "Max: 100%",
     "Start", "Charging Power", "3.6 kW", "7.0 kW", "11.0 kW", "22.0 kW", "Start Timer"];
 const runningLabels = ["Charging in Progress", "Charging Power", "Current %", "Target %",
@@ -217,6 +225,8 @@ async function verifyTwoPaneSettingsBack(browser, origin) {
             console.log("Two-pane Settings header/system Back and nested History Back passed");
             return;
         }
+        await verifyTwoPaneSettingsBack(browser, origin);
+        console.log("Two-pane Settings header/system Back and nested History Back passed");
         await verifyPowerUndo(browser, origin);
         if (process.env.POWER_UNDO_ONLY === "1") return;
         let dialogFailure;
@@ -530,10 +540,13 @@ async function verifyTwoPaneSettingsBack(browser, origin) {
         assert.equal(await settingsLayoutPage.getByRole("button", { name: "Back", exact: true }).count(), 1,
             "The wide layout keeps only the Settings-list back button, not a detail-pane back arrow");
         await settingsLayoutPage.setViewportSize({ width: 500, height: 800 });
-        await waitForAccessibleText(settingsLayoutPage, "Use the edit button to rename. Drag the handle to reorder.");
+        await waitForAccessibleTextAbsent(settingsLayoutPage, "Charging history");
         assert.equal(new URL(settingsLayoutPage.url()).hash, "#/presets");
         await settingsLayoutPage.goBack();
-        await waitForAccessibleText(settingsLayoutPage, "Settings");
+        await settingsLayoutPage.waitForFunction(() => location.hash === "#/settings");
+        assert.equal(new URL(settingsLayoutPage.url()).hash, "#/settings",
+            "Back after rendering compact Settings returns to Settings, not the timer");
+        await waitForAccessibleText(settingsLayoutPage, "Charging history");
         await settingsLayoutPage.setViewportSize({ width: 1200, height: 900 });
         await waitForAccessibleText(settingsLayoutPage, "Choose a setting to view its details");
         assert.equal(new URL(settingsLayoutPage.url()).hash, "#/settings");
