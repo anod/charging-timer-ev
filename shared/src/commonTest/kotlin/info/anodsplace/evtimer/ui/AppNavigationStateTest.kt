@@ -20,6 +20,27 @@ class AppNavigationStateTest {
     }
 
     @Test
+    fun twoPaneBackExitsSettingsAndTopLevelDetailsButPreservesNestedHistorySummary() {
+        val root = idle()
+        val settings = root.navigate(AppDestination.Settings)
+        assertEquals(root, settings.back(twoPane = true))
+
+        for (destination in listOf(
+            AppDestination.ChargingPowers,
+            AppDestination.Presets,
+            AppDestination.History,
+            AppDestination.Licenses
+        )) {
+            assertEquals(root, settings.navigate(destination).back(twoPane = true))
+        }
+
+        val history = settings.navigate(AppDestination.History)
+        val summary = history.openSummary(42)
+        assertEquals(history, summary.back(twoPane = true))
+        assertEquals(root, history.back(twoPane = true))
+    }
+
+    @Test
     fun sessionTransitionsReplaceSecondaryScreensButTicksPreserveThem() {
         val settings = idle().navigate(AppDestination.Settings)
         assertEquals(settings, settings.reconcile(false, null, emptySet()))

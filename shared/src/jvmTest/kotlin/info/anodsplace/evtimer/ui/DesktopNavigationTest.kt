@@ -146,6 +146,9 @@ class DesktopNavigationTest {
         }
         onNodeWithContentDescription("Back").performClick()
         onNodeWithText("Keep at least one preset.").assertDoesNotExist()
+        onNodeWithText("Start Timer").assertExists()
+        runOnIdle { assertEquals(listOf(Destination.Config), navigation.backStack.value) }
+        onNodeWithContentDescription("Settings").performClick()
         onNodeWithText("Charging Power").performScrollTo().performClick()
         onNodeWithContentDescription("Remove 11.0 kW").assertExists()
         onNodeWithTag("charging-waves").assertDoesNotExist()
@@ -155,7 +158,9 @@ class DesktopNavigationTest {
             assertTrue(service.status.value.isRunning)
         }
         escape()
-        onNodeWithText("Notify at 80%").assertExists()
+        onNodeWithText("Start Timer").assertExists()
+        runOnIdle { assertEquals(listOf(Destination.Config), navigation.backStack.value) }
+        onNodeWithContentDescription("Settings").performClick()
         onNodeWithText("Charging history").performClick()
         onNodeWithText("No past sessions yet").assertExists()
         onNodeWithTag("charging-waves").assertDoesNotExist()
@@ -163,7 +168,9 @@ class DesktopNavigationTest {
             assertEquals(listOf(Destination.Config, Destination.Settings, Destination.History), navigation.backStack.value)
         }
         onNodeWithContentDescription("Back").performClick()
-        onNodeWithText("Notify at 80%").assertExists()
+        onNodeWithText("Start Timer").assertExists()
+        runOnIdle { assertEquals(listOf(Destination.Config), navigation.backStack.value) }
+        onNodeWithContentDescription("Settings").performClick()
         onNodeWithText("Notify at 80%").performScrollTo().assertIsOn().performClick()
         onNodeWithText("Notify at 80%").assertIsOff()
         onNodeWithText("About").assertExists()
@@ -179,9 +186,13 @@ class DesktopNavigationTest {
         onNodeWithText("Open-source licenses").performScrollTo().performClick()
         onNodeWithTag("charging-waves").assertDoesNotExist()
         onNodeWithContentDescription("Back").performClick()
-        onNodeWithText("About").assertExists()
-        onNodeWithText("Notify at 80%").assertIsOff()
-        onNodeWithContentDescription("Back").performClick()
+        onNodeWithText("Start Timer").assertExists()
+        runOnIdle { assertEquals(listOf(Destination.Config), navigation.backStack.value) }
+        onNodeWithContentDescription("Settings").performClick()
+        onNodeWithText("Open-source licenses").performScrollTo().performClick()
+        escape()
+        onNodeWithText("Start Timer").assertExists()
+        runOnIdle { assertEquals(listOf(Destination.Config), navigation.backStack.value) }
         assertTrue(service.status.value.isRunning)
         onNodeWithContentDescription("Start input field").performClick()
         onNodeWithText("Start Timer").performClick()

@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -54,9 +55,12 @@ fun ChargingTimerApp(
                     else -> null
                 }
                 AdaptiveSettingsNavigation {
+                    val twoPane = LocalSettingsTwoPane.current
+                    SideEffect { navigation.setSettingsTwoPane(twoPane) }
+                    val onBack: () -> Unit = { navigation.onBack(twoPane) }
                     NavDisplay(
                         backStack = backStack,
-                        onBack = { navigation.onBack() },
+                        onBack = onBack,
                         sceneStrategies = listOf(rememberSettingsListDetailSceneStrategy<Destination>()),
                         entryDecorators = listOf(
                             rememberSaveableStateHolderNavEntryDecorator(),
@@ -108,7 +112,7 @@ fun ChargingTimerApp(
                                         notifyAt80, viewModel::setNotifyAt80,
                                         onOpenPresets = { navigation.navigate(Destination.Presets) },
                                         onOpenChargingPowers = { navigation.navigate(Destination.ChargingPowers) },
-                                        onBack = { navigation.onBack() },
+                                        onBack = onBack,
                                         onOpenLicenses = { navigation.navigate(Destination.Licenses) },
                                         backupContent = { BackupSettings(viewModel) },
                                         onOpenHistory = { navigation.navigate(Destination.History) },
@@ -130,7 +134,7 @@ fun ChargingTimerApp(
                                         onAddPower = viewModel::addPower,
                                         onRemovePower = viewModel::removePowerForUndo,
                                         onUndoRemovePower = viewModel::restorePower,
-                                        onBack = { navigation.onBack() },
+                                        onBack = onBack,
                                         modifier = modifier.windowInsetsPadding(WindowInsets.systemBars)
                                     )
                                 }
@@ -145,7 +149,7 @@ fun ChargingTimerApp(
                                     ) else PresetManagementScreen(
                                         presets, viewModel::renamePreset, viewModel::deletePreset,
                                         viewModel::movePreset, viewModel::reorderPresets,
-                                        onBack = { navigation.onBack() },
+                                        onBack = onBack,
                                         calibration = calibration,
                                         onResetCalibration = viewModel::resetLearnedEstimates,
                                         modifier = modifier.windowInsetsPadding(WindowInsets.systemBars)
@@ -158,7 +162,7 @@ fun ChargingTimerApp(
                                         entries = entries,
                                         onOpenSummary = navigation::openHistorySummary,
                                         onDelete = viewModel::deleteSession,
-                                        onBack = { navigation.onBack() },
+                                        onBack = onBack,
                                         modifier = modifier.windowInsetsPadding(WindowInsets.systemBars)
                                     )
                                 }
@@ -169,7 +173,7 @@ fun ChargingTimerApp(
                                         EndSummaryScreen(
                                             summary = it.summary(),
                                             onShare = shareService::share,
-                                            onDone = { navigation.onBack() },
+                                            onDone = onBack,
                                             entry = it,
                                             onSaveReading = navigation::saveReading,
                                             modifier = modifier.windowInsetsPadding(WindowInsets.systemBars)
@@ -177,7 +181,7 @@ fun ChargingTimerApp(
                                     }
                                 }
                                 Destination.Licenses -> LicensesScreen(
-                                    onBack = { navigation.onBack() },
+                                    onBack = onBack,
                                     modifier = modifier.windowInsetsPadding(WindowInsets.systemBars)
                                 )
                                 else -> error("Screen not implemented for $destination")

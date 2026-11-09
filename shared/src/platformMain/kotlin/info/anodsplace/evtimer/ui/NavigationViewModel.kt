@@ -24,6 +24,7 @@ class NavigationViewModel(
     private var wasRunning: Boolean? = service.status.value.takeUnless { it.isLoading }?.isRunning
     private var pendingId: Long? = null
     private var historySummaryId: Long? = null
+    private var settingsTwoPane = false
     private val mutableSummary = MutableStateFlow<ChargingHistoryEntry?>(null)
     val summary = mutableSummary.asStateFlow()
     private val mutableBackStack = MutableStateFlow(if (wasRunning == true) sessionStack(true) else emptyList())
@@ -81,13 +82,19 @@ class NavigationViewModel(
         navigate(Destination.EndSummary)
     }
 
+    fun setSettingsTwoPane(twoPane: Boolean) {
+        settingsTwoPane = twoPane
+    }
+
+    fun onDesktopBack(): Boolean = onBack(settingsTwoPane)
+
     fun navigate(destination: Destination) {
         if (mutableBackStack.value.isNotEmpty() && mutableBackStack.value.last() != destination) {
             mutableBackStack.value += destination
         }
     }
 
-    fun onBack(): Boolean {
+    fun onBack(twoPane: Boolean = false): Boolean {
         val stack = mutableBackStack.value
         if (stack.size <= 1) return false
         if (stack.last() == Destination.EndSummary && historySummaryId == null) {
@@ -96,7 +103,10 @@ class NavigationViewModel(
             return true
         }
         if (stack.last() == Destination.EndSummary) historySummaryId = null
-        mutableBackStack.value = stack.dropLast(1)
+        val exitsSettings = twoPane &&
+            stack.last().isSettingsTopLevelDetail() &&
+            stack.getOrNull(stack.lastIndex - 1) == Destination.Settings
+        mutableBackStack.value = stack.dropLast(if (exitsSettings) 2 else 1)
         return true
     }
 
@@ -106,5 +116,10 @@ class NavigationViewModel(
 
     suspend fun saveReading(id: Long, actualPercent: Float?, calibrationEnabled: Boolean) {
         history.saveReading(id, actualPercent, calibrationEnabled)
+    }
+
+    private fun Destination.isSettingsTopLevelDetail(): Boolean = when (this) {
+        Destination.ChargingPowers, Destination.Presets, Destination.History, Destination.Licenses -> true
+        else -> false
     }
 }

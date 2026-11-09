@@ -53,6 +53,7 @@ internal fun BrowserTimerApp() {
     var navigation by remember { mutableStateOf(AppNavigationState()) }
     var historyInitialized by remember { mutableStateOf(false) }
     var pendingRoute by remember { mutableStateOf<AppRoute?>(null) }
+    var settingsTwoPane by remember { mutableStateOf(false) }
     var now by remember { mutableLongStateOf(Clock.System.now().toEpochMilliseconds()) }
     var busy by remember { mutableStateOf(false) }
     var failed by remember { mutableStateOf(false) }
@@ -128,11 +129,16 @@ internal fun BrowserTimerApp() {
 
     fun navigate(destination: AppDestination) = applyNavigation(navigation.navigate(destination), push = true)
 
-    fun back() {
+    fun back(twoPane: Boolean = false) {
         if (navigation.current?.completion == true) {
             scope.launch { operation { runtime.acknowledgeCompletion(navigation.current?.summaryId) } }
-        } else if (historyDepth() > 0) window.history.back()
-        else applyNavigation(navigation.back())
+        } else {
+            val next = navigation.back(twoPane)
+            val backSteps = navigation.backStack.size - next.backStack.size
+            if (backSteps > 0 && historyDepth() >= backSteps) window.history.go(-backSteps)
+            else if (backSteps > 0) applyNavigation(next)
+            else if (historyDepth() > 0) window.history.back()
+        }
     }
 
     LaunchedEffect(runtime, notifications) {
@@ -149,11 +155,16 @@ internal fun BrowserTimerApp() {
         }
         val pop: (Event) -> Unit = {
             val requested = parseAppRoute(window.location.hash)
-            pendingRoute = requested
-            scope.launch {
-                operation {
-                    if (navigation.current?.completion == true) {
-                        runtime.acknowledgeCompletion(navigation.current?.summaryId)
+            val backSteps = navigation.back(settingsTwoPane).let { navigation.backStack.size - it.backStack.size }
+            if (requested?.destination == AppDestination.Settings && backSteps == 2 && historyDepth() > 0) {
+                window.history.back()
+            } else {
+                pendingRoute = requested
+                scope.launch {
+                    operation {
+                        if (navigation.current?.completion == true) {
+                            runtime.acknowledgeCompletion(navigation.current?.summaryId)
+                        }
                     }
                 }
             }
@@ -225,9 +236,12 @@ internal fun BrowserTimerApp() {
                         else -> null
                     }
                     AdaptiveSettingsNavigation(Modifier.weight(1f).fillMaxWidth()) {
+                        val twoPane = isSettingsTwoPane()
+                        SideEffect { settingsTwoPane = twoPane }
+                        val onBack: () -> Unit = { back(twoPane) }
                         NavDisplay(
                             backStack = navigation.backStack,
-                            onBack = { back() },
+                            onBack = onBack,
                             modifier = Modifier.fillMaxSize(),
                             sceneStrategies = listOf(rememberSettingsListDetailSceneStrategy<AppRoute>()),
                             entryDecorators = listOf(rememberSaveableStateHolderNavEntryDecorator()),
@@ -277,7 +291,7 @@ internal fun BrowserTimerApp() {
                                         AppDestination.Settings -> SettingsScreen(
                                             loaded.backup.preferences.notifyAt80,
                                             { enabled -> scope.launch { operation { runtime.setNotifyAt80(enabled) } } },
-                                            onBack = ::back,
+                                            onBack = onBack,
                                             onOpenLicenses = { navigate(AppDestination.Licenses) },
                                             onOpenPresets = { navigate(AppDestination.Presets) },
                                             onOpenHistory = { navigate(AppDestination.History) },
@@ -309,7 +323,7 @@ internal fun BrowserTimerApp() {
                                             onDelete = { id -> scope.launch { operation { runtime.deletePreset(id) } } },
                                             onMove = { id, direction -> scope.launch { operation { runtime.movePreset(id, direction) } } },
                                             onReorder = { ids -> scope.launch { operation { runtime.reorderPresets(ids) } } },
-                                            onBack = ::back,
+                                            onBack = onBack,
                                             calibration = loaded.calibration(),
                                             onResetCalibration = { id, power -> mutex.withLock { runtime.resetLearnedEstimates(id, power); refresh() } }
                                         )
@@ -326,22 +340,22 @@ internal fun BrowserTimerApp() {
                                             onUndoRemovePower = { removed ->
                                                 mutex.withLock { runtime.restorePower(removed); refresh() }
                                             },
-                                            onBack = ::back
+                                            onBack = onBack
                                         )
                                         AppDestination.History -> HistoryScreen(
                                             loaded.historyEntries(),
                                             onOpenSummary = { applyNavigation(navigation.openSummary(it.id), push = true) },
                                             onDelete = { id -> mutex.withLock { runtime.deleteHistory(id); refresh() } },
-                                            onBack = ::back
+                                            onBack = onBack
                                         )
                                         AppDestination.EndSummary -> loaded.historyEntries().firstOrNull { it.id == route.summaryId }?.let { entry ->
-                                            EndSummaryScreen(entry.summary(), onShare = ::shareSummary, onDone = ::back,
+                                            EndSummaryScreen(entry.summary(), onShare = ::shareSummary, onDone = onBack,
                                                 entry = entry,
                                                 onSaveReading = { id, actual, enabled ->
                                                     mutex.withLock { runtime.saveReading(id, actual, enabled); refresh() }
                                                 })
                                         }
-                                        AppDestination.Licenses -> LicensesScreen(onBack = ::back)
+                                        AppDestination.Licenses -> LicensesScreen(onBack = onBack)
                                     }
                                 }
                             }

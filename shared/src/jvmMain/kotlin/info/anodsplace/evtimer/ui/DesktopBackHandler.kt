@@ -7,4 +7,4 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.type
 
 fun NavigationViewModel.handleDesktopKeyEvent(event: KeyEvent): Boolean =
-    event.key == Key.Escape && event.type == KeyEventType.KeyUp && onBack()
+    event.key == Key.Escape && event.type == KeyEventType.KeyUp && onDesktopBack()
