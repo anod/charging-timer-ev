@@ -21,11 +21,18 @@ class AdaptiveLayoutTest {
     @Test
     fun runningTimerUsesTwoColumnsForFoldAndTabletSizesWithoutChangingPhoneLayout() {
         assertFalse(runningTimerUsesTwoColumns(411.dp, 914.dp))
-        assertFalse(runningTimerUsesTwoColumns(663.dp, 841.dp))
-        assertTrue(runningTimerUsesTwoColumns(673.dp, 841.dp))
+        assertFalse(runningTimerUsesTwoColumns(914.dp, 411.dp))
+        assertFalse(runningTimerUsesTwoColumns(673.dp, 841.dp))
+        assertFalse(runningTimerUsesTwoColumns(750.dp, 832.dp))
+        assertTrue(runningTimerUsesTwoColumns(832.dp, 750.dp))
         assertTrue(runningTimerUsesTwoColumns(841.dp, 673.dp))
-        assertTrue(runningTimerUsesTwoColumns(800.dp, 1280.dp))
+        assertFalse(runningTimerUsesTwoColumns(800.dp, 1280.dp))
         assertTrue(runningTimerUsesTwoColumns(1280.dp, 800.dp))
+        assertTrue(runningTimerUsesTwoColumns(800.dp, 480.dp))
+        assertFalse(runningTimerUsesTwoColumns(800.dp, 900.dp))
+        assertTrue(runningTimerUsesTwoColumns(1100.dp, 900.dp))
+        assertFalse(runningTimerUsesTwoColumns(767.dp, 600.dp))
+        assertTrue(runningTimerUsesTwoColumns(768.dp, 600.dp))
         assertFalse(runningTimerUsesTwoColumns(1280.dp, 479.dp))
     }
 

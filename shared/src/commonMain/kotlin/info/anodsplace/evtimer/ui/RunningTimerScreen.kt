@@ -170,20 +170,10 @@ fun RunningTimerScreen(
     val hazeState = rememberHazeState()
     var stopBarHeightPx by remember { mutableIntStateOf(0) }
     val stopBarHeight = with(LocalDensity.current) { stopBarHeightPx.toDp() }
-    var headerHeightPx by remember { mutableIntStateOf(0) }
-    val headerHeight = with(LocalDensity.current) { headerHeightPx.toDp() }
-
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
         val twoColumns = runningTimerUsesTwoColumns(maxWidth, maxHeight)
-        val viewportHeight = maxHeight
-        val bodyHeight = (
-            viewportHeight -
-                headerHeight -
-                UiSpacing.extraLarge -
-                UiSpacing.medium -
-                UiSpacing.medium -
-                stopBarHeight
-            ).coerceAtLeast(0.dp)
+        val tallSingleColumn = !twoColumns && maxWidth >= 600.dp && maxHeight >= 1000.dp
+        val sectionSpacing = if (tallSingleColumn) 64.dp else UiSpacing.extraLarge
         val contentWidth = minOf(maxWidth, if (twoColumns) wideTimerWidth else readablePageWidth)
         // Content scrolls under the pinned Stop bar, which blurs whatever passes beneath it.
         Box(
@@ -208,20 +198,12 @@ fun RunningTimerScreen(
                     bottom = UiSpacing.medium + stopBarHeight
                 ),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(UiSpacing.extraLarge)
+            verticalArrangement = Arrangement.spacedBy(sectionSpacing)
         ) {
             if (twoColumns) {
-                RootScreenHeader(
-                    title = headerTitle,
-                    modifier = Modifier.onSizeChanged { headerHeightPx = it.height }
-                )
+                RootScreenHeader(title = headerTitle)
             }
-            BoxWithConstraints(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .then(if (twoColumns) Modifier.heightIn(min = bodyHeight) else Modifier),
-                contentAlignment = if (twoColumns) Alignment.Center else Alignment.TopCenter
-            ) {
+            BoxWithConstraints(Modifier.fillMaxWidth()) {
             val paneWidth = runningTimerPaneWidth(
                 availableWidthPx = constraints.maxWidth,
                 density = LocalDensity.current,
@@ -229,12 +211,12 @@ fun RunningTimerScreen(
             )
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(UiSpacing.extraLarge),
-                verticalArrangement = Arrangement.spacedBy(UiSpacing.extraLarge)
+                verticalArrangement = Arrangement.spacedBy(sectionSpacing)
             ) {
             Column(
                 Modifier.width(paneWidth).testTag("running-progress-pane"),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(UiSpacing.extraLarge)
+                verticalArrangement = Arrangement.spacedBy(sectionSpacing)
             ) {
             if (!twoColumns) RootScreenHeader(title = headerTitle)
 
@@ -242,7 +224,8 @@ fun RunningTimerScreen(
             BatteryChargingIndicator(
                 currentPercent = calculation.estimatedPercent,
                 maxPercent = settings.maxPercent,
-                batteryCapacity = settings.batteryCapacity
+                batteryCapacity = settings.batteryCapacity,
+                scale = if (tallSingleColumn) 1.5f else 1f
             )
 
             viewState.timeProgress?.let { progress ->
@@ -374,7 +357,7 @@ fun RunningTimerScreen(
                 onClick = { onEvent(RunningViewEvent.StopCharging) },
                 modifier = Modifier
                     .align(Alignment.Center)
-                    .widthIn(max = readablePageWidth)
+                    .widthIn(max = contentWidth)
                     .fillMaxWidth()
                     .padding(horizontal = UiSpacing.medium, vertical = UiSpacing.small)
             ) {
@@ -633,7 +616,8 @@ fun BatteryChargingIndicator(
     maxPercent: Float,
     batteryCapacity: Float,
     modifier: Modifier = Modifier,
-    cellCount: Int = 10
+    cellCount: Int = 10,
+    scale: Float = 1f
 ) {
     val fraction = if (maxPercent > 0) (currentPercent / maxPercent).coerceIn(0f, 1f) else 0f
     val fullCells = (fraction * cellCount).toInt()
@@ -663,14 +647,14 @@ fun BatteryChargingIndicator(
 
     Box(
         modifier = modifier
-            .size(width = 240.dp, height = 120.dp),
+            .size(width = 240.dp * scale, height = 120.dp * scale),
         contentAlignment = Alignment.Center
     ) {
         // Battery body with cells
         Box(
             modifier = Modifier
                 .fillMaxWidth(0.9f)
-                .height(80.dp)
+                .height(80.dp * scale)
                 .border(1.dp, bodyBorderColor, RoundedCornerShape(8.dp))
                 .padding(4.dp)
         ) {
@@ -707,7 +691,7 @@ fun BatteryChargingIndicator(
                         formatLocaleNumber(currentKwh.toFloat(), 0, 2),
                         stringResource(Res.string.unit_kwh)
                     ),
-                    fontSize = 24.sp,
+                    fontSize = 24.sp * scale,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
@@ -718,8 +702,8 @@ fun BatteryChargingIndicator(
             modifier = Modifier
                 .align(Alignment.CenterEnd)
                 .offset(x = 2.dp)
-                .width(12.dp)
-                .height(32.dp)
+                .width(12.dp * scale)
+                .height(32.dp * scale)
                 .background(terminalColor, RoundedCornerShape(4.dp))
         )
     }

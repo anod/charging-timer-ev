@@ -59,6 +59,22 @@ class TimeProgressTest {
     }
 
     @Test
+    fun ticksNearEndpointAreSkippedAtEveryIntervalWithoutRoundingTheEndpoint() {
+        val progress = timeProgress(snapshot, start, start + 181 * 60_000L)
+        val hourly = progress.groups().first { it.first().minutesAhead == 60.0 }
+        assertEquals(listOf(60.0, 120.0, 181.0), hourly.map { it.minutesAhead })
+        assertEquals(TimePrediction(181.0, 1f, 80f), hourly.last())
+        val tenMinute = progress.groups().first { it.first().minutesAhead == 10.0 }
+        assertEquals(listOf(170.0, 180.0, 181.0), tenMinute.takeLast(3).map { it.minutesAhead })
+
+        val justPastInterval = timeProgress(snapshot, start, end + 1L)
+        justPastInterval.groups().forEach { group ->
+            assertEquals(TimePrediction(180.0 + 1.0 / 60_000.0, 1f, 80f), group.last())
+            assertTrue(group.dropLast(1).all { it.minutesAhead < 180.0 })
+        }
+    }
+
+    @Test
     fun nearCompletionUsesMinuteTicksThenExistingFinishTextBelowOneMinute() {
         val progress = timeProgress(snapshot, end - 4 * 60_000L, end)
         assertEquals(listOf(1.0, 2.0, 3.0, 4.0), progress.predictions.map { it.minutesAhead })

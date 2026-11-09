@@ -74,7 +74,7 @@ class AdaptiveScreensTest {
     }
 
     @Test
-    fun foldInnerPortraitCentersRunningPanesBelowHeader() = runDesktopComposeUiTest(width = 673, height = 841) {
+    fun foldInnerPortraitKeepsReadableStackedPanes() = runDesktopComposeUiTest(width = 750, height = 832) {
         val state = RunningViewState(
             isLoading = false,
             settings = ChargingSettings.DEFAULT,
@@ -82,7 +82,7 @@ class AdaptiveScreensTest {
         )
         setContent {
             MaterialTheme {
-                Box(Modifier.width(673.dp).height(841.dp)) {
+                Box(Modifier.width(750.dp).height(832.dp)) {
                     RunningTimerScreen(state, {})
                 }
             }
@@ -91,10 +91,29 @@ class AdaptiveScreensTest {
         val progress = onNodeWithTag("running-progress-pane").fetchSemanticsNode().boundsInRoot
         val stats = onNodeWithTag("running-stats-pane").fetchSemanticsNode().boundsInRoot
         assertTrue(heading.top < 100f)
-        assertEquals(progress.top, stats.top)
-        assertTrue(stats.left > progress.right)
-        assertTrue(progress.top > 100f)
+        assertEquals(progress.left, stats.left)
+        assertTrue(stats.top > progress.bottom)
         assertTrue(stats.bottom < 741f)
+        onNodeWithText("Stop Timer").assertIsDisplayed()
+    }
+
+    @Test
+    fun foldInnerLandscapeTopAlignsPanesImmediatelyBelowHeader() = runDesktopComposeUiTest(width = 832, height = 750) {
+        setContent {
+            MaterialTheme {
+                RunningTimerScreen(
+                    RunningViewState(isLoading = false, settings = ChargingSettings.DEFAULT),
+                    {}
+                )
+            }
+        }
+        val heading = onNodeWithText("Charging in Progress").fetchSemanticsNode().boundsInRoot
+        val progress = onNodeWithTag("running-progress-pane").fetchSemanticsNode().boundsInRoot
+        val stats = onNodeWithTag("running-stats-pane").fetchSemanticsNode().boundsInRoot
+        assertEquals(progress.top, stats.top)
+        assertEquals(heading.left, progress.left)
+        assertTrue(progress.top - heading.bottom in 32f..48f)
+        assertTrue(stats.left > progress.right)
         onNodeWithText("Stop Timer").assertIsDisplayed()
     }
 

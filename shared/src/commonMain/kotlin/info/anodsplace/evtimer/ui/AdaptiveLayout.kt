@@ -30,10 +30,10 @@ internal fun adaptiveLayout(width: Dp, height: Dp) = AdaptiveLayout(
 
 internal val readablePageWidth = 720.dp
 internal val wideTimerWidth = 1120.dp
-internal val runningTimerTwoColumnBreakpoint = 664.dp
-
-internal fun runningTimerUsesTwoColumns(width: Dp, height: Dp) =
-    width >= runningTimerTwoColumnBreakpoint && height >= 480.dp
+internal fun runningTimerUsesTwoColumns(width: Dp, height: Dp): Boolean {
+    val paneWidth = (minOf(width, wideTimerWidth) - UiSpacing.medium * 2 - UiSpacing.extraLarge) / 2
+    return width >= height && height >= 480.dp && paneWidth >= 352.dp
+}
 
 internal fun runningTimerPaneWidth(availableWidthPx: Int, density: Density, twoColumns: Boolean) =
     with(density) {
