@@ -143,8 +143,11 @@ After merging the workflow into `main`, open **Actions > Release Android to
 internal testing > Run workflow** and select `main`. The job runs only for that
 trusted ref and waits for approval through the protected `release` environment.
 It requires all five environment secrets, builds the signed AAB, retains it and
-the R8 mapping as a 30-day artifact, and uploads a completed internal release.
-Archive the mapping securely for longer-term crash decoding.
+the R8 mapping as a workflow artifact, and uploads a completed internal release.
+Artifact retention is limited by the repository's Actions retention setting
+(currently 7 days), even though the workflow requests 30 days. Download and
+securely archive the AAB and its matching `mapping.txt` promptly after each release
+for longer-term crash decoding.
 No release runs automatically on a push or pull request. Do not dispatch a
 release from any other ref.
 
