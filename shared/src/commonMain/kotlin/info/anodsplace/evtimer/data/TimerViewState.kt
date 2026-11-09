@@ -53,7 +53,10 @@ fun timeProgress(snapshot: ChargingSessionSnapshot, now: Long, estimatedEndTime:
     val endpoint = TimePrediction(remaining, 1f, snapshot.targetPercent)
     // Bound candidate measurement work, not the number of labels the UI can display.
     val groups = intervals.filter { it >= remaining / 60.0 && it < remaining }.map { interval ->
-        (1 until ceil(remaining / interval).toInt()).map { index ->
+        // Keep the exact endpoint, not a nearly adjacent regular tick (for example 180m and 181m).
+        (1 until ceil(remaining / interval).toInt()).filter { index ->
+            remaining - index * interval >= interval * 0.1
+        }.map { index ->
             val minutes = index * interval
             TimePrediction(
                 minutesAhead = minutes,

@@ -74,6 +74,50 @@ class AdaptiveScreensTest {
     }
 
     @Test
+    fun foldInnerPortraitKeepsReadableStackedPanes() = runDesktopComposeUiTest(width = 750, height = 832) {
+        val state = RunningViewState(
+            isLoading = false,
+            settings = ChargingSettings.DEFAULT,
+            calculation = ChargingCalculation(timeRemainingMinutes = 90, estimatedPercent = 65f, chargingSpeed = 11f)
+        )
+        setContent {
+            MaterialTheme {
+                Box(Modifier.width(750.dp).height(832.dp)) {
+                    RunningTimerScreen(state, {})
+                }
+            }
+        }
+        val heading = onNodeWithText("Charging in Progress").fetchSemanticsNode().boundsInRoot
+        val progress = onNodeWithTag("running-progress-pane").fetchSemanticsNode().boundsInRoot
+        val stats = onNodeWithTag("running-stats-pane").fetchSemanticsNode().boundsInRoot
+        assertTrue(heading.top < 100f)
+        assertEquals(progress.left, stats.left)
+        assertTrue(stats.top > progress.bottom)
+        assertTrue(stats.bottom < 741f)
+        onNodeWithText("Stop Timer").assertIsDisplayed()
+    }
+
+    @Test
+    fun foldInnerLandscapeTopAlignsPanesImmediatelyBelowHeader() = runDesktopComposeUiTest(width = 832, height = 750) {
+        setContent {
+            MaterialTheme {
+                RunningTimerScreen(
+                    RunningViewState(isLoading = false, settings = ChargingSettings.DEFAULT),
+                    {}
+                )
+            }
+        }
+        val heading = onNodeWithText("Charging in Progress").fetchSemanticsNode().boundsInRoot
+        val progress = onNodeWithTag("running-progress-pane").fetchSemanticsNode().boundsInRoot
+        val stats = onNodeWithTag("running-stats-pane").fetchSemanticsNode().boundsInRoot
+        assertEquals(progress.top, stats.top)
+        assertEquals(heading.left, progress.left)
+        assertTrue(progress.top - heading.bottom in 32f..48f)
+        assertTrue(stats.left > progress.right)
+        onNodeWithText("Stop Timer").assertIsDisplayed()
+    }
+
+    @Test
     fun configurationReflowsWithoutLosingCardExpansion() = runDesktopComposeUiTest(width = 1200, height = 900) {
         val width = mutableStateOf(400.dp)
         setContent {
