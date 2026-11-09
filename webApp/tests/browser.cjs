@@ -127,6 +127,72 @@ async function verifyPowerUndo(browser, origin) {
     }
 }
 
+async function verifyTwoPaneSettingsBack(browser, origin) {
+    const context = await browser.newContext({
+        locale: "en-US", viewport: { width: 1200, height: 900 }
+    });
+    const page = await context.newPage();
+    const errors = [];
+    page.on("pageerror", error => errors.push(error.message));
+    try {
+        await page.goto(origin);
+        assert.notEqual(await waitForRecord(page), null);
+        await page.evaluate(async () => {
+            const record = JSON.parse(await evTimerStorage.read());
+            const state = JSON.parse(record.payload);
+            const end = Date.now() - 3_600_000;
+            state.backup.sessions = [{
+                id: 42, batteryCapacity: 83, startPercent: 20, targetPercent: 100, efficiency: 1,
+                presetId: "custom", presetName: "Default", presetEdited: false,
+                segments: [{ startedAt: end - 3_600_000, powerKw: 11, efficiency: 1 }],
+                endedAt: end, endPercent: 33.25, actualPercent: null, reviewed: true,
+                interrupted: false, calibrationEnabled: false
+            }];
+            await evTimerStorage.write(record.revision, JSON.stringify(state));
+            window.dispatchEvent(new Event("pageshow"));
+        });
+        assert.equal(new URL(page.url()).hash, "#/timer");
+        await waitForAccessibleText(page, "Start Timer");
+
+        await clickCanvasButton(page, "Settings");
+        await clickCanvasText(page, "Presets");
+        await waitForAccessibleText(page, "Use the edit button to rename. Drag the handle to reorder.");
+        await clickCanvasButton(page, "Back");
+        await page.waitForFunction(() => location.hash === "#/timer");
+        await waitForAccessibleText(page, "Start Timer");
+        assert.equal(new URL(page.url()).hash, "#/timer",
+            "The Settings header Back exits the selected detail and Settings together");
+
+        await clickCanvasButton(page, "Settings");
+        await clickCanvasText(page, "Presets");
+        await waitForAccessibleText(page, "Use the edit button to rename. Drag the handle to reorder.");
+        await page.goBack();
+        await page.waitForFunction(() => location.hash === "#/timer");
+        await waitForAccessibleText(page, "Start Timer");
+        assert.equal(new URL(page.url()).hash, "#/timer",
+            "One browser Back exits two-pane Settings instead of stopping on its list");
+
+        await clickCanvasButton(page, "Settings");
+        await clickCanvasText(page, "Charging history");
+        await waitForAccessibleText(page, "20% → 33.3%");
+        await clickCanvas(page, page.getByRole("button").filter({ hasText: "20% → 33.3%" }).first());
+        await waitForAccessibleText(page, "Charge summary");
+        assert.equal(new URL(page.url()).hash, "#/summary/42");
+        await page.goBack();
+        await page.waitForFunction(() => location.hash === "#/history");
+        await waitForAccessibleText(page, "Charging history");
+        assert.equal(new URL(page.url()).hash, "#/history",
+            "Back from a History summary returns to History before leaving Settings");
+        await clickCanvasButton(page, "Back");
+        await page.waitForFunction(() => location.hash === "#/timer");
+        await waitForAccessibleText(page, "Start Timer");
+        assert.equal(new URL(page.url()).hash, "#/timer");
+        assert.deepEqual(errors, [], "Two-pane Settings Back must not raise page errors");
+    } finally {
+        await context.close();
+    }
+}
+
 (async () => {
     fs.mkdirSync(screenshots, { recursive: true });
     const server = http.createServer((request, response) => {
@@ -146,6 +212,11 @@ async function verifyPowerUndo(browser, origin) {
     const browser = await chromium.launch({ headless: true });
     try {
         const origin = `http://127.0.0.1:${server.address().port}`;
+        if (process.env.TWO_PANE_SETTINGS_BACK_ONLY === "1") {
+            await verifyTwoPaneSettingsBack(browser, origin);
+            console.log("Two-pane Settings header/system Back and nested History Back passed");
+            return;
+        }
         await verifyPowerUndo(browser, origin);
         if (process.env.POWER_UNDO_ONLY === "1") return;
         let dialogFailure;
