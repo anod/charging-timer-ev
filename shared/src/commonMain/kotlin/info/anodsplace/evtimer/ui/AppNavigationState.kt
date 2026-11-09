@@ -38,8 +38,13 @@ data class AppNavigationState(
         else copy(backStack = backStack + AppRoute(AppDestination.EndSummary, id))
 
     /** A completion must be acknowledged durably before calling back(). */
-    fun back(): AppNavigationState =
-        if (backStack.size <= 1) this else copy(backStack = backStack.dropLast(1))
+    fun back(twoPane: Boolean = false): AppNavigationState {
+        if (backStack.size <= 1) return this
+        val exitsSettings = twoPane &&
+            current?.destination.isSettingsTopLevelDetail() == true &&
+            backStack.getOrNull(backStack.lastIndex - 1)?.destination == AppDestination.Settings
+        return copy(backStack = backStack.dropLast(if (exitsSettings) 2 else 1))
+    }
 
     fun restore(route: AppRoute, historyIds: Set<Long>): AppNavigationState {
         if (route.destination == AppDestination.EndSummary && route.summaryId !in historyIds) return this
@@ -64,6 +69,11 @@ data class AppNavigationState(
         fun sessionStack(running: Boolean): List<AppRoute> =
             listOf(AppRoute(AppDestination.Config)) + if (running) listOf(AppRoute(AppDestination.Running)) else emptyList()
     }
+}
+
+private fun AppDestination?.isSettingsTopLevelDetail(): Boolean = when (this) {
+    AppDestination.ChargingPowers, AppDestination.Presets, AppDestination.History, AppDestination.Licenses -> true
+    else -> false
 }
 
 fun AppRoute.fragment(): String = when (destination) {

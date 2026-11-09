@@ -15,6 +15,9 @@ enum class SettingsItem { ChargingPower, Presets, History, Licenses }
 
 internal val LocalSettingsTwoPane = compositionLocalOf { false }
 
+@Composable
+fun isSettingsTwoPane(): Boolean = LocalSettingsTwoPane.current
+
 internal data class AdaptiveLayout(val width: AdaptiveWidth, val shortHeight: Boolean) {
     val twoColumns: Boolean get() = width == AdaptiveWidth.Expanded && !shortHeight
 }

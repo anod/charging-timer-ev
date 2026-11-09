@@ -114,7 +114,7 @@ class NavigationViewModelTest {
                 assertEquals(Destination.Presets, navigation.backStack.value.last())
                 assertTrue(navigation.onBack())
                 assertEquals(Destination.EndSummary, navigation.backStack.value.last())
-                assertTrue(navigation.onBack())
+                assertTrue(navigation.onBack(twoPane = true))
                 runCurrent()
                 assertEquals(listOf(Destination.Config, Destination.Settings, Destination.History), navigation.backStack.value)
                 assertEquals(before, history.entries.value)
@@ -126,6 +126,53 @@ class NavigationViewModelTest {
         } finally {
             navigation.viewModelScope.cancel()
             Dispatchers.resetMain()
+        }
+    }
+
+    @Test
+    fun twoPaneBackExitsSettingsAndEachTopLevelDetailInOneAction() = withNavigation { navigation, _ ->
+        val root = navigation.backStack.value
+        navigation.navigate(Destination.Settings)
+        assertTrue(navigation.onBack(twoPane = true))
+        assertEquals(root, navigation.backStack.value)
+
+        for (destination in listOf(
+            Destination.ChargingPowers,
+            Destination.Presets,
+            Destination.History,
+            Destination.Licenses
+        )) {
+            navigation.navigate(Destination.Settings)
+            navigation.navigate(destination)
+            assertEquals(destination, navigation.backStack.value.last())
+            assertTrue(navigation.onBack(twoPane = true))
+            assertEquals(root, navigation.backStack.value)
+        }
+    }
+
+    @Test
+    fun twoPaneBackReturnsToTheScreenThatOpenedSettings() = withNavigation(active = true) { navigation, _ ->
+        val running = navigation.backStack.value
+        navigation.navigate(Destination.Settings)
+        navigation.navigate(Destination.Presets)
+        assertTrue(navigation.onBack(twoPane = true))
+        assertEquals(running, navigation.backStack.value)
+    }
+
+    @Test
+    fun desktopBackExitsEveryTopLevelSettingsDetailInTwoPaneMode() = withNavigation { navigation, _ ->
+        val root = navigation.backStack.value
+        navigation.setSettingsTwoPane(true)
+        for (destination in listOf(
+            Destination.ChargingPowers,
+            Destination.Presets,
+            Destination.History,
+            Destination.Licenses
+        )) {
+            navigation.navigate(Destination.Settings)
+            navigation.navigate(destination)
+            assertTrue(navigation.onDesktopBack())
+            assertEquals(root, navigation.backStack.value)
         }
     }
 
@@ -147,7 +194,7 @@ class NavigationViewModelTest {
             runCurrent()
             assertEquals(old, navigation.summary.value)
             assertEquals(Destination.EndSummary, navigation.backStack.value.last())
-            assertTrue(navigation.onBack())
+            assertTrue(navigation.onBack(twoPane = true))
             runCurrent()
             assertEquals(Destination.History, navigation.backStack.value.last())
             assertEquals(listOf(newest, old), history.entries.value)

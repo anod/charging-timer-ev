@@ -508,13 +508,19 @@ async function refresh(page) {
                 if (device === "desktop") {
                     await shot.screenshot({ path: path.join(evidence, `pwa-settings-presets-${colorScheme}.png`) });
                     await shot.goBack();
-                    await labels(shot, "Choose a setting to view its details");
+                    await shot.waitForFunction(() => location.hash === "#/timer");
+                    await labels(shot, "Start Timer");
+                    assert.equal(new URL(shot.url()).hash, "#/timer",
+                        "One Back from desktop Presets exits Settings");
+                    await clickCanvasButton(shot, "Settings");
                     await clickCanvasText(shot, "Charging history");
                     await labels(shot, "Charging history", "No past sessions yet");
                     await shot.screenshot({ path: path.join(evidence, `pwa-settings-history-${colorScheme}.png`) });
                     await shot.goBack();
-                    await labels(shot, "Choose a setting to view its details");
-                    await shot.goBack();
+                    await shot.waitForFunction(() => location.hash === "#/timer");
+                    await labels(shot, "Start Timer");
+                    assert.equal(new URL(shot.url()).hash, "#/timer",
+                        "One Back from desktop History exits Settings");
                 } else {
                     await clickCanvasButton(shot, "Back");
                     await clickCanvasButton(shot, "Back");
