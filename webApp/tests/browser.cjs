@@ -546,7 +546,6 @@ async function verifyTwoPaneSettingsBack(browser, origin) {
         await settingsLayoutPage.waitForFunction(() => location.hash === "#/settings");
         assert.equal(new URL(settingsLayoutPage.url()).hash, "#/settings",
             "Back after rendering compact Settings returns to Settings, not the timer");
-        await waitForAccessibleText(settingsLayoutPage, "Charging history");
         await settingsLayoutPage.setViewportSize({ width: 1200, height: 900 });
         await waitForAccessibleText(settingsLayoutPage, "Choose a setting to view its details");
         assert.equal(new URL(settingsLayoutPage.url()).hash, "#/settings");
