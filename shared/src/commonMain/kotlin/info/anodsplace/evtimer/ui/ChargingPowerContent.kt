@@ -57,6 +57,7 @@ fun ChargingPowerContent(
     )
     if (showCustomPowerDialog) {
         CustomPowerDialog(
+            existingPowers = settings.availablePowers,
             onDismiss = { showCustomPowerDialog = false },
             onConfirm = { power ->
                 onEvent(ConfigurationViewEvent.AddCustomPower(power))
@@ -111,11 +112,34 @@ fun ChargingPowerChips(
     }
 }
 
+internal enum class CustomPowerSuggestionType {
+    AC,
+    DC
+}
+
+internal data class CustomPowerSuggestionGroup(
+    val type: CustomPowerSuggestionType,
+    val powers: List<Float>
+)
+
+internal fun availableCustomPowerSuggestions(existingPowers: List<Float>): List<CustomPowerSuggestionGroup> =
+    listOf(
+        CustomPowerSuggestionGroup(
+            CustomPowerSuggestionType.AC,
+            listOf(2.3f, 3.6f, 7f, 11f, 22f).filterNot { it in existingPowers }
+        ),
+        CustomPowerSuggestionGroup(
+            CustomPowerSuggestionType.DC,
+            listOf(50f, 100f, 150f).filterNot { it in existingPowers }
+        )
+    ).filter { it.powers.isNotEmpty() }
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun CustomPowerDialog(
     onDismiss: () -> Unit,
-    onConfirm: (Float) -> Unit
+    onConfirm: (Float) -> Unit,
+    existingPowers: List<Float> = emptyList()
 ) {
     var powerText by remember { mutableStateOf("") }
     val power = powerText.replace(',', '.').toFloatOrNull()
@@ -138,24 +162,28 @@ fun CustomPowerDialog(
                     isError = powerText.isNotEmpty() && !validPower,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
                 )
-                listOf(
-                    stringResource(Res.string.ac) to listOf("2.3", "3.6", "7", "11", "22"),
-                    stringResource(Res.string.dc) to listOf("50", "100", "150")
-                ).forEach { (label, suggestions) ->
-                    Text(label)
+                availableCustomPowerSuggestions(existingPowers).forEach { group ->
+                    Text(
+                        stringResource(
+                            when (group.type) {
+                                CustomPowerSuggestionType.AC -> Res.string.ac
+                                CustomPowerSuggestionType.DC -> Res.string.dc
+                            }
+                        )
+                    )
                     FlowRow(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        suggestions.forEach { suggestion ->
+                        group.powers.forEach { suggestion ->
                             FilterChip(
-                                selected = power == suggestion.toFloat(),
-                                onClick = { powerText = suggestion },
+                                selected = power == suggestion,
+                                onClick = { powerText = suggestion.toString().removeSuffix(".0") },
                                 label = {
                                     Text(
                                         stringResource(
                                             Res.string.power_value,
-                                            formatPower(suggestion.toFloat()),
+                                            formatPower(suggestion),
                                             stringResource(Res.string.unit_kw)
                                         )
                                     )

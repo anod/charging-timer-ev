@@ -595,6 +595,7 @@ fun ChangeSpeedSheet(
     }
     if (showCustomPowerDialog) {
         CustomPowerDialog(
+            existingPowers = powers + currentPower,
             onDismiss = { showCustomPowerDialog = false },
             onConfirm = { power ->
                 onAddPower(power)

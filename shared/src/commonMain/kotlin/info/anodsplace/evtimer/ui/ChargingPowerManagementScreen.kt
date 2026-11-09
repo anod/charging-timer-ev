@@ -155,6 +155,7 @@ fun ChargingPowerManagementScreen(
     }
     if (showCustomPowerDialog) {
         CustomPowerDialog(
+            existingPowers = powers,
             onDismiss = { showCustomPowerDialog = false },
             onConfirm = {
                 onAddPower(it)
