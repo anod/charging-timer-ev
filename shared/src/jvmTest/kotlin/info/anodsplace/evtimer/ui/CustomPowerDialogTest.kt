@@ -27,11 +27,11 @@ class CustomPowerDialogTest {
         val groups = availableCustomPowerSuggestions(listOf(7.0f))
 
         assertEquals(
-            listOf(2.3f, 3.6f, 11f, 22f),
+            listOf("2.3", "3.6", "11", "22"),
             groups.first { it.type == CustomPowerSuggestionType.AC }.powers
         )
         assertEquals(
-            listOf(50f, 100f, 150f),
+            listOf("50", "100", "150"),
             groups.first { it.type == CustomPowerSuggestionType.DC }.powers
         )
         assertEquals(
@@ -107,7 +107,7 @@ class CustomPowerDialogTest {
     }
 
     @Test
-    fun allQuickPicksReplaceTheEditableValueWithoutConfirming() = runDesktopComposeUiTest {
+    fun allQuickPicksUseCanonicalTextWithoutConfirming() = runDesktopComposeUiTest {
         val confirmed = mutableListOf<Float>()
         var dismissals = 0
         setContent {
@@ -122,8 +122,11 @@ class CustomPowerDialogTest {
         for (suggestion in listOf("2.3", "3.6", "7", "11", "22", "50", "100", "150")) {
             val formattedSuggestion = if ('.' in suggestion) suggestion else "$suggestion.0"
             onNodeWithText("$formattedSuggestion kW").performScrollTo().performClick().assertIsSelected()
-            assertEquals(suggestion,
-                onNodeWithText("Power (kW)").fetchSemanticsNode().config[SemanticsProperties.EditableText].text)
+            assertEquals(
+                suggestion,
+                onNodeWithText("Power (kW)").fetchSemanticsNode().config[SemanticsProperties.EditableText].text,
+                "Quick picks must retain their canonical literal text, including 2.3 and 7"
+            )
             onNodeWithText("Add").assertIsEnabled()
             assertEquals(emptyList(), confirmed)
             assertEquals(0, dismissals)

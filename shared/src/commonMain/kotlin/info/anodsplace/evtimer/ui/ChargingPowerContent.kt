@@ -119,18 +119,18 @@ internal enum class CustomPowerSuggestionType {
 
 internal data class CustomPowerSuggestionGroup(
     val type: CustomPowerSuggestionType,
-    val powers: List<Float>
+    val powers: List<String>
 )
 
 internal fun availableCustomPowerSuggestions(existingPowers: List<Float>): List<CustomPowerSuggestionGroup> =
     listOf(
         CustomPowerSuggestionGroup(
             CustomPowerSuggestionType.AC,
-            listOf(2.3f, 3.6f, 7f, 11f, 22f).filterNot { it in existingPowers }
+            listOf("2.3", "3.6", "7", "11", "22").filterNot { it.toFloat() in existingPowers }
         ),
         CustomPowerSuggestionGroup(
             CustomPowerSuggestionType.DC,
-            listOf(50f, 100f, 150f).filterNot { it in existingPowers }
+            listOf("50", "100", "150").filterNot { it.toFloat() in existingPowers }
         )
     ).filter { it.powers.isNotEmpty() }
 
@@ -177,13 +177,13 @@ fun CustomPowerDialog(
                     ) {
                         group.powers.forEach { suggestion ->
                             FilterChip(
-                                selected = power == suggestion,
-                                onClick = { powerText = suggestion.toString().removeSuffix(".0") },
+                                selected = power == suggestion.toFloat(),
+                                onClick = { powerText = suggestion },
                                 label = {
                                     Text(
                                         stringResource(
                                             Res.string.power_value,
-                                            formatPower(suggestion),
+                                            formatPower(suggestion.toFloat()),
                                             stringResource(Res.string.unit_kw)
                                         )
                                     )
