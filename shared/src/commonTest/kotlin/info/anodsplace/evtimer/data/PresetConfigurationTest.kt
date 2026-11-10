@@ -35,6 +35,23 @@ class PresetConfigurationTest {
         assertFalse(updated.isEdited)
     }
 
+    @Test fun taperSettingsArePresetValuesAndUpdateOrResetIndependently() {
+        val changed = selected.reduce(PresetEvent.Edit(selected.settings.copy(
+            taperStartPercent = 75f, taperEndPercent = 95f, taperPowerCapKw = 18f
+        )))
+        assertTrue(changed.isEdited)
+        assertEquals(ChargingSettings.DEFAULT.taperStartPercent, changed.presets.first().settings.taperStartPercent)
+        assertEquals(75f, changed.settings.taperStartPercent)
+
+        val updated = changed.reduce(PresetEvent.Update)
+        assertFalse(updated.isEdited)
+        assertEquals(18f, updated.selected.settings.taperPowerCapKw)
+        assertEquals(ChargingSettings.DEFAULT, updated.reduce(PresetEvent.Select(custom.id)).settings.copy(
+            startPercent = ChargingSettings.DEFAULT.startPercent
+        ))
+        assertEquals(selected.settings, changed.reduce(PresetEvent.Reset).settings)
+    }
+
     @Test fun saveNewSelectsNewPresetAndKeepsOriginal() {
         val saved = edited.reduce(PresetEvent.SaveNew("new", "\u26A1 Highway"))
         assertEquals("new", saved.selectedId)

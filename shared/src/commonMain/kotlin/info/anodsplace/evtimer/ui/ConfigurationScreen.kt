@@ -381,6 +381,27 @@ fun ConfigurationScreen(
                         onEvent = onEvent
                     )
                 }
+
+                CollapsibleSettingCard(
+                    title = stringResource(Res.string.charging_taper_title),
+                    summary = { valueState ->
+                        stringResource(
+                            Res.string.charging_taper_summary,
+                            formatPower(valueState.settings.taperPowerCapKw),
+                            stringResource(Res.string.unit_kw),
+                            formatLocaleNumber(valueState.settings.taperStartPercent, 0, 0),
+                            formatLocaleNumber(valueState.settings.taperEndPercent, 0, 0),
+                            stringResource(Res.string.unit_percent)
+                        )
+                    },
+                    viewState = viewState,
+                    expanded = cardExpansion.taper,
+                    onExpandedChange = { updateCardExpansion(cardExpansion.copy(taper = it)) },
+                    modifier = (if (layout.twoColumns) Modifier.width(cardWidth) else Modifier)
+                        .testTag("configuration-taper-card")
+                ) {
+                    TaperSettingsContent(viewState.settings, onEvent)
+                }
                 }
             }
             }

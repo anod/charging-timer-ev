@@ -53,10 +53,20 @@ data class BackupDraft(
     val batteryCapacity: Float,
     val chargingPower: Float,
     val targetPercent: Float,
-    val powerOptions: List<Float>
+    val powerOptions: List<Float>,
+    val taperStartPercent: Float = ChargingSettings.DEFAULT.taperStartPercent,
+    val taperEndPercent: Float = ChargingSettings.DEFAULT.taperEndPercent,
+    val taperPowerCapKw: Float = ChargingSettings.DEFAULT.taperPowerCapKw
 ) {
     fun settings(startPercent: Float) = ChargingSettings(
-        batteryCapacity, chargingPower, startPercent, targetPercent, powerOptions
+        batteryCapacity = batteryCapacity,
+        chargingPower = chargingPower,
+        startPercent = startPercent,
+        maxPercent = targetPercent,
+        availablePowers = powerOptions,
+        taperStartPercent = taperStartPercent,
+        taperEndPercent = taperEndPercent,
+        taperPowerCapKw = taperPowerCapKw
     )
 }
 
@@ -68,7 +78,10 @@ data class BackupPreset(
     val chargingPower: Double,
     val targetPercent: Double,
     val powerOptions: List<Double>,
-    val position: Long = 0
+    val position: Long = 0,
+    val taperStartPercent: Double = ChargingSettings.DEFAULT.taperStartPercent.toDouble(),
+    val taperEndPercent: Double = ChargingSettings.DEFAULT.taperEndPercent.toDouble(),
+    val taperPowerCapKw: Double = ChargingSettings.DEFAULT.taperPowerCapKw.toDouble()
 )
 
 @Serializable
@@ -87,7 +100,10 @@ data class BackupSession(
     val reviewed: Boolean = false,
     val interrupted: Boolean = false,
     val presetEdited: Boolean = false,
-    val calibrationEnabled: Boolean = false
+    val calibrationEnabled: Boolean = false,
+    val taperStartPercent: Double = ChargingSettings.DEFAULT.taperStartPercent.toDouble(),
+    val taperEndPercent: Double = ChargingSettings.DEFAULT.taperEndPercent.toDouble(),
+    val taperPowerCapKw: Double = ChargingSettings.DEFAULT.taperPowerCapKw.toDouble()
 )
 
 @Serializable
@@ -210,6 +226,8 @@ object BackupFormat {
         }
         fun positive(value: Double) = value.isFinite() && value > 0 && value.toFloat().isFinite() && value.toFloat() > 0
         fun percent(value: Double) = value.isFinite() && value in 0.0..100.0
+        fun taper(start: Double, end: Double, cap: Double) =
+            percent(start) && percent(end) && start < end && positive(cap)
         valid(backup.format == FORMAT, "format")
         if (backup.formatVersion > VERSION) throw BackupException(BackupError.NEWER_VERSION, "This backup needs a newer app version")
         valid(backup.formatVersion in 1..VERSION, "formatVersion")
@@ -224,6 +242,7 @@ object BackupFormat {
             valid(it.name.isNotBlank(), "preset name")
             valid(positive(it.batteryCapacity) && positive(it.chargingPower), "preset capacity/power")
             valid(percent(it.targetPercent), "preset target")
+            valid(taper(it.taperStartPercent, it.taperEndPercent, it.taperPowerCapKw), "preset taper")
             valid(it.powerOptions.isNotEmpty() && it.powerOptions.all(::positive), "preset power options")
         }
         valid(percent(backup.preferences.startPercent.toDouble()), "start percentage")
@@ -231,7 +250,9 @@ object BackupFormat {
             valid(draft.presetId == backup.preferences.selectedPresetId &&
                 draft.presetId in presetIds, "draft preset")
             valid(positive(draft.batteryCapacity.toDouble()) && positive(draft.chargingPower.toDouble()) &&
-                percent(draft.targetPercent.toDouble()) && draft.powerOptions.isNotEmpty() &&
+                percent(draft.targetPercent.toDouble()) &&
+                taper(draft.taperStartPercent.toDouble(), draft.taperEndPercent.toDouble(),
+                    draft.taperPowerCapKw.toDouble()) && draft.powerOptions.isNotEmpty() &&
                 draft.powerOptions.all { positive(it.toDouble()) }, "draft values")
         }
         val sessionIds = HashSet<Long>()
@@ -244,6 +265,7 @@ object BackupFormat {
                 it.efficiency.toFloat() > 0, "session efficiency")
             valid(it.endPercent == null || percent(it.endPercent), "end percentage")
             valid(it.actualPercent == null || percent(it.actualPercent), "actual percentage")
+            valid(taper(it.taperStartPercent, it.taperEndPercent, it.taperPowerCapKw), "session taper")
             valid(it.segments.isNotEmpty() && it.segments.all { segment -> positive(segment.powerKw) } &&
                 it.segments.all { segment -> segment.efficiency == null ||
                     (positive(segment.efficiency) && segment.efficiency <= 1.0) } &&

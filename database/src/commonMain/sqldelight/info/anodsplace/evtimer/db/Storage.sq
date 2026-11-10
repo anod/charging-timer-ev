@@ -6,7 +6,10 @@ CREATE TABLE preset (
     battery_capacity REAL NOT NULL CHECK (battery_capacity > 0),
     charging_power REAL NOT NULL CHECK (charging_power > 0),
     target_percent REAL NOT NULL CHECK (target_percent BETWEEN 0 AND 100),
-    position INTEGER NOT NULL DEFAULT 0
+    position INTEGER NOT NULL DEFAULT 0,
+    taper_end_percent REAL NOT NULL DEFAULT 100,
+    taper_start_percent REAL NOT NULL DEFAULT 80,
+    taper_power_cap_kw REAL NOT NULL DEFAULT 22
 );
 
 CREATE TABLE power_option (
@@ -31,7 +34,10 @@ CREATE TABLE charge_session (
     is_running INTEGER AS Boolean NOT NULL DEFAULT 0,
     interrupted INTEGER AS Boolean NOT NULL DEFAULT 0,
     preset_edited INTEGER AS Boolean NOT NULL DEFAULT 0,
-    calibration_enabled INTEGER AS Boolean NOT NULL DEFAULT 0
+    calibration_enabled INTEGER AS Boolean NOT NULL DEFAULT 0,
+    taper_end_percent REAL NOT NULL DEFAULT 100,
+    taper_start_percent REAL NOT NULL DEFAULT 80,
+    taper_power_cap_kw REAL NOT NULL DEFAULT 22
 );
 
 CREATE UNIQUE INDEX one_running_session ON charge_session(is_running) WHERE is_running = 1;
@@ -56,10 +62,13 @@ presetById:
 SELECT * FROM preset WHERE id = ?;
 
 putPreset:
-INSERT INTO preset(id, name, battery_capacity, charging_power, target_percent, position)
-VALUES (?, ?, ?, ?, ?, coalesce((SELECT max(position) + 1 FROM preset), 0))
+INSERT INTO preset(id, name, battery_capacity, charging_power, target_percent,
+    taper_end_percent, taper_start_percent, taper_power_cap_kw, position)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, coalesce((SELECT max(position) + 1 FROM preset), 0))
 ON CONFLICT(id) DO UPDATE SET name = excluded.name, battery_capacity = excluded.battery_capacity,
-charging_power = excluded.charging_power, target_percent = excluded.target_percent;
+charging_power = excluded.charging_power, target_percent = excluded.target_percent,
+taper_end_percent = excluded.taper_end_percent, taper_start_percent = excluded.taper_start_percent,
+taper_power_cap_kw = excluded.taper_power_cap_kw;
 
 setPresetPosition:
 UPDATE preset SET position = ? WHERE id = ?;
@@ -106,11 +115,14 @@ allSegments:
 SELECT * FROM power_segment ORDER BY session_id, started_at;
 
 putSession:
-INSERT INTO charge_session(id, battery_capacity, start_percent, target_percent, efficiency,
-preset_id, preset_name, is_running, preset_edited) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO charge_session(id, battery_capacity, start_percent, target_percent,
+taper_end_percent, taper_start_percent, taper_power_cap_kw, efficiency,
+preset_id, preset_name, is_running, preset_edited) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(id) DO UPDATE SET battery_capacity = excluded.battery_capacity,
 start_percent = excluded.start_percent, target_percent = excluded.target_percent,
-efficiency = excluded.efficiency, preset_id = excluded.preset_id, preset_name = excluded.preset_name,
+taper_end_percent = excluded.taper_end_percent, taper_start_percent = excluded.taper_start_percent,
+taper_power_cap_kw = excluded.taper_power_cap_kw, efficiency = excluded.efficiency,
+preset_id = excluded.preset_id, preset_name = excluded.preset_name,
 is_running = excluded.is_running, preset_edited = excluded.preset_edited;
 
 clearSegments:
@@ -170,13 +182,15 @@ clearBackupPresets:
 DELETE FROM preset;
 
 importBackupPreset:
-INSERT INTO preset(id, name, battery_capacity, charging_power, target_percent, position)
-VALUES (?, ?, ?, ?, ?, ?);
+INSERT INTO preset(id, name, battery_capacity, charging_power, target_percent,
+    taper_end_percent, taper_start_percent, taper_power_cap_kw, position)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 importBackupSession:
-INSERT INTO charge_session(id, battery_capacity, start_percent, target_percent, efficiency,
+INSERT INTO charge_session(id, battery_capacity, start_percent, target_percent,
+taper_end_percent, taper_start_percent, taper_power_cap_kw, efficiency,
 preset_id, preset_name, ended_at, end_percent, actual_percent, reviewed, is_running, interrupted, preset_edited, calibration_enabled)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?);
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?);
 
 importBackupSegment:
 INSERT INTO power_segment(session_id, started_at, power_kw, efficiency) VALUES (?, ?, ?, ?);

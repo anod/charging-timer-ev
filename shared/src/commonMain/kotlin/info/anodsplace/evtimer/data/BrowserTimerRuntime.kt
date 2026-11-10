@@ -35,6 +35,12 @@ class BrowserTimerRuntime(
             is ConfigurationViewEvent.UpdateChargingPower -> before.reduce(PresetEvent.Edit(settings.copy(chargingPower = event.power)))
             is ConfigurationViewEvent.UpdateStartPercent -> before.reduce(PresetEvent.Edit(settings.copy(startPercent = event.percent)))
             is ConfigurationViewEvent.UpdateMaxPercent -> before.reduce(PresetEvent.Edit(settings.copy(maxPercent = event.percent)))
+            is ConfigurationViewEvent.UpdateTaperStartPercent ->
+                before.reduce(PresetEvent.Edit(settings.copy(taperStartPercent = event.percent)))
+            is ConfigurationViewEvent.UpdateTaperEndPercent ->
+                before.reduce(PresetEvent.Edit(settings.copy(taperEndPercent = event.percent)))
+            is ConfigurationViewEvent.UpdateTaperPowerCap ->
+                before.reduce(PresetEvent.Edit(settings.copy(taperPowerCapKw = event.powerKw)))
             is ConfigurationViewEvent.AddCustomPower -> before.reduce(PresetEvent.Edit(settings.withAddedPower(event.power)))
             is ConfigurationViewEvent.RemoveCustomPower -> {
                 require(event.power in settings.availablePowers && settings.availablePowers.size > 1)
@@ -198,7 +204,8 @@ fun BrowserState.configuration(): PresetConfiguration {
     val presets = backup.presets.map {
         ChargingPreset(it.id, it.name, ChargingSettings(
             it.batteryCapacity.toFloat(), it.chargingPower.toFloat(), preferences.startPercent,
-            it.targetPercent.toFloat(), it.powerOptions.map(Double::toFloat)
+            it.targetPercent.toFloat(), it.powerOptions.map(Double::toFloat),
+            it.taperStartPercent.toFloat(), it.taperEndPercent.toFloat(), it.taperPowerCapKw.toFloat()
         ))
     }
     val selected = presets.first { it.id == preferences.selectedPresetId }
@@ -212,13 +219,17 @@ private fun BrowserState.withConfiguration(configuration: PresetConfiguration): 
             selectedPresetId = configuration.selectedId,
             startPercent = configuration.settings.startPercent,
             draft = if (configuration.isEdited) configuration.settings.let {
-                BackupDraft(configuration.selectedId, it.batteryCapacity, it.chargingPower, it.maxPercent, it.availablePowers)
+                BackupDraft(
+                    configuration.selectedId, it.batteryCapacity, it.chargingPower, it.maxPercent,
+                    it.availablePowers, it.taperStartPercent, it.taperEndPercent, it.taperPowerCapKw
+                )
             } else null
         ),
         presets = configuration.presets.mapIndexed { index, preset ->
             preset.settings.let {
                 BackupPreset(preset.id, preset.name, it.batteryCapacity.toDouble(), it.chargingPower.toDouble(),
-                    it.maxPercent.toDouble(), it.availablePowers.map(Float::toDouble), index.toLong())
+                    it.maxPercent.toDouble(), it.availablePowers.map(Float::toDouble), index.toLong(),
+                    it.taperStartPercent.toDouble(), it.taperEndPercent.toDouble(), it.taperPowerCapKw.toDouble())
             }
         }
     )
@@ -227,13 +238,17 @@ private fun BrowserState.withConfiguration(configuration: PresetConfiguration): 
 fun BackupSession.snapshot() = ChargingSessionSnapshot(
     batteryCapacity.toFloat(), startPercent.toFloat(), targetPercent.toFloat(),
     segments.map { PowerSegment(it.startedAt, it.powerKw.toFloat(), it.efficiency?.toFloat()) },
-    presetId, presetName, efficiency.toFloat(), presetEdited
+    presetId, presetName, efficiency.toFloat(), presetEdited,
+    taperStartPercent.toFloat(), taperEndPercent.toFloat(), taperPowerCapKw.toFloat()
 )
 
 private fun ChargingSessionSnapshot.backupSession(id: Long) = BackupSession(
     id, batteryCapacity.toDouble(), startPercent.toDouble(), targetPercent.toDouble(), efficiency.toDouble(),
     segments.map { BackupSegment(it.startedAt, it.powerKw.toDouble(), it.efficiency?.toDouble()) },
-    presetId, presetName, presetEdited = presetEdited
+    presetId, presetName, presetEdited = presetEdited,
+    taperStartPercent = taperStartPercent.toDouble(),
+    taperEndPercent = taperEndPercent.toDouble(),
+    taperPowerCapKw = taperPowerCapKw.toDouble()
 )
 
 fun ChargingSessionSnapshot.targetTime(): Long = startTime + ceil(
@@ -274,7 +289,10 @@ fun BrowserState.runningViewState(now: Long, formatter: ClockTimeFormatter): Run
         estimatedEndTimeText = formatter.format(end),
         settings = configuration().settings.copy(
             batteryCapacity = snapshot.batteryCapacity, startPercent = snapshot.startPercent,
-            maxPercent = snapshot.targetPercent, chargingPower = snapshot.powerAt(now)
+            maxPercent = snapshot.targetPercent, chargingPower = snapshot.powerAt(now),
+            taperStartPercent = snapshot.taperStartPercent,
+            taperEndPercent = snapshot.taperEndPercent,
+            taperPowerCapKw = snapshot.taperPowerCapKw
         ),
         calculation = ChargingCalculation(
             ceil(ChargingCalculator.minutesToReach(snapshot, now, snapshot.targetPercent)).toInt(),

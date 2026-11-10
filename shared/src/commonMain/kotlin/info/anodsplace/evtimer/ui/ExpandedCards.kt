@@ -7,7 +7,8 @@ internal data class ExpandedCards(
     val battery: Boolean,
     val max: Boolean,
     val start: Boolean,
-    val power: Boolean
+    val power: Boolean,
+    val taper: Boolean = false
 )
 
 internal data class PresetCardExpansion(
@@ -22,7 +23,8 @@ internal val presetCardExpansionSaver = listSaver<PresetCardExpansion, Any>(
             it.cards.battery,
             it.cards.max,
             it.cards.start,
-            it.cards.power
+            it.cards.power,
+            it.cards.taper
         )
     },
     restore = { saved ->
@@ -31,8 +33,9 @@ internal val presetCardExpansionSaver = listSaver<PresetCardExpansion, Any>(
         val max = saved.getOrNull(2) as? Boolean
         val start = saved.getOrNull(3) as? Boolean
         val power = saved.getOrNull(4) as? Boolean
+        val taper = saved.getOrNull(5) as? Boolean ?: false
         if (presetId == null || battery == null || max == null || start == null || power == null) null
-        else PresetCardExpansion(presetId, ExpandedCards(battery, max, start, power))
+        else PresetCardExpansion(presetId, ExpandedCards(battery, max, start, power, taper))
     }
 )
 
@@ -42,6 +45,7 @@ internal fun expandedCards(selection: String): ExpandedCards {
         battery = false,
         max = false,
         start = true,
-        power = isCustom
+        power = isCustom,
+        taper = false
     )
 }

@@ -38,15 +38,19 @@ import kotlin.time.Instant
 class ManualBackupTest {
     private val sample = ManualBackup(
         BackupFormat.FORMAT, BackupFormat.VERSION, "2026-11-01T09:30:00Z", "test",
-        BackupPreferences("home", 25f, false, BackupDraft("home", 61f, 11f, 85f, listOf(7f, 11f))),
+        BackupPreferences("home", 25f, false, BackupDraft(
+            "home", 61f, 11f, 85f, listOf(7f, 11f), 75f, 95f, 18f
+        )),
         listOf(
-            BackupPreset("custom", "Default", 70.0, 7.0, 80.0, listOf(7.0, 11.0), 1),
-            BackupPreset("home", "\uD83D\uDC68\u200D\uD83D\uDC69\u200D\uD83D\uDC67", 60.0, 11.0, 90.0, listOf(11.0, 22.0), 0)
+            BackupPreset("custom", "Default", 70.0, 7.0, 80.0, listOf(7.0, 11.0), 1, 75.0, 95.0, 18.0),
+            BackupPreset("home", "\uD83D\uDC68\u200D\uD83D\uDC69\u200D\uD83D\uDC67",
+                60.0, 11.0, 90.0, listOf(11.0, 22.0), 0, 80.0, 100.0, 22.0)
         ),
         listOf(
             BackupSession(12, 60.0, 20.0, 80.0, 0.9,
                 listOf(BackupSegment(100, 7.0), BackupSegment(200, 11.0)),
-                "deleted-preset", "Old preset", 300, 75.0, 76.0, reviewed = true, presetEdited = true),
+                "deleted-preset", "Old preset", 300, 75.0, 76.0, reviewed = true, presetEdited = true,
+                taperStartPercent = 75.0, taperEndPercent = 95.0, taperPowerCapKw = 18.0),
             BackupSession(11, 70.0, 25.0, 80.0, 1.0, listOf(BackupSegment(50, 7.0)),
                 "custom", "Default", 90, interrupted = true)
         )
@@ -288,7 +292,7 @@ class ManualBackupTest {
             val names = listOf("a".repeat(33), "Default", "Home", "hOME", "  Legacy  ")
             names.forEachIndexed { index, name ->
                 val id = "legacy-$index"
-                source.database.storageQueries.putPreset(id, name, 60.0, 7.0, 80.0)
+                source.database.storageQueries.putPreset(id, name, 60.0, 7.0, 80.0, 100.0, 80.0, 22.0)
                 source.database.storageQueries.putOption(id, 0, 7.0)
             }
             val exported = source.repo.exportBackup("test")
@@ -372,12 +376,14 @@ class ManualBackupTest {
     @Test
     fun everySqlTableAndColumnHasAnExplicitBackupDisposition() {
         val covered = mapOf(
-            "preset" to setOf("id", "name", "battery_capacity", "charging_power", "target_percent", "position"),
+            "preset" to setOf("id", "name", "battery_capacity", "charging_power", "target_percent",
+                "taper_start_percent", "taper_end_percent", "taper_power_cap_kw", "position"),
             // Parent identity is nesting; option position is array order (renumbered on import).
             "power_option" to setOf("preset_id", "position", "power_kw"),
             "charge_session" to setOf("id", "battery_capacity", "start_percent", "target_percent", "efficiency",
                 "preset_id", "preset_name", "ended_at", "end_percent", "actual_percent", "reviewed",
-                "interrupted", "preset_edited", "calibration_enabled"),
+                "interrupted", "preset_edited", "calibration_enabled", "taper_start_percent",
+                "taper_end_percent", "taper_power_cap_kw"),
             "power_segment" to setOf("session_id", "started_at", "power_kw", "efficiency")
         )
         val excluded = mapOf(
@@ -419,6 +425,9 @@ class ManualBackupTest {
             "battery_capacity" to "Legacy migration only; values now belong to presets",
             "charging_power" to "Legacy migration only; values now belong to presets",
             "max_percent" to "Legacy migration only; values now belong to presets",
+            "taper_start_percent" to "Legacy migration only; taper values now belong to presets",
+            "taper_end_percent" to "Legacy migration only; taper values now belong to presets",
+            "taper_power_cap_kw" to "Legacy migration only; taper values now belong to presets",
             "available_powers" to "Legacy migration only; values now belong to preset options",
             "session_is_running" to "Legacy active timer must not resume",
             "session_start_time" to "Legacy active timer must not resume",
@@ -426,6 +435,9 @@ class ManualBackupTest {
             "snapshot_start_percent" to "Legacy active snapshot; finished sessions are in SQL",
             "snapshot_target_percent" to "Legacy active snapshot; finished sessions are in SQL",
             "snapshot_efficiency" to "Legacy active snapshot; finished sessions are in SQL",
+            "snapshot_taper_start_percent" to "Legacy active snapshot; finished sessions are in SQL",
+            "snapshot_taper_end_percent" to "Legacy active snapshot; finished sessions are in SQL",
+            "snapshot_taper_power_cap_kw" to "Legacy active snapshot; finished sessions are in SQL",
             "snapshot_preset_id" to "Legacy active snapshot; finished sessions are in SQL",
             "snapshot_preset_name" to "Legacy active snapshot; finished sessions are in SQL",
             "snapshot_preset_edited" to "Legacy active snapshot; finished sessions are in SQL",

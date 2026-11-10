@@ -101,9 +101,17 @@
     <string name="start_summary">%1$s: %2$s% (%3$s %4$s)</string>
     <string name="charging_power">Charging Power</string>
     <string name="power_summary">Power: %1$s %2$s</string>
+    <string name="charging_taper_title">High-charge taper</string>
+    <string name="charging_taper_summary">%1$s %2$s · %3$s–%4$s %5$s</string>
+    <string name="charging_taper_start">Cap starts at</string>
+    <string name="charging_taper_end">Cap ends at</string>
+    <string name="charging_taper_cap">Power cap</string>
+    <string name="charging_taper_estimate">Estimated time to target: %1$s</string>
+    <string name="power_cap_must_be_positive">Enter a power greater than 0.</string>
     <string name="unit_kw">kW</string>
     <string name="unit_kwh">kWh</string>
     <string name="unit_kilowatt_hours">kilowatt hours</string>
+    <string name="unit_kilowatts">kilowatts</string>
     <string name="power_value">%1$s %2$s</string>
 
     <string name="charging_in_progress">Charging in Progress</string>

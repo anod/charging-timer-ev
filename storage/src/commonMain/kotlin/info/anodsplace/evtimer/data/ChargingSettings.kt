@@ -5,15 +5,28 @@ data class ChargingSettings(
     val chargingPower: Float = DEFAULT.chargingPower, // kW
     val startPercent: Float = DEFAULT.startPercent,
     val maxPercent: Float = DEFAULT.maxPercent,
-    val availablePowers: List<Float> = DEFAULT.availablePowers
+    val availablePowers: List<Float> = DEFAULT.availablePowers,
+    val taperStartPercent: Float = DEFAULT.taperStartPercent,
+    val taperEndPercent: Float = DEFAULT.taperEndPercent,
+    val taperPowerCapKw: Float = DEFAULT.taperPowerCapKw
 ) {
+    init {
+        require(taperStartPercent.isFinite() && taperStartPercent in 0f..100f)
+        require(taperEndPercent.isFinite() && taperEndPercent in 0f..100f)
+        require(taperStartPercent < taperEndPercent)
+        require(taperPowerCapKw.isFinite() && taperPowerCapKw > 0f)
+    }
+
     companion object {
         val DEFAULT = ChargingSettings(
             batteryCapacity = 83f,
             chargingPower = 11f,
             startPercent = 60f,
             maxPercent = 100f,
-            availablePowers = listOf(3.6f, 7f, 11f, 22f)
+            availablePowers = listOf(3.6f, 7f, 11f, 22f),
+            taperStartPercent = 80f,
+            taperEndPercent = 100f,
+            taperPowerCapKw = 22f
         )
     }
 

@@ -26,6 +26,9 @@ sealed interface ConfigurationViewEvent {
     data class RemoveCustomPower(val power: Float) : ConfigurationViewEvent
     data class UpdateStartPercent(val percent: Float) : ConfigurationViewEvent
     data class UpdateMaxPercent(val percent: Float) : ConfigurationViewEvent
+    data class UpdateTaperStartPercent(val percent: Float) : ConfigurationViewEvent
+    data class UpdateTaperEndPercent(val percent: Float) : ConfigurationViewEvent
+    data class UpdateTaperPowerCap(val powerKw: Float) : ConfigurationViewEvent
     data class SelectPreset(val id: String) : ConfigurationViewEvent
     data object UpdatePreset : ConfigurationViewEvent
     data class SaveAsPreset(val name: String) : ConfigurationViewEvent
