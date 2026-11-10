@@ -52,6 +52,19 @@ class BackupCompatibilityTest {
     }
 
     @Test
+    fun rejectsTaperBoundsThatCollapseToTheSameFloat() {
+        val backup = BackupFormat.decode(versionOne.encodeToByteArray())
+        val preset = backup.presets.single().copy(
+            taperStartPercent = 80.000001,
+            taperEndPercent = 80.000002
+        )
+
+        assertEquals(BackupError.INVALID_DATA, assertFailsWith<BackupException> {
+            BackupFormat.validate(backup.copy(presets = listOf(preset)))
+        }.error)
+    }
+
+    @Test
     fun additiveUnknownFieldsAreIgnoredAtEveryNestingLevel() {
         val withUnknown = versionOne
             .replace("\"format\":", "\"futureRoot\": {\"nested\": [1,2]}, \"format\":")

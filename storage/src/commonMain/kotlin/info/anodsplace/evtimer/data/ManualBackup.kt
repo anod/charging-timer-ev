@@ -227,7 +227,8 @@ object BackupFormat {
         fun positive(value: Double) = value.isFinite() && value > 0 && value.toFloat().isFinite() && value.toFloat() > 0
         fun percent(value: Double) = value.isFinite() && value in 0.0..100.0
         fun taper(start: Double, end: Double, cap: Double) =
-            percent(start) && percent(end) && start < end && positive(cap)
+            percent(start) && percent(end) && start < end &&
+                start.toFloat() < end.toFloat() && positive(cap)
         valid(backup.format == FORMAT, "format")
         if (backup.formatVersion > VERSION) throw BackupException(BackupError.NEWER_VERSION, "This backup needs a newer app version")
         valid(backup.formatVersion in 1..VERSION, "formatVersion")
