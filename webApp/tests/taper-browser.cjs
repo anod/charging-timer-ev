@@ -163,7 +163,7 @@ async function captureLayoutEvidence(page, width, height, fileName) {
 
         const layoutEvidence = [];
         layoutEvidence.push(await captureLayoutEvidence(page, 390, 1600, "taper-compact-layout.png"));
-        layoutEvidence.push(await captureLayoutEvidence(page, 1000, 1000, "taper-wide-layout.png"));
+        layoutEvidence.push(await captureLayoutEvidence(page, 1000, 1600, "taper-wide-layout.png"));
         report.layoutEvidence = layoutEvidence;
         await page.setViewportSize({ width: 1100, height: 900 });
         await page.reload();
