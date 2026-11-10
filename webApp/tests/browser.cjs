@@ -4,7 +4,7 @@ const http = require("node:http");
 const fs = require("node:fs");
 const path = require("node:path");
 const { button: clickCanvasButton, text: clickCanvasText, clickCanvas,
-    paintedDialogBaseline, assertPaintedDialogDismissed } = require("./canvas.cjs");
+    paintedDialogBaseline, assertPaintedDialogDismissed, assertTimePredictionLabels } = require("./canvas.cjs");
 const { verifyDialogFocus } = require("./dialog-focus.cjs");
 
 const root = path.resolve("build/dist/wasmJs/productionExecutable");
@@ -313,6 +313,7 @@ async function verifyTwoPaneSettingsBack(browser, origin) {
                 throw error;
             }
             await capture(page, `running-${colorScheme}`, runningLabels);
+            await assertTimePredictionLabels(page);
             await page.reload();
             await page.getByText("Charging in Progress", { exact: true }).waitFor();
             const reloaded = await waitForRecord(page);

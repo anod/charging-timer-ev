@@ -61,4 +61,28 @@ async function assertPaintedDialogDismissed(page, baseline) {
     assert.fail("Painted dialog must disappear without additional pointer or keyboard input");
 }
 
-module.exports = { clickCanvas, button, text, paintedDialogBaseline, assertPaintedDialogDismissed };
+async function assertTimePredictionLabels(page) {
+    const ticks = page.getByText(/^\+\d+(?:h(?: \d+m)?|m) · \d+%$/, { exact: true });
+    await ticks.first().waitFor();
+    const texts = await ticks.allTextContents();
+    assert.ok(texts.length >= 1 && texts.length <= 4, `At most four time labels: ${texts}`);
+    assert.match(texts.at(-1), / · 100%$/, "The target label is retained");
+    const boxes = [];
+    for (const tick of await ticks.all()) {
+        const text = await tick.textContent();
+        const minutes = Number(text.match(/(\d+)m/)?.[1] || 0);
+        assert.equal(minutes % 5, 0, `Duration is rounded to five minutes: ${text}`);
+        const box = await tick.boundingBox();
+        assert.ok(box);
+        boxes.push(box);
+    }
+    boxes.sort((a, b) => a.x - b.x);
+    for (let i = 1; i < boxes.length; i++) {
+        assert.ok(Math.abs(boxes[i].y - boxes[0].y) < 1, "Time labels stay on one row");
+        assert.ok(boxes[i].x >= boxes[i - 1].x + boxes[i - 1].width + 7,
+            "Time labels do not overlap");
+    }
+}
+
+module.exports = { clickCanvas, button, text, paintedDialogBaseline, assertPaintedDialogDismissed,
+    assertTimePredictionLabels };
