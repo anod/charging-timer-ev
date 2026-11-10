@@ -384,7 +384,7 @@ internal fun TimePredictionBar(
         val gapPx = with(LocalDensity.current) { 8.dp.roundToPx() }
         var previousLabels by remember { mutableStateOf(emptyList<PredictionLabel>()) }
         val selection = selectPredictionLabels(progress, widthPx, gapPx) { prediction ->
-            key(ceil(prediction.minutesAhead).toInt(), prediction.percent.roundToInt()) {
+            key(predictionDurationMinutes(prediction.minutesAhead), prediction.percent.roundToInt()) {
                 val text = predictionText(prediction)
                 if (text.isBlank()) null else PredictionLabel(
                     prediction,
@@ -439,7 +439,7 @@ internal fun TimePredictionBar(
 
 @Composable
 private fun predictionText(prediction: TimePrediction): String {
-    val minutes = ceil(prediction.minutesAhead).toInt()
+    val minutes = predictionDurationMinutes(prediction.minutesAhead)
     val duration = if (minutes % 60 == 0) {
         pluralStringResource(Res.plurals.hours_short, minutes / 60, minutes / 60)
     } else if (minutes < 60) {
@@ -461,6 +461,10 @@ private fun predictionText(prediction: TimePrediction): String {
 
 internal data class PredictionLabel(val prediction: TimePrediction, val text: String, val width: Int)
 
+// Nearest five minutes, with half steps rounded up; never show "+0m" for a future target.
+internal fun predictionDurationMinutes(minutesAhead: Double): Int =
+    ((minutesAhead / 5.0).roundToInt() * 5).coerceAtLeast(5)
+
 internal inline fun selectPredictionLabels(
     progress: TimeProgress,
     width: Int,
@@ -472,6 +476,7 @@ internal inline fun selectPredictionLabels(
     for (group in groups) {
         // Try omitting a crowded penultimate tick before coarsening earlier predictions.
         for (omitPenultimate in 0..(if (group.size > 2) 1 else 0)) {
+            if (group.size - omitPenultimate > 4) continue
             val placement = PredictionLabelPlacement(width, gap)
             val labels = mutableListOf<PredictionLabel>()
             var fits = true
@@ -480,7 +485,7 @@ internal inline fun selectPredictionLabels(
                 val label = resolved[prediction] ?: resolve(prediction)?.also { resolved[prediction] = it }
                     ?: return null
                 if (label.text.isBlank()) return null
-                if (label.width > width || placement.add(prediction.position, label.width).lane >= 2) {
+                if (label.width > width || !placement.add(prediction.position, label.width)) {
                     fits = false
                     break
                 }
@@ -493,39 +498,23 @@ internal inline fun selectPredictionLabels(
     return listOf(resolved[endpoint] ?: resolve(endpoint) ?: return null)
 }
 
-internal data class PredictionLabelSlot(val x: Int, val lane: Int)
-
 internal class PredictionLabelPlacement(private val width: Int, private val gap: Int) {
-    private val laneEnds = mutableListOf<Int>()
+    private var end: Int? = null
 
-    fun add(position: Float, labelWidth: Int): PredictionLabelSlot {
-        val x = (width * position - labelWidth / 2f).roundToInt()
-            .coerceIn(0, (width - labelWidth).coerceAtLeast(0))
-        var lane = laneEnds.indexOfFirst { x >= it + gap }
-        if (lane < 0) {
-            laneEnds += x + labelWidth
-            lane = laneEnds.lastIndex
-        } else {
-            laneEnds[lane] = x + labelWidth
-        }
-        return PredictionLabelSlot(x, lane)
+    fun add(position: Float, labelWidth: Int): Boolean {
+        val x = predictionLabelX(position, labelWidth, width)
+        if (end?.let { x < it + gap } == true) return false
+        end = x + labelWidth
+        return true
     }
 }
 
-internal fun predictionLabelSlots(
-    positions: List<Float>,
-    widths: List<Int>,
-    width: Int,
-    gap: Int
-): List<PredictionLabelSlot> {
-    val placement = PredictionLabelPlacement(width, gap)
-    return widths.mapIndexed { index, labelWidth ->
-        placement.add(positions[index], labelWidth)
-    }
-}
+internal fun predictionLabelX(position: Float, labelWidth: Int, width: Int): Int =
+    (width * position - labelWidth / 2f).roundToInt()
+        .coerceIn(0, (width - labelWidth).coerceAtLeast(0))
 
 /**
- * Centres each label under its tick on a single row, moving a label to another row only when it would overlap.
+ * Centres the selected non-overlapping labels under their ticks on one row.
  */
 @Composable
 private fun PredictionLabels(labels: List<PredictionLabel>, modifier: Modifier = Modifier) {
@@ -543,21 +532,15 @@ private fun PredictionLabels(labels: List<PredictionLabel>, modifier: Modifier =
         modifier = modifier.fillMaxWidth()
     ) { measurables, constraints ->
         val width = constraints.maxWidth
-        val gap = 8.dp.roundToPx()
-        val laneSpacing = 4.dp.roundToPx()
         val placeables = measurables.mapIndexed { index, measurable ->
             val labelWidth = minOf(labels[index].width, width)
             measurable.measure(Constraints(minWidth = labelWidth, maxWidth = labelWidth))
         }
-        val slots = predictionLabelSlots(labels.map { it.prediction.position }, placeables.map { it.width }, width, gap)
-        val laneHeights = IntArray((slots.maxOfOrNull { it.lane } ?: -1) + 1)
-        slots.forEachIndexed { index, (_, lane) ->
-            laneHeights[lane] = maxOf(laneHeights[lane], placeables[index].height)
-        }
-        val laneTops = laneHeights.runningFold(0) { top, height -> top + height + laneSpacing }
-        val height = if (laneHeights.isEmpty()) 0 else laneTops[laneHeights.size] - laneSpacing
+        val height = placeables.maxOfOrNull { it.height } ?: 0
         layout(width, height) {
-            slots.forEachIndexed { index, (x, lane) -> placeables[index].placeRelative(x, laneTops[lane]) }
+            placeables.forEachIndexed { index, placeable ->
+                placeable.placeRelative(predictionLabelX(labels[index].prediction.position, placeable.width, width), 0)
+            }
         }
     }
 }

@@ -15,9 +15,12 @@ at one decimal place. Add translations as resource qualifiers when they are read
 add a per-app Android `localeConfig` until a second language is shipped.
 
 Running-screen prediction labels use localized minute/hour durations and percentages.
-The existing start-to-finish time bar selects the finest nice interval whose measured
-labels fit in at most two non-overlapping rows, including the exact target ETA.
-Available width and font size determine density; predictions are not limited to +1h/+2h.
+The start-to-finish time bar shows at most four labels, including the target, on one
+non-overlapping row. Candidates start at five-minute intervals, then use round whole-hour
+steps for longer sessions; available width and font size can reduce density further.
+Duration labels round to the nearest five minutes (half steps round up, minimum five
+minutes). Tick positions and percentages still use the exact prediction, and the end
+clock time stays exact. Regular ticks too close to the endpoint are omitted.
 With less than one minute remaining, the existing target finish-time text is shown instead.
 
 The built-in preset keeps its existing stored name (`Default`) and identity (`custom`).

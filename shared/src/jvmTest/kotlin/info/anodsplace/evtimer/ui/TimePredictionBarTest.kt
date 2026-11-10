@@ -42,15 +42,18 @@ class TimePredictionBarTest {
     fun rightToLeftTicksMirrorWithTheirLabelsAndTimeEndpoints() = verifyAlignment(LayoutDirection.Rtl)
 
     @Test
-    fun labelSlotsReuseTwoLanesWithoutOverlapAndClampEndpoint() {
-        val slots = predictionLabelSlots(listOf(0.2f, 0.4f, 0.6f, 0.8f, 1f),
-            List(5) { 70 }, 300, 8)
-        assertEquals(listOf(PredictionLabelSlot(25, 0), PredictionLabelSlot(85, 1),
-            PredictionLabelSlot(145, 0), PredictionLabelSlot(205, 1), PredictionLabelSlot(230, 0)), slots)
+    fun labelPlacementRejectsOverlapAndClampsEndpointOnOneRow() {
+        val placement = PredictionLabelPlacement(300, 8)
+        assertTrue(placement.add(0.2f, 70))
+        assertFalse(placement.add(0.4f, 70))
+        assertTrue(placement.add(0.6f, 70))
+        assertFalse(placement.add(0.8f, 70))
+        assertTrue(placement.add(1f, 70))
+        assertEquals(230, predictionLabelX(1f, 70, 300))
     }
 
     @Test
-    fun longPhoneTimelineShowsMoreThanTwoPredictionsThroughTarget() = verifyAdaptiveTimeline(1f, LayoutDirection.Ltr)
+    fun longPhoneTimelineShowsAtMostFourPredictionsThroughTarget() = verifyAdaptiveTimeline(1f, LayoutDirection.Ltr)
 
     @Test
     fun longPhoneTimelineUsesMeasuredLargeTextDensity() = verifyAdaptiveTimeline(2f, LayoutDirection.Ltr)
@@ -60,11 +63,51 @@ class TimePredictionBarTest {
 
     @Test
     fun pixelScenarioKeepsTwoHourlyTicksThroughTarget() = verifyPixelScenario(1f,
-        listOf("+2h · 69%", "+4h · 77%", "+6h · 86%", "+8h · 95%", "+9h 14m · 100%"))
+        listOf("+3h · 73%", "+6h · 86%", "+9h 15m · 100%"))
 
     @Test
     fun pixelScenarioKeepsLargeFontTicksThroughTarget() = verifyPixelScenario(2f,
-        listOf("+3h · 73%", "+6h · 86%", "+9h 14m · 100%"))
+        listOf("+3h · 73%", "+9h 15m · 100%"))
+
+    @Test
+    fun durationsRoundToNearestFiveWithHalfStepsUpAndNoZeroMinuteTarget() {
+        listOf(1.0 to 5, 2.49 to 5, 7.0 to 5, 7.5 to 10, 25.0 to 25,
+            47.0 to 45, 47.5 to 50, 59.0 to 60, 181.0 to 180, 554.0 to 555).forEach { (exact, rounded) ->
+            assertEquals(rounded, predictionDurationMinutes(exact))
+        }
+    }
+
+    @Test
+    fun representativeSessionsKeepAtMostFourLabelsOnOneRowIncludingTheExactTarget() {
+        val start = 1_800_000_000_000L
+        for (minutes in listOf(7, 25, 60, 181, 720)) {
+            val snapshot = ChargingSessionSnapshot(60f, 20f, 80f,
+                listOf(PowerSegment(start, 2160f / minutes)))
+            val progress = timeProgress(snapshot, start, start + minutes * 60_000L)
+            for (width in listOf(80, 328, 800)) {
+                val labels = requireNotNull(selectPredictionLabels(progress, width, 8) {
+                    PredictionLabel(it, "resolved", 70)
+                })
+                assertTrue(labels.size in 1..4)
+                assertEquals(progress.predictions.last(), labels.last().prediction)
+                val placement = PredictionLabelPlacement(width, 8)
+                assertTrue(labels.all { placement.add(it.prediction.position, it.width) })
+                assertTrue(labels.dropLast(1).all { it.prediction.minutesAhead % 5.0 == 0.0 })
+            }
+        }
+    }
+
+    @Test
+    fun roundedEndpointTextDoesNotChangeTheClockOrPercent() = runDesktopComposeUiTest {
+        setContent {
+            MaterialTheme {
+                TimePredictionBar(TimeProgress(0f, listOf(TimePrediction(181.0, 1f, 100f))),
+                    "12:00", "15:01", Modifier.width(328.dp))
+            }
+        }
+        onNodeWithText("+3h · 100%").fetchSemanticsNode()
+        onNodeWithText("15:01").fetchSemanticsNode()
+    }
 
     @Test
     fun lazySelectionMatchesEagerSelectionAndBoundsMultiDayLabelWork() {
@@ -84,13 +127,13 @@ class TimePredictionBarTest {
                     if (group.size > 2) listOf(group, group.dropLast(2) + group.last()) else listOf(group)
                 }
                 val expected = candidates.first { group ->
-                    predictionLabelSlots(group.map { it.position }, List(group.size) { labelWidth }, 328, 8)
-                        .all { it.lane < 2 }
+                    val placement = PredictionLabelPlacement(328, 8)
+                    group.size <= 4 && group.all { placement.add(it.position, labelWidth) }
                 }
                 assertEquals(expected, selected?.map { it.prediction })
                 assertEquals(evaluated.distinct(), evaluated, "Each label resolves only once")
                 assertTrue(evaluated.size <= 32, "$days days at width $labelWidth evaluated ${evaluated.size} labels")
-                assertTrue(evaluated.size < candidates.sumOf { it.size } / 2)
+                assertTrue(selected!!.size <= 4)
             }
         }
     }
@@ -137,13 +180,13 @@ class TimePredictionBarTest {
         val labels = onAllNodes(SemanticsMatcher("prediction text") { node ->
             node.config.getOrNull(SemanticsProperties.Text)?.any { it.text.startsWith("+") } == true
         }).fetchSemanticsNodes()
-        assertTrue(labels.size > 2)
+        assertEquals(2, labels.size)
         assertTrue(labels.all { node -> node.config[SemanticsProperties.Text].single().text.contains("m · ") })
         assertEquals(1, onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsProperties.ProgressBarRangeInfo)).fetchSemanticsNodes().size)
     }
 
     @Test
-    fun overlappingLabelsMoveToTheNextRow() = runDesktopComposeUiTest {
+    fun overlappingLabelsKeepOnlyTheEndpointInsteadOfAddingARow() = runDesktopComposeUiTest {
         setContent {
             MaterialTheme(colorScheme = lightColorScheme()) {
                 TimePredictionBar(
@@ -154,9 +197,8 @@ class TimePredictionBarTest {
                 )
             }
         }
-        val first = onNodeWithText("+1h · 45%").fetchSemanticsNode().boundsInRoot
-        val second = onNodeWithText("+2h · 50%").fetchSemanticsNode().boundsInRoot
-        assertTrue(second.top >= first.bottom)
+        onNodeWithText("+1h · 45%").assertDoesNotExist()
+        onNodeWithText("+2h · 50%").fetchSemanticsNode()
     }
 
     private fun verifyPixelScenario(scale: Float, expected: List<String>) = runDesktopComposeUiTest {
@@ -201,14 +243,14 @@ class TimePredictionBarTest {
         }
         val expectedGroup = candidates.first { group ->
             group.map { tick ->
-                val minutes = kotlin.math.ceil(tick.minutesAhead).toInt()
+                val minutes = predictionDurationMinutes(tick.minutesAhead)
                 val duration = if (minutes % 60 == 0) "${minutes / 60}h" else "${minutes / 60}h ${minutes % 60}m"
                 "+$duration · ${tick.percent.roundToInt()}%"
             } == texts
         }
-        assertTrue(texts.size > 2, "Expected multiple full-timeline predictions, got $texts")
+        assertTrue(texts.size in 1..4, "Expected sparse full-timeline predictions, got $texts")
         assertEquals("+14h · 80%", texts.last())
-        assertTrue(expectedGroup.any { it.minutesAhead > 120.0 && it.minutesAhead < 840.0 })
+        if (texts.size > 1) assertTrue(expectedGroup.any { it.minutesAhead > 120.0 && it.minutesAhead < 840.0 })
         val bar = onNode(SemanticsMatcher.keyIsDefined(SemanticsProperties.ProgressBarRangeInfo))
         val bounds = bar.fetchSemanticsNode().boundsInRoot
         nodes.zip(expectedGroup).forEach { (node, tick) ->
@@ -217,7 +259,7 @@ class TimePredictionBarTest {
                 .coerceIn(bounds.left, bounds.right - node.boundsInRoot.width)
             assertEquals(left, node.boundsInRoot.left, 1f)
         }
-        assertTrue(nodes.map { it.boundsInRoot.top }.distinct().size <= 2)
+        assertEquals(1, nodes.map { it.boundsInRoot.top }.distinct().size)
         nodes.forEach { node ->
             val results = mutableListOf<TextLayoutResult>()
             onNodeWithText(node.config[SemanticsProperties.Text].single().text)

@@ -6,7 +6,7 @@ const os = require("node:os");
 const path = require("node:path");
 const { prepare } = require("../pwa/prepare.cjs");
 const { createHash } = require("node:crypto");
-const { button: clickCanvasButton, text: clickCanvasText } = require("./canvas.cjs");
+const { button: clickCanvasButton, text: clickCanvasText, assertTimePredictionLabels } = require("./canvas.cjs");
 
 const distribution = path.resolve(process.argv[2] || "build/dist/wasmJs/productionExecutable");
 const pagesSite = process.argv[2] !== undefined;
@@ -530,6 +530,7 @@ async function refresh(page) {
                 await refresh(shot);
                 await labels(shot, "Charging in Progress", "Estimated charging time",
                     "Charging Power", "Current %", "Target %", "Time Remaining", "Time to 80%", "Elapsed Time");
+                await assertTimePredictionLabels(shot);
                 await shot.screenshot({ path: path.join(evidence, `pwa-running-offline-${device}-${colorScheme}.png`) });
                 await setOffline(shotContext, false);
                 serving = a;
