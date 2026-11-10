@@ -101,7 +101,7 @@
     <string name="start_summary">%1$s: %2$s% (%3$s %4$s)</string>
     <string name="charging_power">Charging Power</string>
     <string name="power_summary">Power: %1$s %2$s</string>
-    <string name="charging_taper_title">High-charge taper</string>
+    <string name="charging_taper_title">Charging limit</string>
     <string name="charging_taper_summary">%1$s %2$s · %3$s–%4$s %5$s</string>
     <string name="charging_taper_start">Cap starts at</string>
     <string name="charging_taper_end">Cap ends at</string>

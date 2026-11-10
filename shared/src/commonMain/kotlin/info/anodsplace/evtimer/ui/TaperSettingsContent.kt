@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -13,6 +14,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -98,33 +100,42 @@ private fun TaperPowerCapField(
     val valid = parsed != null && parsed.isFinite() && parsed > 0f
     val capLabel = stringResource(Res.string.charging_taper_cap)
     val unitDescription = stringResource(Res.string.unit_kilowatts)
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-        OutlinedTextField(
-            value = value,
-            onValueChange = { candidate ->
-                val normalized = candidate.replace(',', '.')
-                if (candidate.length <= 12 &&
-                    normalized.matches(Regex("""\d*(?:\.\d*)?(?:[eE][+-]?\d*)?"""))) value = candidate
-            },
-            label = { Text(capLabel) },
-            suffix = {
-                Text(stringResource(Res.string.unit_kw), Modifier.semantics {
-                    contentDescription = unitDescription
-                })
-            },
-            supportingText = {
-                if (value.isNotEmpty() && !valid) {
-                    Text(stringResource(Res.string.power_cap_must_be_positive))
-                }
-            },
-            isError = value.isNotEmpty() && !valid,
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-            modifier = Modifier.weight(1f)
-        )
-        AppTextButton(
-            enabled = valid && parsed != settings.taperPowerCapKw,
-            onClick = { onEvent(ConfigurationViewEvent.UpdateTaperPowerCap(requireNotNull(parsed))) }
-        ) { Text(stringResource(Res.string.apply)) }
+    Column {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            OutlinedTextField(
+                value = value,
+                onValueChange = { candidate ->
+                    val normalized = candidate.replace(',', '.')
+                    if (candidate.length <= 12 &&
+                        normalized.matches(Regex("""\d*(?:\.\d*)?(?:[eE][+-]?\d*)?"""))) value = candidate
+                },
+                label = { Text(capLabel) },
+                suffix = {
+                    Text(stringResource(Res.string.unit_kw), Modifier.semantics {
+                        contentDescription = unitDescription
+                    })
+                },
+                isError = value.isNotEmpty() && !valid,
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                modifier = Modifier.weight(1f)
+            )
+            AppTextButton(
+                enabled = valid && parsed != settings.taperPowerCapKw,
+                onClick = { onEvent(ConfigurationViewEvent.UpdateTaperPowerCap(requireNotNull(parsed))) }
+            ) { Text(stringResource(Res.string.apply)) }
+        }
+        if (value.isNotEmpty() && !valid) {
+            Text(
+                text = stringResource(Res.string.power_cap_must_be_positive),
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(start = 16.dp)
+            )
+        }
     }
 }

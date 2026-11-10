@@ -70,6 +70,57 @@ async function setTextSetting(page, fieldName, value) {
     await fillCanvasTextField(page, field, value);
 }
 
+async function captureLayoutEvidence(page, width, height, fileName) {
+    await page.setViewportSize({ width, height });
+    await page.reload();
+    await waitForText(page, "Start Timer");
+
+    const section = page.getByRole("button", { name: /^Expand Charging limit/ });
+    await clickCanvas(page, section);
+    await waitForText(page, "Cap starts at");
+    await waitForText(page, "Cap ends at");
+    await page.getByText(/Estimated time to target:/).waitFor();
+
+    const startField = page.getByRole("textbox", { name: "Cap starts at input field, %", exact: true });
+    const endField = page.getByRole("textbox", { name: "Cap ends at input field, %", exact: true });
+    const powerField = page.getByRole("textbox", { name: "kilowatts", exact: true });
+    const applyButton = page.getByRole("button", { name: "Apply", exact: true });
+    const startBounds = await startField.boundingBox();
+    const endBounds = await endField.boundingBox();
+    const powerBounds = await powerField.boundingBox();
+    const applyBounds = await applyButton.boundingBox();
+    assert.ok(startBounds && endBounds && powerBounds && applyBounds,
+        "Start/end controls and cap editor render at compact and wide widths");
+    assert.ok(startBounds.y < endBounds.y && endBounds.y < powerBounds.y,
+        "Start/end controls remain ordered before the power cap");
+    const estimateBounds = await page.getByText(/Estimated time to target:/).boundingBox();
+    assert.ok(estimateBounds, "The estimate remains visible with the controls");
+    for (const bounds of [startBounds, endBounds, powerBounds, applyBounds, estimateBounds]) {
+        assert.ok(bounds.x >= 0 && bounds.x + bounds.width <= width,
+            "Taper controls and estimate fit inside the compact or wide viewport");
+    }
+    assert.ok(
+        Math.abs(powerBounds.y + powerBounds.height / 2 - applyBounds.y - applyBounds.height / 2) <= 1,
+        "Apply is vertically centered on the power-cap field"
+    );
+    const screenshotPath = path.join(evidence, fileName);
+    await page.screenshot({ path: screenshotPath });
+
+    await fillCanvasTextField(page, powerField, "0");
+    await waitForText(page, "Enter a power greater than 0.");
+    const invalidPowerBounds = await powerField.boundingBox();
+    const invalidApplyBounds = await applyButton.boundingBox();
+    assert.ok(invalidPowerBounds && invalidApplyBounds);
+    assert.ok(
+        Math.abs(
+            invalidPowerBounds.y + invalidPowerBounds.height / 2 -
+            invalidApplyBounds.y - invalidApplyBounds.height / 2
+        ) <= 1,
+        "Validation text does not shift Apply away from the power-cap field"
+    );
+    return screenshotPath;
+}
+
 (async () => {
     fs.mkdirSync(evidence, { recursive: true });
     const server = http.createServer((request, response) => {
@@ -110,7 +161,15 @@ async function setTextSetting(page, fieldName, value) {
         await waitForRecord(page);
         await waitForText(page, "Start Timer");
 
-        await clickCanvas(page, page.getByRole("button", { name: /High-charge taper/ }));
+        const layoutEvidence = [];
+        layoutEvidence.push(await captureLayoutEvidence(page, 390, 1600, "taper-compact-layout.png"));
+        layoutEvidence.push(await captureLayoutEvidence(page, 1000, 1000, "taper-wide-layout.png"));
+        report.layoutEvidence = layoutEvidence;
+        await page.setViewportSize({ width: 1100, height: 900 });
+        await page.reload();
+        await waitForText(page, "Start Timer");
+
+        await clickCanvas(page, page.getByRole("button", { name: /^Expand Charging limit/ }));
         await waitForText(page, "Cap starts at");
         await setTextSetting(page, "Cap starts at input field, %", "70");
         await setTextSetting(page, "Cap ends at input field, %", "90");

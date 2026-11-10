@@ -5,7 +5,7 @@ with the preset-row **+**. Working changes show an asterisk on the selected pres
 Tap that chip to Update the saved preset or Reset the working changes. This applies to
 Default too; changes are not silently written over saved presets.
 
-The expanded **High-charge taper** card configures the percentage interval and power
+The expanded **Charging limit** card configures the percentage interval and power
 cap used for planning. Its defaults are 80% to 100% with a 22 kW cap. The 22 kW
 default is an owner-selected, configurable planning approximation, not a universal
 AC-speed limit or an established fleet average. Choose values appropriate to the
