@@ -250,9 +250,9 @@ class ChargingServiceTest {
         val service = ChargingServiceImpl(repo, backgroundScope, clock)
         runCurrent()
         assertEquals(50f, service.status.value.currentPercent)
-        assertEquals(150, service.status.value.calculation.timeRemainingMinutes)
-        assertEquals(start + 270 * 60_000L, service.status.value.estimatedEndTime)
-        // 80% needs 90 more minutes; the configured 100% target needs 150.
+        assertEquals(156, service.status.value.calculation.timeRemainingMinutes)
+        assertEquals(start + 16_527_273L, service.status.value.estimatedEndTime)
+        // 80% needs 90 more minutes; the 22 kW cap adds time above 80%.
         assertEquals(90.0, ChargingCalculator.minutesToReach(snapshot, clock.milliseconds, 80f), 0.000001)
     }
 

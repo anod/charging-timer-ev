@@ -74,4 +74,15 @@ class ChargingSettingsTest {
         assertEquals(11f, updated.chargingPower)
         assertEquals(listOf(3.6f, 7f, 11f, 22f), updated.availablePowers)
     }
+
+    @Test
+    fun taperDefaultsAndBoundsAreValidated() {
+        assertEquals(80f, ChargingSettings.DEFAULT.taperStartPercent)
+        assertEquals(100f, ChargingSettings.DEFAULT.taperEndPercent)
+        assertEquals(22f, ChargingSettings.DEFAULT.taperPowerCapKw)
+        assertFailsWith<IllegalArgumentException> { ChargingSettings(taperStartPercent = 100f) }
+        assertFailsWith<IllegalArgumentException> { ChargingSettings(taperEndPercent = 0f) }
+        assertFailsWith<IllegalArgumentException> { ChargingSettings(taperPowerCapKw = 0f) }
+        assertFailsWith<IllegalArgumentException> { ChargingSettings(taperPowerCapKw = Float.NaN) }
+    }
 }

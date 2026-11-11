@@ -28,6 +28,33 @@ import kotlin.test.assertTrue
 @OptIn(ExperimentalTestApi::class)
 class AdaptiveScreensTest {
     @Test
+    fun taperCardFitsCompactAndWideConfigurationLayouts() = runDesktopComposeUiTest(width = 1200, height = 2000) {
+        val width = mutableStateOf(390.dp)
+        setContent {
+            MaterialTheme {
+                Box(Modifier.width(width.value).height(1800.dp)) {
+                    ConfigurationScreen(
+                        ConfigurationViewState(isLoading = false, settings = ChargingSettings.DEFAULT),
+                        {}
+                    )
+                }
+            }
+        }
+        onNodeWithContentDescription("Expand Charging limit", substring = true).performClick()
+        onNodeWithText("Cap starts at").assertIsDisplayed()
+        onNodeWithText("Cap ends at").assertIsDisplayed()
+        onNodeWithText("Estimated time to target:", substring = true).fetchSemanticsNode()
+        val compactCard = onNodeWithTag("configuration-taper-card").fetchSemanticsNode().boundsInRoot
+        assertTrue(compactCard.left >= 0f && compactCard.right <= 390f)
+
+        runOnIdle { width.value = 1000.dp }
+        onNodeWithContentDescription("Collapse Charging limit", substring = true).assertIsDisplayed()
+        val wideCard = onNodeWithTag("configuration-taper-card").fetchSemanticsNode().boundsInRoot
+        assertTrue(wideCard.left >= 0f && wideCard.right <= 1000f)
+        assertTrue(wideCard.width < 700f, "The wide layout keeps the taper card within one column")
+    }
+
+    @Test
     fun fractionalDensityResizeKeepsConfigurationCardsOnSameRow() = runDesktopComposeUiTest(width = 3000, height = 2400) {
         val width = mutableStateOf(400.dp)
         setContent {

@@ -54,7 +54,8 @@ class StorageBackupTest {
                     }
                     assertEquals(listOf(123L, 456L, 789L), queries.segments(123L).executeAsList().map { it.started_at })
                     kotlin.test.assertFails {
-                        queries.putSession(124L, 60.0, 20.0, 90.0, 1.0, null, null, true, false)
+                        queries.putSession(124L, 60.0, 20.0, 90.0, 100.0, 80.0, 22.0,
+                            1.0, null, null, true, false)
                     }
                     assertEquals(0L, driver.executeQuery(null, "SELECT count(*) FROM pragma_foreign_key_check",
                         { cursor -> cursor.next(); app.cash.sqldelight.db.QueryResult.Value(cursor.getLong(0)!!) }, 0).value)
@@ -96,7 +97,7 @@ class StorageBackupTest {
                 assertEquals(22.0, queries.options("home").executeAsOne().power_kw)
                 queries.setPresetPosition(1, "work")
                 queries.setPresetPosition(2, "home")
-                queries.putPreset("work", "Renamed", 61.0, 7.0, 80.0)
+                queries.putPreset("work", "Renamed", 61.0, 7.0, 80.0, 100.0, 80.0, 22.0)
             }
             JdbcSqliteDriver("jdbc:sqlite:${file.path}", schema = ChargingDatabase.Schema).use { driver ->
                 val queries = ChargingDatabase(driver).storageQueries
@@ -112,7 +113,8 @@ class StorageBackupTest {
     fun unsupportedJournalModeDoesNotPreventStartup() {
         JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY, schema = ChargingDatabase.Schema).use {
             configureBackupJournal(it)
-            ChargingDatabase(it).storageQueries.putPreset("custom", "Default", 83.0, 11.0, 100.0)
+            ChargingDatabase(it).storageQueries.putPreset("custom", "Default", 83.0, 11.0, 100.0,
+                100.0, 80.0, 22.0)
             assertEquals("Default", ChargingDatabase(it).storageQueries.presetById("custom").executeAsOne().name)
         }
     }
@@ -156,7 +158,8 @@ class StorageBackupTest {
         try {
             JdbcSqliteDriver("jdbc:sqlite:${source.path}", schema = ChargingDatabase.Schema).use { driver ->
                 configureBackupJournal(driver)
-                ChargingDatabase(driver).storageQueries.putPreset("custom", "Default", 83.0, 11.0, 100.0)
+                ChargingDatabase(driver).storageQueries.putPreset("custom", "Default", 83.0, 11.0, 100.0,
+                    100.0, 80.0, 22.0)
                 DriverManager.getConnection("jdbc:sqlite:${source.path}").use { connection ->
                     connection.createStatement().use { statement ->
                         statement.executeQuery("PRAGMA journal_mode").use {

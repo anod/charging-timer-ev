@@ -34,6 +34,9 @@ class BackupCompatibilityTest {
         assertTrue(backup.preferences.notifyAt80)
         assertNull(backup.preferences.draft)
         assertEquals(0L, backup.presets.single().position)
+        assertEquals(80.0, backup.presets.single().taperStartPercent)
+        assertEquals(100.0, backup.presets.single().taperEndPercent)
+        assertEquals(22.0, backup.presets.single().taperPowerCapKw)
         val session = backup.sessions.single()
         assertFalse(session.presetEdited)
         assertFalse(session.reviewed)
@@ -42,7 +45,23 @@ class BackupCompatibilityTest {
         assertNull(session.presetId)
         assertNull(session.presetName)
         assertNull(session.actualPercent)
+        assertEquals(80.0, session.taperStartPercent)
+        assertEquals(100.0, session.taperEndPercent)
+        assertEquals(22.0, session.taperPowerCapKw)
         assertEquals(backup, BackupFormat.decode(BackupFormat.encode(backup)))
+    }
+
+    @Test
+    fun rejectsTaperBoundsThatCollapseToTheSameFloat() {
+        val backup = BackupFormat.decode(versionOne.encodeToByteArray())
+        val preset = backup.presets.single().copy(
+            taperStartPercent = 80.000001,
+            taperEndPercent = 80.000002
+        )
+
+        assertEquals(BackupError.INVALID_DATA, assertFailsWith<BackupException> {
+            BackupFormat.validate(backup.copy(presets = listOf(preset)))
+        }.error)
     }
 
     @Test
@@ -84,6 +103,9 @@ class BackupCompatibilityTest {
         assertEquals(1.0, backup.sessions.single().efficiency)
         assertEquals(0.8, backup.sessions.single().segments.single().efficiency)
         assertTrue(backup.sessions.single().calibrationEnabled)
+        assertEquals(80.0, backup.presets.single().taperStartPercent)
+        assertEquals(100.0, backup.presets.single().taperEndPercent)
+        assertEquals(22.0, backup.sessions.single().taperPowerCapKw)
         assertEquals(backup, BackupFormat.decode(BackupFormat.encode(backup)))
         val missingConsent = v2.replace(", \"calibrationEnabled\": true", "")
         assertFalse(BackupFormat.decode(missingConsent.encodeToByteArray()).sessions.single().calibrationEnabled)

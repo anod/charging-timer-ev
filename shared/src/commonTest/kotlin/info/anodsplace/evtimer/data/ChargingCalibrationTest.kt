@@ -129,6 +129,46 @@ class ChargingCalibrationTest {
     }
 
     @Test
+    fun calibrationNominalEnergyUsesTheFrozenTaperCap() {
+        val settings = ChargingSettings(
+            batteryCapacity = 60f,
+            chargingPower = 50f,
+            startPercent = 70f,
+            maxPercent = 100f,
+            taperStartPercent = 80f,
+            taperEndPercent = 90f,
+            taperPowerCapKw = 22f
+        )
+        val snapshot = ChargingSessionSnapshot.from(settings, 0L).copy(presetId = "home")
+        val endedAt = (ChargingCalculator.minutesToReach(snapshot, 0L, 90f) * 60_000.0).toLong()
+        val history = ChargingHistoryEntry(
+            2L, snapshot, endedAt, 90f, 90f, false, calibrationEnabled = true
+        )
+
+        assertEquals(12.0, ChargingCalculator.nominalEnergyAt(snapshot, endedAt), 0.00001)
+        assertEquals(1.0, ChargingCalibration.sample(history)!!, 0.00001)
+    }
+
+    @Test
+    fun calibrationAccountsForEfficiencyWhenTaperBegins() {
+        val settings = ChargingSettings(
+            batteryCapacity = 100f,
+            chargingPower = 100f,
+            startPercent = 70f,
+            maxPercent = 90f,
+            taperStartPercent = 80f,
+            taperEndPercent = 100f,
+            taperPowerCapKw = 20f
+        )
+        val snapshot = ChargingSessionSnapshot.from(settings, 0L).copy(presetId = "home")
+        val history = ChargingHistoryEntry(
+            3L, snapshot, 45 * 60_000L, 90f, 90f, false, calibrationEnabled = true
+        )
+
+        assertEquals(0.8, ChargingCalibration.sample(history)!!, 0.00001)
+    }
+
+    @Test
     fun carReadingParserAcceptsDecimalsAndRejectsMalformedValuesWithoutClamping() {
         for (text in listOf("28", " 28.5 ", "28,5", ".5", ",5", "100.0", "0")) {
             assertEquals(text.trim().replace(',', '.').toFloat(), parseCarReading(text))

@@ -110,6 +110,42 @@ class TimePredictionBarTest {
     }
 
     @Test
+    fun taperCappedEtaFeedsRoundedSingleRowEndpoint() = runDesktopComposeUiTest {
+        val start = 1_800_000_000_000L
+        val snapshot = ChargingSessionSnapshot(
+            batteryCapacity = 83f,
+            startPercent = 85f,
+            targetPercent = 100f,
+            segments = listOf(PowerSegment(start, 150f))
+        )
+        val end = start + kotlin.math.ceil(
+            info.anodsplace.evtimer.data.ChargingCalculator.minutesToReach(snapshot, start, 100f) * 60_000.0
+        ).toLong()
+        val progress = timeProgress(snapshot, start, end)
+        val endpoint = progress.predictions.last()
+
+        assertEquals(1f, endpoint.position)
+        assertEquals(100f, endpoint.percent)
+        assertEquals(35, predictionDurationMinutes(endpoint.minutesAhead))
+
+        setContent {
+            MaterialTheme {
+                TimePredictionBar(progress, "12:00", "12:34", Modifier.width(328.dp))
+            }
+        }
+        onNodeWithText("+35m · 100%").fetchSemanticsNode()
+        onNodeWithText("12:34").fetchSemanticsNode()
+        assertEquals(
+            1,
+            onAllNodes(SemanticsMatcher("prediction text") { node ->
+                node.config.getOrNull(SemanticsProperties.Text)?.any { it.text.startsWith("+") } == true
+            }).fetchSemanticsNodes().count {
+                it.config[SemanticsProperties.Text].single().text == "+35m · 100%"
+            }
+        )
+    }
+
+    @Test
     fun lazySelectionMatchesEagerSelectionAndBoundsMultiDayLabelWork() {
         val start = 1_800_000_000_000L
         for (days in listOf(20, 100, 1000)) {

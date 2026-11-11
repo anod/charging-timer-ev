@@ -16,6 +16,9 @@ class ChargingRepositoryTest {
             SessionPreferences.chargingPower to Float.POSITIVE_INFINITY,
             SessionPreferences.startPercent to -1f,
             SessionPreferences.maxPercent to 101f,
+            SessionPreferences.taperStartPercent to 95f,
+            SessionPreferences.taperEndPercent to 85f,
+            SessionPreferences.taperPowerCapKw to Float.NaN,
             SessionPreferences.availablePowers to "Infinity,NaN,0,-7,11"
         )
         assertEquals(ChargingSettings.DEFAULT.copy(availablePowers = listOf(11f)), SessionPreferences.readSettings(prefs))
@@ -100,7 +103,10 @@ class ChargingRepositoryTest {
             listOf(PowerSegment(123L, 7.2f), PowerSegment(456_789L, 11f)),
             presetId = "car:one",
             presetName = "EV, home",
-            efficiency = 0.9f
+            efficiency = 0.9f,
+            taperStartPercent = 75f,
+            taperEndPercent = 95f,
+            taperPowerCapKw = 18f
         )
         val prefs = mutablePreferencesOf()
         SessionPreferences.writeSnapshot(prefs, snapshot)

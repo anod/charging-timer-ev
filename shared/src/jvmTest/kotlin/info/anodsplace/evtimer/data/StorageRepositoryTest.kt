@@ -68,7 +68,16 @@ class StorageRepositoryTest {
         try {
             fixture { source ->
                 source.repo.saveAsPreset("Home")
+                val initial = source.repo.observeConfiguration().first().selected
+                source.repo.saveSettings(initial.settings.copy(
+                    taperStartPercent = 72f, taperEndPercent = 94f, taperPowerCapKw = 18f
+                ))
+                source.repo.updateSelectedPreset()
                 val original = source.repo.observeConfiguration().first().selected
+                val snapshot = source.repo.createSnapshot(source.now)
+                source.repo.saveSession(ChargingSession(true, snapshot))
+                source.now += 60_000L
+                source.repo.saveSession(ChargingSession(false, snapshot))
                 val viewModel = SettingsViewModel(source.repo, source.repo, source.repo)
                 try {
                     viewModel.settings.first { it != null }
@@ -90,6 +99,7 @@ class StorageRepositoryTest {
                         target.repo.restoreBackup(backup)
                         val restored = target.repository().observeConfiguration().first()
                         assertEquals(restarted, restored)
+                        assertEquals(listOf(snapshot), target.repository().observeHistory().first().map { it.snapshot })
                     }
                 } finally {
                     viewModel.viewModelScope.cancel()
@@ -504,7 +514,7 @@ class StorageRepositoryTest {
     fun renamedDefaultSurvivesRestartWithoutChangingSnapshotsOrValues() = runTest {
         fixture { f ->
             f.repo.observeSettings().first()
-            f.database.storageQueries.putPreset("custom", "Custom", 60.0, 7.0, 80.0)
+            f.database.storageQueries.putPreset("custom", "Custom", 60.0, 7.0, 80.0, 100.0, 80.0, 22.0)
             val original = ChargingSessionSnapshot.from(ChargingSettings.DEFAULT, 123L)
                 .copy(presetId = "custom", presetName = "Custom")
             f.repo.saveSession(ChargingSession(false, original))
@@ -599,7 +609,8 @@ class StorageRepositoryTest {
                 }
                 // Seed rows as the previous release did, bypassing the new write policy.
                 for (preset in legacyPresets) {
-                    f.database.storageQueries.putPreset(preset.id, preset.name, 83.0, 11.0, 100.0)
+                    f.database.storageQueries.putPreset(preset.id, preset.name, 83.0, 11.0, 100.0,
+                        100.0, 80.0, 22.0)
                     preset.settings.availablePowers.forEachIndexed { index, power ->
                         f.database.storageQueries.putOption(preset.id, index.toLong(), power.toDouble())
                     }
@@ -763,7 +774,8 @@ class StorageRepositoryTest {
     fun legacySnapshotMigrationPreservesEveryFieldAndCleansOnlyStructuredKeys() = runTest {
         fixture { f ->
             val snapshot = ChargingSessionSnapshot(75f, 25f, 85f,
-                listOf(PowerSegment(123L, 7f), PowerSegment(456L, 11f)), "car", "Car", 0.9f)
+                listOf(PowerSegment(123L, 7f), PowerSegment(456L, 11f)), "car", "Car", 0.9f,
+                taperStartPercent = 70f, taperEndPercent = 95f, taperPowerCapKw = 17f)
             val toggle = androidx.datastore.preferences.core.booleanPreferencesKey("test_toggle")
             f.store.edit {
                 it[SessionPreferences.batteryCapacity] = 75f
@@ -882,8 +894,10 @@ class StorageRepositoryTest {
     fun invalidStoredSettingsAndCorruptActiveSnapshotDoNotCrashStartup() = runTest {
         fixture { f ->
             f.repo.observeSettings().first()
-            f.database.storageQueries.putPreset("custom", "Default", 1e100, 11.0, 100.0)
-            f.database.storageQueries.putSession(123L, 1e100, 20.0, 80.0, 1.0, null, null, true, false)
+            f.database.storageQueries.putPreset("custom", "Default", 1e100, 11.0, 100.0,
+                100.0, 80.0, 22.0)
+            f.database.storageQueries.putSession(123L, 1e100, 20.0, 80.0, 100.0, 80.0, 22.0,
+                1.0, null, null, true, false)
             f.database.storageQueries.putSegment(123L, 123L, 11.0, null)
             val restarted = f.repository()
             assertEquals(ChargingSettings.DEFAULT.batteryCapacity, restarted.observeSettings().first().batteryCapacity)
@@ -1017,8 +1031,10 @@ class StorageRepositoryTest {
         fixture { f ->
             // Before the first DataStore read, simulate a torn preferences file.
             f.file.writeBytes(byteArrayOf(0x0a, 0x7f))
-            f.database.storageQueries.putPreset("custom", "Default", 75.0, 7.0, 80.0)
-            f.database.storageQueries.putSession(123L, 75.0, 25.0, 80.0, 1.0, null, null, true, false)
+            f.database.storageQueries.putPreset("custom", "Default", 75.0, 7.0, 80.0,
+                100.0, 80.0, 22.0)
+            f.database.storageQueries.putSession(123L, 75.0, 25.0, 80.0, 100.0, 80.0, 22.0,
+                1.0, null, null, true, false)
             f.database.storageQueries.putSegment(123L, 123L, 7.0, null)
             f.database.storageQueries.markMigrated()
             f.database.storageQueries.setCurrentSession(123L)

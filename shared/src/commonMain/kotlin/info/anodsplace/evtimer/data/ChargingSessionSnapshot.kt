@@ -19,13 +19,20 @@ data class ChargingSessionSnapshot(
     val presetId: String? = null,
     val presetName: String? = null,
     val efficiency: Float = 1f,
-    val presetEdited: Boolean = false
+    val presetEdited: Boolean = false,
+    val taperStartPercent: Float = ChargingSettings.DEFAULT.taperStartPercent,
+    val taperEndPercent: Float = ChargingSettings.DEFAULT.taperEndPercent,
+    val taperPowerCapKw: Float = ChargingSettings.DEFAULT.taperPowerCapKw
 ) {
     init {
         require(batteryCapacity.isFinite() && batteryCapacity > 0f)
         require(startPercent.isFinite() && startPercent in 0f..100f)
         require(targetPercent.isFinite() && targetPercent in 0f..100f)
         require(efficiency.isFinite() && efficiency > 0f && efficiency <= 1f)
+        require(taperStartPercent.isFinite() && taperStartPercent in 0f..100f)
+        require(taperEndPercent.isFinite() && taperEndPercent in 0f..100f)
+        require(taperStartPercent < taperEndPercent)
+        require(taperPowerCapKw.isFinite() && taperPowerCapKw > 0f)
         require(segments.isNotEmpty())
         require(segments.zipWithNext().all { (a, b) -> a.startedAt < b.startedAt })
     }
@@ -49,7 +56,10 @@ data class ChargingSessionSnapshot(
             batteryCapacity = settings.batteryCapacity,
             startPercent = settings.startPercent,
             targetPercent = settings.maxPercent,
-            segments = listOf(PowerSegment(startedAt, settings.chargingPower))
+            segments = listOf(PowerSegment(startedAt, settings.chargingPower)),
+            taperStartPercent = settings.taperStartPercent,
+            taperEndPercent = settings.taperEndPercent,
+            taperPowerCapKw = settings.taperPowerCapKw
         )
     }
 }

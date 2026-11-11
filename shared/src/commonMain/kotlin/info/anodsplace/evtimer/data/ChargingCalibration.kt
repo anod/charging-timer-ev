@@ -44,9 +44,17 @@ data class ChargingCalibration(
 
         fun sample(entry: ChargingHistoryEntry): Double? {
             if (!entry.calibrationEnabled || exclusion(entry) != null) return null
-            val actualEnergy = entry.snapshot.batteryCapacity.toDouble() *
-                (requireNotNull(entry.actualPercent).toDouble() - entry.snapshot.startPercent) / 100.0
-            val sample = actualEnergy / ChargingCalculator.nominalEnergyAt(entry.snapshot, entry.endedAt)
+            val unityEfficiencySnapshot = entry.snapshot.copy(
+                efficiency = 1f,
+                segments = entry.snapshot.segments.map { it.copy(efficiency = 1f) }
+            )
+            val unityDuration = ChargingCalculator.minutesToReach(
+                unityEfficiencySnapshot,
+                entry.snapshot.startTime,
+                requireNotNull(entry.actualPercent)
+            )
+            val observedDuration = (entry.endedAt - entry.snapshot.startTime).toDouble() / 60_000.0
+            val sample = unityDuration / observedDuration
             return sample.takeIf { it.isFinite() && it > 0.0 }?.coerceIn(0.7, 1.0)
         }
 

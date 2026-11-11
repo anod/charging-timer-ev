@@ -25,7 +25,10 @@ class RunningViewModel(
                         batteryCapacity = it.batteryCapacity,
                         startPercent = it.startPercent,
                         maxPercent = it.targetPercent,
-                        chargingPower = status.calculation.chargingSpeed
+                        chargingPower = status.calculation.chargingSpeed,
+                        taperStartPercent = it.taperStartPercent,
+                        taperEndPercent = it.taperEndPercent,
+                        taperPowerCapKw = it.taperPowerCapKw
                     )
                 } ?: settings
                 RunningViewState(

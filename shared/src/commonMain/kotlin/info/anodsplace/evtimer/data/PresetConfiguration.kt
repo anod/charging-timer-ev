@@ -56,18 +56,32 @@ sealed interface PresetEvent {
 
 internal fun ChargingSettings.matchesPreset(other: ChargingSettings): Boolean =
     batteryCapacity == other.batteryCapacity && chargingPower == other.chargingPower &&
-        maxPercent == other.maxPercent && availablePowers == other.availablePowers
+        maxPercent == other.maxPercent && availablePowers == other.availablePowers &&
+        taperStartPercent == other.taperStartPercent && taperEndPercent == other.taperEndPercent &&
+        taperPowerCapKw == other.taperPowerCapKw
 
 internal fun ChargingSettings.encodeDraft(): String =
-    (listOf(batteryCapacity, chargingPower, maxPercent) + availablePowers).joinToString(",")
+    "v2:" + (listOf(batteryCapacity, chargingPower, maxPercent, taperStartPercent,
+        taperEndPercent, taperPowerCapKw) + availablePowers).joinToString(",")
 
 internal fun decodePresetDraft(values: String): ChargingSettings? {
-    val numbers = values.split(",").map { it.toFloatOrNull() ?: return null }
-    if (numbers.size < 4 || numbers.any { !it.isFinite() } ||
+    val versioned = values.startsWith("v2:")
+    val numbers = values.removePrefix(if (versioned) "v2:" else "")
+        .split(",").map { it.toFloatOrNull() ?: return null }
+    val optionOffset = if (versioned) 6 else 3
+    if (numbers.size < optionOffset + 1 || numbers.any { !it.isFinite() } ||
         numbers[0] <= 0f || numbers[1] <= 0f || numbers[2] !in 0f..100f ||
-        numbers.drop(3).any { it <= 0f }) return null
+        numbers.drop(optionOffset).any { it <= 0f }) return null
+    val taperStart = if (versioned) numbers[3] else ChargingSettings.DEFAULT.taperStartPercent
+    val taperEnd = if (versioned) numbers[4] else ChargingSettings.DEFAULT.taperEndPercent
+    val taperCap = if (versioned) numbers[5] else ChargingSettings.DEFAULT.taperPowerCapKw
+    if (taperStart !in 0f..100f || taperEnd !in 0f..100f ||
+        taperStart >= taperEnd || taperCap <= 0f) return null
     return ChargingSettings.DEFAULT.copy(
         batteryCapacity = numbers[0], chargingPower = numbers[1], maxPercent = numbers[2],
-        availablePowers = numbers.drop(3)
+        availablePowers = numbers.drop(optionOffset),
+        taperStartPercent = taperStart,
+        taperEndPercent = taperEnd,
+        taperPowerCapKw = taperCap
     )
 }

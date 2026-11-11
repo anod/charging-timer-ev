@@ -19,6 +19,9 @@ internal object SessionPreferences {
     val chargingPower = floatPreferencesKey("charging_power")
     val startPercent = floatPreferencesKey("start_percent")
     val maxPercent = floatPreferencesKey("max_percent")
+    val taperStartPercent = floatPreferencesKey("taper_start_percent")
+    val taperEndPercent = floatPreferencesKey("taper_end_percent")
+    val taperPowerCapKw = floatPreferencesKey("taper_power_cap_kw")
     val availablePowers = stringPreferencesKey("available_powers")
     val isRunning = booleanPreferencesKey("session_is_running")
     val startTime = longPreferencesKey("session_start_time")
@@ -26,28 +29,47 @@ internal object SessionPreferences {
     private val start = floatPreferencesKey("snapshot_start_percent")
     private val target = floatPreferencesKey("snapshot_target_percent")
     private val efficiency = floatPreferencesKey("snapshot_efficiency")
+    private val taperStart = floatPreferencesKey("snapshot_taper_start_percent")
+    private val taperEnd = floatPreferencesKey("snapshot_taper_end_percent")
+    private val taperPowerCap = floatPreferencesKey("snapshot_taper_power_cap_kw")
     private val presetId = stringPreferencesKey("snapshot_preset_id")
     private val presetName = stringPreferencesKey("snapshot_preset_name")
     private val presetEdited = booleanPreferencesKey("snapshot_preset_edited")
     private val segments = stringPreferencesKey("snapshot_segments")
 
     fun clearStructuredData(prefs: MutablePreferences) {
-        listOf(batteryCapacity, chargingPower, maxPercent).forEach(prefs::remove)
+        listOf(batteryCapacity, chargingPower, maxPercent, taperStartPercent, taperEndPercent,
+            taperPowerCapKw).forEach(prefs::remove)
         prefs.remove(availablePowers)
         prefs.remove(isRunning)
         prefs.remove(startTime)
         writeSnapshot(prefs, null)
     }
 
-    fun readSettings(prefs: Preferences): ChargingSettings = ChargingSettings(
-        batteryCapacity = validSetting(prefs, batteryCapacity, ChargingSettings.DEFAULT.batteryCapacity) { it > 0f },
-        chargingPower = validSetting(prefs, chargingPower, ChargingSettings.DEFAULT.chargingPower) { it > 0f },
-        startPercent = validSetting(prefs, startPercent, ChargingSettings.DEFAULT.startPercent) { it in 0f..100f },
-        maxPercent = validSetting(prefs, maxPercent, ChargingSettings.DEFAULT.maxPercent) { it in 0f..100f },
-        availablePowers = prefs[availablePowers]?.split(",")?.mapNotNull { it.toFloatOrNull() }
+    fun readSettings(prefs: Preferences): ChargingSettings {
+        val taperStart = validSetting(prefs, taperStartPercent, ChargingSettings.DEFAULT.taperStartPercent) {
+            it in 0f..100f
+        }
+        val taperEnd = validSetting(prefs, taperEndPercent, ChargingSettings.DEFAULT.taperEndPercent) {
+            it in 0f..100f
+        }
+        val validTaperRange = taperStart < taperEnd
+        if (!validTaperRange) println("Charging settings: invalid taper range; using defaults")
+        return ChargingSettings(
+            batteryCapacity = validSetting(prefs, batteryCapacity, ChargingSettings.DEFAULT.batteryCapacity) { it > 0f },
+            chargingPower = validSetting(prefs, chargingPower, ChargingSettings.DEFAULT.chargingPower) { it > 0f },
+            startPercent = validSetting(prefs, startPercent, ChargingSettings.DEFAULT.startPercent) { it in 0f..100f },
+            maxPercent = validSetting(prefs, maxPercent, ChargingSettings.DEFAULT.maxPercent) { it in 0f..100f },
+            availablePowers = prefs[availablePowers]?.split(",")?.mapNotNull { it.toFloatOrNull() }
             ?.filter { it.isFinite() && it > 0f }
-            ?.takeIf { it.isNotEmpty() } ?: ChargingSettings.DEFAULT.availablePowers
-    )
+            ?.takeIf { it.isNotEmpty() } ?: ChargingSettings.DEFAULT.availablePowers,
+            taperStartPercent = if (validTaperRange) taperStart else ChargingSettings.DEFAULT.taperStartPercent,
+            taperEndPercent = if (validTaperRange) taperEnd else ChargingSettings.DEFAULT.taperEndPercent,
+            taperPowerCapKw = validSetting(
+                prefs, taperPowerCapKw, ChargingSettings.DEFAULT.taperPowerCapKw
+            ) { it > 0f }
+        )
+    }
 
     private fun validSetting(
         prefs: Preferences,
@@ -67,6 +89,9 @@ internal object SessionPreferences {
             prefs.remove(start)
             prefs.remove(target)
             prefs.remove(efficiency)
+            prefs.remove(taperStart)
+            prefs.remove(taperEnd)
+            prefs.remove(taperPowerCap)
             prefs.remove(presetId)
             prefs.remove(presetName)
             prefs.remove(presetEdited)
@@ -77,6 +102,9 @@ internal object SessionPreferences {
         prefs[start] = snapshot.startPercent
         prefs[target] = snapshot.targetPercent
         prefs[efficiency] = snapshot.efficiency
+        prefs[taperStart] = snapshot.taperStartPercent
+        prefs[taperEnd] = snapshot.taperEndPercent
+        prefs[taperPowerCap] = snapshot.taperPowerCapKw
         snapshot.presetId?.let { prefs[presetId] = it } ?: prefs.remove(presetId)
         snapshot.presetName?.let { prefs[presetName] = it } ?: prefs.remove(presetName)
         prefs[presetEdited] = snapshot.presetEdited
@@ -92,6 +120,9 @@ internal object SessionPreferences {
             startPercent = requireNotNull(prefs[start]),
             targetPercent = requireNotNull(prefs[target]),
             efficiency = requireNotNull(prefs[efficiency]),
+            taperStartPercent = prefs[taperStart] ?: ChargingSettings.DEFAULT.taperStartPercent,
+            taperEndPercent = prefs[taperEnd] ?: ChargingSettings.DEFAULT.taperEndPercent,
+            taperPowerCapKw = prefs[taperPowerCap] ?: ChargingSettings.DEFAULT.taperPowerCapKw,
             presetId = prefs[presetId],
             presetName = prefs[presetName],
             presetEdited = prefs[presetEdited] ?: false,

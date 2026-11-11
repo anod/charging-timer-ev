@@ -101,6 +101,69 @@ class ChargingCalculatorTest {
     }
 
     @Test
+    fun taperCapSplitsAConstantPowerSegmentAtBothPercentBoundaries() {
+        val start = snapshot.startTime
+        val tapered = ChargingSessionSnapshot(
+            batteryCapacity = 100f,
+            startPercent = 70f,
+            targetPercent = 100f,
+            segments = listOf(PowerSegment(start, 100f)),
+            taperStartPercent = 80f,
+            taperEndPercent = 90f,
+            taperPowerCapKw = 20f
+        )
+
+        assertEquals(42.0, ChargingCalculator.minutesToReach(tapered, start, 100f), 1e-8)
+        assertEquals(21.0, ChargingCalculator.minutesToReach(tapered, start, 85f), 1e-8)
+        assertEquals(82f, ChargingCalculator.percentAt(tapered, start + 12 * 60_000L), 1e-5f)
+    }
+
+    @Test
+    fun taperCapIntegratesAcrossPowerChangeAndIsInactiveAboveItsEnd() {
+        val start = snapshot.startTime
+        val segmented = ChargingSessionSnapshot(
+            batteryCapacity = 100f,
+            startPercent = 70f,
+            targetPercent = 100f,
+            segments = listOf(
+                PowerSegment(start, 100f),
+                PowerSegment(start + 12 * 60_000L, 50f)
+            ),
+            taperStartPercent = 80f,
+            taperEndPercent = 90f,
+            taperPowerCapKw = 20f
+        )
+        assertEquals(48.0, ChargingCalculator.minutesToReach(segmented, start, 100f), 1e-8)
+        assertEquals(36.0, ChargingCalculator.minutesToReach(segmented, start + 12 * 60_000L, 100f), 1e-8)
+
+        val aboveTaper = segmented.copy(
+            startPercent = 92f,
+            targetPercent = 100f,
+            segments = listOf(PowerSegment(start, 100f))
+        )
+        assertEquals(4.8, ChargingCalculator.minutesToReach(aboveTaper, start, 100f), 1e-8)
+        assertEquals(0.0, ChargingCalculator.minutesToReach(aboveTaper.copy(targetPercent = 90f), start, 90f))
+    }
+
+    @Test
+    fun powerBelowCapRemainsUnchangedAndTargetsAtOrBelowStartTakeNoTime() {
+        val start = snapshot.startTime
+        val ac = ChargingSessionSnapshot(
+            batteryCapacity = 60f,
+            startPercent = 80f,
+            targetPercent = 100f,
+            segments = listOf(PowerSegment(start, 11f)),
+            taperStartPercent = 80f,
+            taperEndPercent = 100f,
+            taperPowerCapKw = 22f
+        )
+        assertEquals(60.0 * 20.0 / 100.0 / 11.0 * 60.0,
+            ChargingCalculator.minutesToReach(ac, start, 100f), 1e-8)
+        assertEquals(0.0, ChargingCalculator.minutesToReach(ac, start, 80f))
+        assertEquals(0.0, ChargingCalculator.minutesToReach(ac.copy(targetPercent = 70f), start, 70f))
+    }
+
+    @Test
     fun invalidInputIsRejectedExplicitly() {
         assertFailsWith<IllegalArgumentException> { PowerSegment(0L, 0f) }
         assertFailsWith<IllegalArgumentException> { snapshot.copy(batteryCapacity = Float.NaN) }

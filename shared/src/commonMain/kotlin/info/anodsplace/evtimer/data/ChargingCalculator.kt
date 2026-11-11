@@ -19,10 +19,21 @@ object ChargingCalculator {
         batteryCapacity: Float,
         startPercent: Float,
         maxPercent: Float,
-        chargingPower: Float
+        chargingPower: Float,
+        taperStartPercent: Float = ChargingSettings.DEFAULT.taperStartPercent,
+        taperEndPercent: Float = ChargingSettings.DEFAULT.taperEndPercent,
+        taperPowerCapKw: Float = ChargingSettings.DEFAULT.taperPowerCapKw
     ): Int = minutesToReach(
         ChargingSessionSnapshot.from(
-            ChargingSettings(batteryCapacity, chargingPower, startPercent, maxPercent),
+            ChargingSettings(
+                batteryCapacity = batteryCapacity,
+                chargingPower = chargingPower,
+                startPercent = startPercent,
+                maxPercent = maxPercent,
+                taperStartPercent = taperStartPercent,
+                taperEndPercent = taperEndPercent,
+                taperPowerCapKw = taperPowerCapKw
+            ),
             0L
         ),
         0L,
@@ -44,21 +55,10 @@ object ChargingCalculator {
             (percent - snapshot.startPercent).toDouble() / 100.0
         if (energyNeeded <= energyAt(snapshot, now)) return 0.0
 
-        var remaining = energyNeeded
-        snapshot.segments.forEachIndexed { index, segment ->
-            val rate = segment.powerKw.toDouble() *
-                (segment.efficiency ?: snapshot.efficiency).toDouble() / 3_600_000.0
-            val end = snapshot.segments.getOrNull(index + 1)?.startedAt
-            val duration = end?.let { (it - segment.startedAt).toDouble() }
-            if (duration == null || remaining <= duration * rate) {
-                // Subtract relative times rather than adding a fractional duration to a
-                // large epoch, retaining precision at minute/percent boundaries.
-                return ((segment.startedAt - now).toDouble() + remaining / rate)
-                    .coerceAtLeast(0.0) / 60_000.0
-            }
-            remaining -= duration * rate
-        }
-        error("Snapshot must contain a power segment")
+        val elapsedToTarget = elapsedToEnergy(snapshot, energyNeeded, includeEfficiency = true)
+        // Keep sub-millisecond precision relative to the session start at large epochs.
+        return ((snapshot.startTime - now).toDouble() + elapsedToTarget)
+            .coerceAtLeast(0.0) / 60_000.0
     }
 
     fun estimateMilestone(snapshot: ChargingSessionSnapshot, now: Long): MilestoneEstimate? {
@@ -87,24 +87,88 @@ object ChargingCalculator {
         return percentAt(snapshot, now + offset)
     }
 
-    /** Uncapped nominal energy, independent of the frozen estimate factor. */
+    /** Nominal energy uses the taper cap but ignores the frozen estimate factor. */
     fun nominalEnergyAt(snapshot: ChargingSessionSnapshot, now: Long): Double {
-        var energy = 0.0
-        snapshot.segments.forEachIndexed { index, segment ->
-            val end = minOf(now, snapshot.segments.getOrNull(index + 1)?.startedAt ?: now)
-            val elapsed = (end - segment.startedAt).coerceAtLeast(0L)
-            energy += elapsed.toDouble() * segment.powerKw / 3_600_000.0
-        }
-        return energy
+        return energyAt(snapshot, now, includeEfficiency = false)
     }
 
-    private fun energyAt(snapshot: ChargingSessionSnapshot, now: Long): Double {
+    private data class RateWindow(val powerKw: Double, val nextBoundaryKwh: Double?)
+
+    private fun rateWindow(
+        snapshot: ChargingSessionSnapshot,
+        segment: PowerSegment,
+        energyKwh: Double
+    ): RateWindow {
+        val startBoundary = snapshot.batteryCapacity.toDouble() *
+            (snapshot.taperStartPercent - snapshot.startPercent) / 100.0
+        val endBoundary = snapshot.batteryCapacity.toDouble() *
+            (snapshot.taperEndPercent - snapshot.startPercent) / 100.0
+        return when {
+            energyKwh < startBoundary -> RateWindow(segment.powerKw.toDouble(), startBoundary)
+            energyKwh < endBoundary -> RateWindow(
+                minOf(segment.powerKw, snapshot.taperPowerCapKw).toDouble(),
+                endBoundary
+            )
+            else -> RateWindow(segment.powerKw.toDouble(), null)
+        }
+    }
+
+    private fun elapsedToEnergy(
+        snapshot: ChargingSessionSnapshot,
+        targetEnergyKwh: Double,
+        includeEfficiency: Boolean
+    ): Double {
+        var energy = 0.0
+        var elapsed = 0.0
+        snapshot.segments.forEachIndexed { index, segment ->
+            var available = snapshot.segments.getOrNull(index + 1)
+                ?.let { (it.startedAt - segment.startedAt).toDouble() }
+                ?: Double.POSITIVE_INFINITY
+            while (energy < targetEnergyKwh && available > 0.0) {
+                val window = rateWindow(snapshot, segment, energy)
+                val efficiency = if (includeEfficiency) {
+                    (segment.efficiency ?: snapshot.efficiency).toDouble()
+                } else 1.0
+                val rate = window.powerKw * efficiency / 3_600_000.0
+                val nextEnergy = minOf(targetEnergyKwh, window.nextBoundaryKwh ?: targetEnergyKwh)
+                val timeToNextEnergy = (nextEnergy - energy) / rate
+                if (timeToNextEnergy <= available) {
+                    energy = nextEnergy
+                    elapsed += timeToNextEnergy
+                    available -= timeToNextEnergy
+                    if (energy >= targetEnergyKwh) return elapsed
+                } else {
+                    energy += available * rate
+                    elapsed += available
+                    available = 0.0
+                }
+            }
+        }
+        error("Snapshot must contain a power segment")
+    }
+
+    private fun energyAt(
+        snapshot: ChargingSessionSnapshot,
+        now: Long,
+        includeEfficiency: Boolean = true
+    ): Double {
         var energy = 0.0
         snapshot.segments.forEachIndexed { index, segment ->
+            if (now <= segment.startedAt) return@forEachIndexed
             val end = minOf(now, snapshot.segments.getOrNull(index + 1)?.startedAt ?: now)
-            val elapsed = (end - segment.startedAt).coerceAtLeast(0L)
-            energy += elapsed.toDouble() * segment.powerKw *
-                (segment.efficiency ?: snapshot.efficiency) / 3_600_000.0
+            var remaining = (end - segment.startedAt).coerceAtLeast(0L).toDouble()
+            while (remaining > 0.0) {
+                val window = rateWindow(snapshot, segment, energy)
+                val efficiency = if (includeEfficiency) {
+                    (segment.efficiency ?: snapshot.efficiency).toDouble()
+                } else 1.0
+                val rate = window.powerKw * efficiency / 3_600_000.0
+                val timeToBoundary = window.nextBoundaryKwh?.let { (it - energy) / rate }
+                    ?: Double.POSITIVE_INFINITY
+                val elapsed = minOf(remaining, timeToBoundary)
+                energy += elapsed * rate
+                remaining -= elapsed
+            }
         }
         return energy
     }

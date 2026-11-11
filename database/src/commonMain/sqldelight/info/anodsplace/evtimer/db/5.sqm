@@ -1,0 +1,7 @@
+ALTER TABLE preset ADD COLUMN taper_end_percent REAL NOT NULL DEFAULT 100;
+ALTER TABLE preset ADD COLUMN taper_start_percent REAL NOT NULL DEFAULT 80;
+ALTER TABLE preset ADD COLUMN taper_power_cap_kw REAL NOT NULL DEFAULT 22;
+
+ALTER TABLE charge_session ADD COLUMN taper_end_percent REAL NOT NULL DEFAULT 100;
+ALTER TABLE charge_session ADD COLUMN taper_start_percent REAL NOT NULL DEFAULT 80;
+ALTER TABLE charge_session ADD COLUMN taper_power_cap_kw REAL NOT NULL DEFAULT 22;

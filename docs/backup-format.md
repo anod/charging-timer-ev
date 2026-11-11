@@ -53,7 +53,10 @@ Example (additional sessions and presets omitted):
     "chargingPower": 7.0,
     "targetPercent": 80.0,
     "position": 0,
-    "powerOptions": [7.0, 11.0]
+    "powerOptions": [7.0, 11.0],
+    "taperStartPercent": 80.0,
+    "taperEndPercent": 100.0,
+    "taperPowerCapKw": 22.0
   }],
   "sessions": [{
     "id": 12,
@@ -70,6 +73,9 @@ Example (additional sessions and presets omitted):
     "interrupted": false,
     "presetEdited": false,
     "calibrationEnabled": false,
+    "taperStartPercent": 80.0,
+    "taperEndPercent": 100.0,
+    "taperPowerCapKw": 22.0,
     "segments": [{"startedAt": 1789990000000, "powerKw": 7.0, "efficiency": null}]
   }]
 }
@@ -87,16 +93,30 @@ valid historical information.
 `preferences` requires `selectedPresetId` and `startPercent`. `notifyAt80` defaults
 to `true`; `draft` defaults to `null`. A draft contains `presetId`,
 `batteryCapacity`, `chargingPower`, `targetPercent` and `powerOptions`, and must
-belong to the selected, listed preset. It preserves unsaved working edits, not
-another preset. Legacy settings keys are not exported; their migrated values are
-already in presets. No active-session preferences, notification dismissal state,
+belong to the selected, listed preset. Optional `taperStartPercent`,
+`taperEndPercent`, and `taperPowerCapKw` fields on drafts default to `80`, `100`,
+and `22`, respectively. The draft preserves unsaved working edits, not another
+preset. Legacy settings keys are not exported; their migrated values are already
+in presets. No active-session preferences, notification dismissal state,
 installation markers or migration bookkeeping are included.
+
+Each preset and session also has optional `taperStartPercent`,
+`taperEndPercent`, and `taperPowerCapKw` fields, defaulting to `80`, `100`, and
+`22`. The interval must satisfy `0 <= start < end <= 100`, and the cap must be
+positive; values must remain representable by the app's Float-based calculator.
+The selected preset's cap is a configurable planning approximation: the default
+22 kW is owner-selected, not a universal AC-speed limit or an established fleet
+average. Within `[start%, end%)`, estimates use the lower of segment power and
+the cap; outside the interval they use the segment power. Starting a timer freezes
+the preset values into its session snapshot, and session fields preserve that
+snapshot through export and restore.
 
 Session numeric settings, `id` and `segments` are required. Nullable preset
 identity/name and end/actual percentages default to `null`; review, interruption
 and edited flags default to `false`. Version 2's `calibrationEnabled` also
 defaults to `false`; acknowledgment (`reviewed`) never implies learning consent.
-Timestamps are epoch milliseconds.
+The three taper fields are optional for older version-2 backups and use the
+defaults above when absent. Timestamps are epoch milliseconds.
 Exports contain only non-running rows with an end timestamp. A manually authored
 row without `endedAt` is imported as interrupted history with unknown end
 percentage and a restore timestamp (at least its last segment time), never as a

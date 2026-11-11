@@ -81,6 +81,12 @@ class ConfigurationViewModel(
                 saveSettings(latestSettings.copy(startPercent = event.percent))
             is ConfigurationViewEvent.UpdateMaxPercent ->
                 saveSettings(latestSettings.copy(maxPercent = event.percent))
+            is ConfigurationViewEvent.UpdateTaperStartPercent ->
+                saveSettings(latestSettings.copy(taperStartPercent = event.percent))
+            is ConfigurationViewEvent.UpdateTaperEndPercent ->
+                saveSettings(latestSettings.copy(taperEndPercent = event.percent))
+            is ConfigurationViewEvent.UpdateTaperPowerCap ->
+                saveSettings(latestSettings.copy(taperPowerCapKw = event.powerKw))
         }
     }
 

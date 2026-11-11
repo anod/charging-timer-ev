@@ -106,6 +106,10 @@ class ChargingRepositoryImpl(
         require(settings.chargingPower.isFinite() && settings.chargingPower > 0f)
         require(settings.startPercent.isFinite() && settings.startPercent in 0f..100f)
         require(settings.maxPercent.isFinite() && settings.maxPercent in 0f..100f)
+        require(settings.taperStartPercent.isFinite() && settings.taperStartPercent in 0f..100f)
+        require(settings.taperEndPercent.isFinite() && settings.taperEndPercent in 0f..100f)
+        require(settings.taperStartPercent < settings.taperEndPercent)
+        require(settings.taperPowerCapKw.isFinite() && settings.taperPowerCapKw > 0f)
         require(settings.availablePowers.isNotEmpty() && settings.availablePowers.all { it.isFinite() && it > 0f })
     }
 
@@ -124,8 +128,11 @@ class ChargingRepositoryImpl(
         }
         validate(preset.settings)
         val settings = preset.settings
-        queries.putPreset(preset.id, name, settings.batteryCapacity.toDouble(),
-            settings.chargingPower.toDouble(), settings.maxPercent.toDouble())
+        queries.putPreset(
+            preset.id, name, settings.batteryCapacity.toDouble(), settings.chargingPower.toDouble(),
+            settings.maxPercent.toDouble(), settings.taperEndPercent.toDouble(),
+            settings.taperStartPercent.toDouble(), settings.taperPowerCapKw.toDouble()
+        )
         queries.clearOptions(preset.id)
         settings.availablePowers.forEachIndexed { index, power -> queries.putOption(preset.id, index.toLong(), power.toDouble()) }
     }
@@ -136,6 +143,9 @@ class ChargingRepositoryImpl(
             SessionPreferences.chargingPower to row.charging_power.toFloat(),
             SessionPreferences.maxPercent to row.target_percent.toFloat(),
             SessionPreferences.startPercent to startPercent,
+            SessionPreferences.taperStartPercent to row.taper_start_percent.toFloat(),
+            SessionPreferences.taperEndPercent to row.taper_end_percent.toFloat(),
+            SessionPreferences.taperPowerCapKw to row.taper_power_cap_kw.toFloat(),
             SessionPreferences.availablePowers to powerOptions.joinToString(",")
         )
         return SessionPreferences.readSettings(raw)
@@ -281,7 +291,10 @@ class ChargingRepositoryImpl(
                     ChargingSessionSnapshot.from(state.settings, startedAt).copy(
                         presetId = state.selectedId, presetName = state.selected.name, presetEdited = state.isEdited,
                         efficiency = factor,
-                        segments = listOf(PowerSegment(startedAt, state.settings.chargingPower, factor))
+                        segments = listOf(PowerSegment(startedAt, state.settings.chargingPower, factor)),
+                        taperStartPercent = state.settings.taperStartPercent,
+                        taperEndPercent = state.settings.taperEndPercent,
+                        taperPowerCapKw = state.settings.taperPowerCapKw
                     )
                 }
             }
@@ -292,7 +305,8 @@ class ChargingRepositoryImpl(
         queries.segments(row.id).executeAsList()) = ChargingSessionSnapshot(
         row.battery_capacity.toFloat(), row.start_percent.toFloat(), row.target_percent.toFloat(),
         segments.map { PowerSegment(it.started_at, it.power_kw.toFloat(), it.efficiency?.toFloat()) },
-        row.preset_id, row.preset_name, row.efficiency.toFloat(), row.preset_edited
+        row.preset_id, row.preset_name, row.efficiency.toFloat(), row.preset_edited,
+        row.taper_start_percent.toFloat(), row.taper_end_percent.toFloat(), row.taper_power_cap_kw.toFloat()
     )
 
     private fun recoverActiveSession() {
@@ -308,9 +322,13 @@ class ChargingRepositoryImpl(
 
     private fun putSession(session: ChargingSession) {
         val snapshot = session.snapshot ?: return
-        queries.putSession(snapshot.startTime, snapshot.batteryCapacity.toDouble(), snapshot.startPercent.toDouble(),
-            snapshot.targetPercent.toDouble(), snapshot.efficiency.toDouble(), snapshot.presetId, snapshot.presetName,
-            session.isRunning, snapshot.presetEdited)
+        queries.putSession(
+            snapshot.startTime, snapshot.batteryCapacity.toDouble(), snapshot.startPercent.toDouble(),
+            snapshot.targetPercent.toDouble(), snapshot.taperEndPercent.toDouble(),
+            snapshot.taperStartPercent.toDouble(), snapshot.taperPowerCapKw.toDouble(),
+            snapshot.efficiency.toDouble(), snapshot.presetId, snapshot.presetName,
+            session.isRunning, snapshot.presetEdited
+        )
         queries.clearSegments(snapshot.startTime)
         snapshot.segments.forEach {
             queries.putSegment(snapshot.startTime, it.startedAt, it.powerKw.toDouble(), it.efficiency?.toDouble())
@@ -462,21 +480,23 @@ class ChargingRepositoryImpl(
                             prefs[SessionPreferences.draftValues]?.let(::decodePresetDraft)?.let {
                                 BackupDraft(
                                     requireNotNull(prefs[SessionPreferences.draftPreset]),
-                                    it.batteryCapacity, it.chargingPower, it.maxPercent, it.availablePowers
+                                    it.batteryCapacity, it.chargingPower, it.maxPercent, it.availablePowers,
+                                    it.taperStartPercent, it.taperEndPercent, it.taperPowerCapKw
                                 )
                             }
                         ),
                         queries.allPresets().executeAsList().map {
                             BackupPreset(it.id, it.name, it.battery_capacity, it.charging_power,
                                 it.target_percent, options[it.id].orEmpty().map { option -> option.power_kw },
-                                it.position)
+                                it.position, it.taper_start_percent, it.taper_end_percent, it.taper_power_cap_kw)
                         },
                         queries.backupSessions().executeAsList().map {
                             BackupSession(it.id, it.battery_capacity, it.start_percent, it.target_percent,
                                 it.efficiency, segments[it.id].orEmpty().map { segment ->
                                     BackupSegment(segment.started_at, segment.power_kw, segment.efficiency)
                                 }, it.preset_id, it.preset_name, it.ended_at, it.end_percent,
-                                it.actual_percent, it.reviewed, it.interrupted, it.preset_edited, it.calibration_enabled)
+                                it.actual_percent, it.reviewed, it.interrupted, it.preset_edited, it.calibration_enabled,
+                                it.taper_start_percent, it.taper_end_percent, it.taper_power_cap_kw)
                         }
                     )
                 }
@@ -505,12 +525,14 @@ class ChargingRepositoryImpl(
                     queries.clearBackupPresets()
                     backup.presets.forEach {
                         queries.importBackupPreset(it.id, it.name, it.batteryCapacity, it.chargingPower,
-                            it.targetPercent, it.position)
+                            it.targetPercent, it.taperEndPercent, it.taperStartPercent, it.taperPowerCapKw,
+                            it.position)
                         it.powerOptions.forEachIndexed { index, power -> queries.putOption(it.id, index.toLong(), power) }
                     }
                     backup.sessions.forEach {
                         queries.importBackupSession(it.id, it.batteryCapacity, it.startPercent, it.targetPercent,
-                            it.efficiency, it.presetId, it.presetName,
+                            it.taperEndPercent, it.taperStartPercent, it.taperPowerCapKw, it.efficiency,
+                            it.presetId, it.presetName,
                             it.endedAt ?: maxOf(now, it.segments.last().startedAt),
                             if (it.endedAt == null) null else it.endPercent, it.actualPercent,
                             it.reviewed || it.id == newest, it.interrupted || it.endedAt == null, it.presetEdited,

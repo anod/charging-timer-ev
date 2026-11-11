@@ -109,6 +109,33 @@ class BrowserTimerRuntimeTest {
     }
 
     @Test
+    fun taperConfigurationAndSessionSnapshotSurviveBrowserBackupRoundTrip() = runTest {
+        val runtime = configured()
+        runtime.configure(ConfigurationViewEvent.UpdateTaperStartPercent(75f))
+        runtime.configure(ConfigurationViewEvent.UpdateTaperEndPercent(95f))
+        runtime.configure(ConfigurationViewEvent.UpdateTaperPowerCap(18f))
+        runtime.configure(ConfigurationViewEvent.UpdatePreset)
+        val active = assertNotNull(runtime.start().activeSession)
+        assertEquals(75.0, active.taperStartPercent)
+        assertEquals(95.0, active.taperEndPercent)
+        assertEquals(18.0, active.taperPowerCapKw)
+
+        runtime.configure(ConfigurationViewEvent.UpdateTaperPowerCap(12f))
+        assertEquals(18.0, runtime.reconcile().activeSession?.taperPowerCapKw)
+        runtime.stop()
+        val backup = BackupFormat.decode(BackupFormat.encode(runtime.storage.exportBackup("test")))
+        assertEquals(18.0, backup.presets.single().taperPowerCapKw)
+        assertEquals(12f, backup.preferences.draft?.taperPowerCapKw)
+        assertEquals(18.0, backup.sessions.single().taperPowerCapKw)
+
+        val restoredStore = BrowserTestStore()
+        val restoredStorage = BrowserStorage(restoredStore, clock)
+        restoredStorage.restoreBackup(backup)
+        assertEquals(12f, restoredStorage.load().configuration().settings.taperPowerCapKw)
+        assertEquals(18f, restoredStorage.load().historyEntries().single().snapshot.taperPowerCapKw)
+    }
+
+    @Test
     fun importedConsentedReadingsUseExistingCalibrationAndFreezeEverySegment() = runTest {
         val runtime = configured()
         runtime.storage.update { state ->
