@@ -251,6 +251,16 @@ and failure recovery. Evidence includes a site inventory and phone/desktop
 light/dark screenshots. `github-pages` is the deployable Pages tar artifact;
 `browser-storage-evidence` retains build, browser and test evidence.
 
+For local PWA validation, use Node 22, build the production distribution, then
+run `npm run package:pages` and `npm run test:pwa -- build/pages` in `webApp`.
+The full suite fails on any uncaught page error, including resource-loading
+errors and errors during context shutdown. All tabs and reopened persistent
+profiles are monitored. `build/browser-evidence/pwa-page-errors.json` records
+the context, scenario, URL, timestamp and stack, plus failed Compose `.cvr`
+requests. Deliberately failed network requests remain diagnostic; they do not
+exempt uncaught page errors. A passing run does not establish the cause of a
+previously intermittent failure.
+
 Pull requests targeting **any** stack branch and manual non-main runs build and
 verify only; their deploy job is skipped. Only a push to `main` or a manual
 dispatch on `main` can deploy the verified artifact. The deployment job uses
