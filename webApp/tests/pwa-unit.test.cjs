@@ -6,6 +6,40 @@ const path = require("node:path");
 const vm = require("node:vm");
 const { webcrypto, createHash } = require("node:crypto");
 const { prepare } = require("../pwa/prepare.cjs");
+const { EventEmitter } = require("node:events");
+const { pageErrors } = require("./pwa-errors.cjs");
+
+test("page errors retain phase and page context, including errors emitted during close", () => {
+    let phase = "offline";
+    const monitor = pageErrors(() => phase);
+    const context = new EventEmitter();
+    monitor.observe(context, "profile");
+    monitor.assertNoErrors();
+    const error = new Error("Missing resource with path: ./composeResources/charging_completion.commonMain.cvr");
+    context.emit("weberror", { page: () => ({ url: () => "https://example.test/timer" }), error: () => error });
+    phase = "close";
+    context.emit("weberror", { page: () => null, error: () => new Error("Teardown failure") });
+    assert.equal(monitor.report().errors.length, 2);
+    assert.equal(monitor.report().errors[0].phase, "offline");
+    assert.equal(monitor.report().errors[0].context, "profile");
+    assert.equal(monitor.report().errors[0].url, "https://example.test/timer");
+    assert.equal(monitor.report().errors[1].phase, "close");
+    assert.throws(() => monitor.assertNoErrors(), /Missing resource[\s\S]*Teardown failure/);
+});
+
+test("fault-injected network failures are diagnostic, not an exemption for page errors", () => {
+    const monitor = pageErrors(() => "cache repair");
+    const context = new EventEmitter();
+    monitor.observe(context, "main");
+    const url = () => "https://example.test/composeResources/strings.commonMain.cvr";
+    context.emit("requestfailed", { url, failure: () => ({ errorText: "net::ERR_ABORTED" }) });
+    context.emit("response", { url, ok: () => false, status: () => 503 });
+    context.emit("response", { url: () => "https://example.test/icons/icon.png", ok: () => false });
+    assert.equal(monitor.report().resourceFailures.length, 2);
+    monitor.assertNoErrors();
+    context.emit("weberror", { page: () => null, error: () => new Error("Unexpected error") });
+    assert.throws(() => monitor.assertNoErrors(), /Unexpected error/);
+});
 
 function fixture() {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "ev-shell-unit-"));

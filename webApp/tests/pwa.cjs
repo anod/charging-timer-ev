@@ -7,6 +7,7 @@ const path = require("node:path");
 const { prepare } = require("../pwa/prepare.cjs");
 const { createHash } = require("node:crypto");
 const { button: clickCanvasButton, text: clickCanvasText, assertTimePredictionLabels } = require("./canvas.cjs");
+const { pageErrors } = require("./pwa-errors.cjs");
 
 const distribution = path.resolve(process.argv[2] || "build/dist/wasmJs/productionExecutable");
 const pagesSite = process.argv[2] !== undefined;
@@ -17,11 +18,19 @@ const mime = { ".wasm": "application/wasm", ".js": "application/javascript",
     ".webmanifest": "application/manifest+json", ".json": "application/json" };
 const prefix = "/charging-timer-ev/";
 const observed = new WeakSet();
+let phase = "setup";
+const errorMonitor = pageErrors(() => phase);
+
+function observeContext(context, name) {
+    errorMonitor.observe(context, name);
+    context.on("page", observe);
+    for (const page of context.pages()) observe(page);
+    return context;
+}
 
 function observe(page) {
     if (observed.has(page)) return;
     observed.add(page);
-    page.on("pageerror", error => console.error("PWA page error:", error.message));
     page.on("console", message => {
         if (message.type() === "error") console.error("PWA console:", message.text());
     });
@@ -209,7 +218,7 @@ async function refresh(page) {
     await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
     const origin = `http://127.0.0.1:${server.address().port}`;
     const url = origin + prefix;
-    const browser = await engine.launch();
+    let browser;
     const profiles = new Set();
     const setOffline = async (context, value) => {
         // Also sever the server connection: browser offline emulation alone can
@@ -218,10 +227,14 @@ async function refresh(page) {
         await context.setOffline(value);
     };
     try {
+        browser = await engine.launch();
         // Reproduce the owner's original installed/waiting worker with the old
         // adapter, which cannot send the new activation message.
         serving = legacyA;
-        const legacyContext = await browser.newContext({ locale: "en-US", viewport: { width: 1100, height: 900 } });
+        phase = "legacy waiting-worker transition";
+        const legacyContext = observeContext(await browser.newContext({
+            locale: "en-US", viewport: { width: 1100, height: 900 }
+        }), "legacy");
         const legacyPage = await legacyContext.newPage();
         await controlled(legacyPage, url);
         const legacyActive = await start(legacyPage);
@@ -266,7 +279,8 @@ async function refresh(page) {
         await legacyContext.close();
         console.log("PWA: original waiting-worker reproduction and legacy refresh transition verified");
         serving = a;
-        const context = await browser.newContext({ locale: "en-US" });
+        phase = "initial controlled shell";
+        const context = observeContext(await browser.newContext({ locale: "en-US" }), "main");
         const page = await context.newPage();
         await controlled(page, url);
         assert.equal(await page.evaluate(() => navigator.serviceWorker.getRegistration().then(r => r.scope)), url);
@@ -325,6 +339,7 @@ async function refresh(page) {
             JSON.stringify({ manifest, installability: "no Chromium errors", versionA, versionB }, null, 2));
         }
         const active = await start(page);
+        phase = "offline active snapshot";
         const before = await state(page);
         // Emulate suspension by ageing the real persisted epoch, not render clocks.
         await page.evaluate(async () => {
@@ -345,6 +360,7 @@ async function refresh(page) {
         await setOffline(context, false);
         console.log("PWA: offline active snapshot retained");
         // A failed B install must leave A and IndexedDB usable, with no partial B cache.
+        phase = "failed install and multi-window updates";
         serving = b;
         fail = "icons/icon-192.png";
         await page.evaluate(() => navigator.serviceWorker.getRegistration().then(r => r.update()));
@@ -422,6 +438,7 @@ async function refresh(page) {
         console.log("PWA: waiting/refresh-discovered update, bounded reload and two-window isolation verified");
 
         // Missing and corrupted entries recover only from matching, verified network bytes.
+        phase = "cache repair and privacy isolation";
         await next.evaluate(async () => {
             await caches.open("unrelated-app").then(c => c.put("/unrelated", new Response("keep")));
             const names = (await caches.keys()).filter(n => n.startsWith("ev-timer-shell"));
@@ -464,8 +481,11 @@ async function refresh(page) {
         console.log("PWA: cache repair and privacy isolation verified");
 
         // Persisted browser profile survives an actual context/browser-profile reopen.
+        phase = "browser-profile restart";
         const profile = path.join(temporary, "profile");
-        let persistent = await engine.launchPersistentContext(profile, { headless: true, locale: "en-US" });
+        let persistent = observeContext(await engine.launchPersistentContext(profile, {
+            headless: true, locale: "en-US"
+        }), "profile-online");
         profiles.add(persistent);
         let tab = persistent.pages()[0];
         await controlled(tab, url);
@@ -474,7 +494,9 @@ async function refresh(page) {
         await persistent.close();
         profiles.delete(persistent);
         networkOffline = true;
-        persistent = await engine.launchPersistentContext(profile, { headless: true, offline: true, locale: "en-US" });
+        persistent = observeContext(await engine.launchPersistentContext(profile, {
+            headless: true, offline: true, locale: "en-US"
+        }), "profile-offline");
         profiles.add(persistent);
         tab = persistent.pages()[0];
         observe(tab);
@@ -491,7 +513,10 @@ async function refresh(page) {
             for (const [device, viewport] of [
                 ["phone", { width: 390, height: 844 }], ["desktop", { width: 1100, height: 900 }]
             ]) {
-                const shotContext = await browser.newContext({ colorScheme, viewport, locale: "en-US" });
+                phase = `${device} ${colorScheme} ready/offline/error/update`;
+                const shotContext = observeContext(await browser.newContext({
+                    colorScheme, viewport, locale: "en-US"
+                }), `${device}-${colorScheme}`);
                 const shot = await shotContext.newPage();
                 await controlled(shot, url);
                 await labels(shot, "Start Timer", "Charging Timer for EV",
@@ -586,13 +611,15 @@ async function refresh(page) {
                 serving = b;
             }
         }
-        const localContext = await browser.newContext({ locale: "en-US" });
+        phase = "root scope";
+        const localContext = observeContext(await browser.newContext({ locale: "en-US" }), "root");
         const local = await localContext.newPage();
         await controlled(local, origin + "/");
         assert.equal(await local.evaluate(() => navigator.serviceWorker.getRegistration().then(r => r.scope)),
             origin + "/");
         await localContext.close();
-        const failedContext = await browser.newContext({ locale: "en-US" });
+        phase = "registration failure";
+        const failedContext = observeContext(await browser.newContext({ locale: "en-US" }), "registration-failure");
         fail = "sw.js";
         const failed = await failedContext.newPage();
         await failed.goto(url);
@@ -603,7 +630,8 @@ async function refresh(page) {
             "Registration failure must not stop the online workflow or clear data");
         await failedContext.close();
         fail = null;
-        const insecureContext = await browser.newContext({ locale: "en-US" });
+        phase = "insecure context";
+        const insecureContext = observeContext(await browser.newContext({ locale: "en-US" }), "insecure");
         await insecureContext.addInitScript(() => {
             Object.defineProperty(globalThis, "isSecureContext", { value: false });
         });
@@ -612,14 +640,18 @@ async function refresh(page) {
         await status(insecure, "unsupported");
         assert.equal(await insecure.evaluate(() => navigator.serviceWorker.getRegistrations().then(r => r.length)), 0);
         await insecureContext.close();
-        console.log(`Production ${engine.name()} PWA: root/project scopes, offline active timer, ` +
-            "profile restart, bounded refresh updates, legacy transition, multi-window shell isolation, " +
-            "failed precache, corruption recovery and privacy isolation passed");
     } finally {
+        phase = "suite teardown";
         await Promise.all([...profiles].map(context => context.close()));
-        await browser.close();
+        await browser?.close();
         server.closeAllConnections();
         await new Promise(resolve => server.close(resolve));
         fs.rmSync(temporary, { recursive: true, force: true });
+        fs.writeFileSync(path.join(evidence, "pwa-page-errors.json"),
+            JSON.stringify(errorMonitor.report(), null, 2));
     }
+    errorMonitor.assertNoErrors();
+    console.log(`Production ${engine.name()} PWA: root/project scopes, offline active timer, ` +
+        "profile restart, bounded refresh updates, legacy transition, multi-window shell isolation, " +
+        "failed precache, corruption recovery and privacy isolation passed with no page errors");
 })().catch(error => { console.error(error); process.exitCode = 1; });
